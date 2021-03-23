@@ -1,6 +1,6 @@
 int myNestedSum (int **m, int mSize){
   int totalT = 0;
-  myNestedSum(m, 0, mSize, mSize, &totalT);
+  myNestedSum_helper(m, 0, mSize, mSize, &totalT);
   return totalT;
 }
 
@@ -24,6 +24,7 @@ static void myNestedSum_helper (
        * Execute the leftover of the current in-fly outermost loop iteration
        */
       die = mySum_helper(currentV, innerIndex, innerHigh, totalT, j, high, mSize);
+
     } else {
       die = mySum_helper(currentV, 0, mSize, totalT, j, high, mSize);
     }
@@ -116,9 +117,15 @@ static int tryPromoteInnermost (int v[], int low, int high, int *t, int outermos
 
     /*
      * I'm not running the last iteration of the outermost loop of my slice.
+     * 
+     * Promote the remaining inner iterations to complete the current outer loop iteration.
+     */
+     //TODO
+
+    /*
      * Promote the remaining outermost iterations of our outer-loop slice
      */
-    (*die) = tryPromoteOutermost(m, outermostIndex, totalOutermostIterations, mSize, totalT, low);
+    (*die) = tryPromoteOutermost(m, outermostIndex + 1, totalOutermostIterations, mSize, totalT, low);
     assert(*die);
     return 0;
   }
