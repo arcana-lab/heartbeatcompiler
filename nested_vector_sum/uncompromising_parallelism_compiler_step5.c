@@ -10,7 +10,7 @@ static void myNestedSum_helper (
   ){
   for (int j=low; j < high; j++){
     if (heartbeat){
-      auto promoted = tryPromoteOutermost(m, j, high, totalT, 0, mSize); //TODO Ask Mike
+      auto promoted = tryPromoteOutermost(m, j, high, mSize, totalT);
       if (promoted) {
         return ;
       }
@@ -29,7 +29,7 @@ static void myNestedSum_helper (
       die = mySum_helper(currentV, 0, mSize, totalT, j, high, mSize);
     }
     if (die) {
-      return ;
+      exit(0) ;
     }
   }
 }
@@ -46,12 +46,12 @@ static int mySum_helper (int v[], int low, int high, int *t, int outermostIndex,
 
     (*t) += v[i];
   }
+
   return die;
 }
 
 static int tryPromoteOutermost (
   int **m, int low, int high, int mSize, int *t // About the outermost loop
-  , int innerIndex, int innerHigh // About the inner loop
   ){
 
   /*
@@ -79,7 +79,7 @@ static int tryPromoteOutermost (
    */
   int med = (high + low)/2;
   auto l1 = [j, m, low, med, mSize, t1](void){
-    myNestedSum_helper(m, low, med, mSize, t1, innerIndex, innerHigh);
+    myNestedSum_helper(m, low, med, mSize, t1, 0, mSize);
     join(j);
   };
   auto task1 = new Task(l1);
@@ -125,7 +125,7 @@ static int tryPromoteInnermost (int v[], int low, int high, int *t, int outermos
     /*
      * Promote the remaining outermost iterations of our outer-loop slice
      */
-    (*die) = tryPromoteOutermost(m, outermostIndex + 1, totalOutermostIterations, mSize, totalT, low);
+    (*die) = tryPromoteOutermost(m, outermostIndex + 1, totalOutermostIterations, mSize, t);
     assert(*die);
     return 0;
   }
