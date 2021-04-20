@@ -1,6 +1,23 @@
 int myOutermostSum (int **m, int mSize){
+
+  /*
+   * Allocate the main result
+   */
   int totalT = 0;
-  myOutermostSum_helper(m, 0, mSize, mSize, &totalT);
+
+  /*
+   * Create the main task.
+   */
+  auto mainFunction = [&totalT, m, mSize](){
+    myOutermostSum_helper(m, 0, mSize, mSize, &totalT);
+  };
+  auto mainTask = new Task(mainFunction);
+
+  /*
+   * Launch
+   */
+  launch(mainTask);
+
   return totalT;
 }
 
@@ -111,10 +128,10 @@ static int tryPromoteOutermostAndInnerLeftover (
   addEdge(task2, taskJoin);
   addEdge(task3, taskJoin);
 
-  task1->release();
-  task2->release();
-  task3->release();
-  taskJoin->release();
+  release(task1);
+  release(task2);
+  release(task3);
+  release(taskJoin);
 
   return 1;
 }
@@ -169,9 +186,9 @@ static int tryPromoteOutermost (
   addEdge(task1, taskJoin);
   addEdge(task2, taskJoin);
 
-  task1->release();
-  task2->release();
-  taskJoin->release();
+  release(task1);
+  release(task2);
+  release(taskJoin);
 
   return 1;
 }
@@ -239,9 +256,9 @@ static int tryPromoteInnermost (int v[], int low, int high, int *t, int outermos
   addEdge(task1, taskJoin);
   addEdge(task2, taskJoin);
 
-  task1->release();
-  task2->release();
-  taskJoin->release();
+  release(task1);
+  release(task2);
+  release(taskJoin);
 
   return 1;
 }
