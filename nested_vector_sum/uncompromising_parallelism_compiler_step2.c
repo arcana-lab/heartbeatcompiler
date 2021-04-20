@@ -1,10 +1,10 @@
-int myNestedSum (int **m, int mSize){
+int myOutermostSum (int **m, int mSize){
   int totalT = 0;
-  myNestedSum(m, 0, mSize, mSize, &totalT);
+  myOutermostSum(m, 0, mSize, mSize, &totalT);
   return totalT;
 }
 
-static void myNestedSum_helper (int **m, int low, high, int mSize, int *totalT){
+static void myOutermostSum_helper (int **m, int low, high, int mSize, int *totalT){
   for (int j=low; j < high; j++){
     int *currentV = m[j];
     mySum_helper(currentV, 0, mSize, totalT);

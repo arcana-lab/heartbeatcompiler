@@ -1,10 +1,10 @@
-int myNestedSum (int **m, int mSize){
+int myOutermostSum (int **m, int mSize){
   int totalT = 0;
-  myNestedSum(m, 0, mSize, mSize, &totalT);
+  myOutermostSum(m, 0, mSize, mSize, &totalT);
   return totalT;
 }
 
-static void myNestedSum_helper (int **m, int low, high, int mSize, int *totalT){
+static void myOutermostSum_helper (int **m, int low, high, int mSize, int *totalT){
   for (int j=low; j < high; j++){
     if (heartbeat){
       auto promoted = tryPromoteOutermost(m, j, high, totalT);
@@ -56,7 +56,7 @@ static int tryPromoteOutermost (int **m, int low, int high, int mSize, int *t){
    */
   int med = (high + low)/2;
   auto l1 = [j, m, low, med, mSize, t1](void){
-    myNestedSum_helper(m, low, med, mSize, t1);
+    myOutermostSum_helper(m, low, med, mSize, t1);
     join(j);
   };
   auto task1 = new Task(l1);
@@ -65,7 +65,7 @@ static int tryPromoteOutermost (int **m, int low, int high, int mSize, int *t){
    * Create task 2
    */
   auto l2 = [j, m, med, high, mSize, t2](void){
-    myNestedSum_helper(m, med, high, mSize, t2);
+    myOutermostSum_helper(m, med, high, mSize, t2);
     join(j);
   };
   auto task2 = new Task(l2);

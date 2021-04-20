@@ -1,4 +1,4 @@
-int myNestedSum (int **m, int mSize){
+int myOutermostSum (int **m, int mSize){
   int totalT = 0;
 
   #pragma omp parallel for reduction(+:totalT) firstprivate(mSize) shared(m) default(none)  schedule(static, 1) num_cores(mSize)
