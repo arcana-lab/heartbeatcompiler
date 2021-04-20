@@ -5,7 +5,7 @@ CPP=clang++
 all: crazy
 
 %.o: %.cpp
-	$(CPP) $(INCLUDES) -c $^ -o $@
+	$(CPP) $(INCLUDES) -g -c $^ -o $@
 
 crazy: $(OBJECTS)
 	$(CPP) $^ -o $@ $(LIBS)

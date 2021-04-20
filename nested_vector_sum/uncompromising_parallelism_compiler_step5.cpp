@@ -22,7 +22,11 @@ int main (int argc, char *argv[]){
   /*
    * Run
    */
-  auto m = (int **)malloc(sizeof(int) * MSIZE * MSIZE);
+  auto m = new int*[MSIZE];
+  for (auto i=0; i < MSIZE; i++){
+    m[i] = new int[MSIZE];
+  }
+    //(int **)malloc(sizeof(int) * MSIZE * MSIZE);
   for (auto i=0; i < MSIZE; i++){
     for (auto j=0; j < MSIZE; j++){
       m[i][j] = i * j;
