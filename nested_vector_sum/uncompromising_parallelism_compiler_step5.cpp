@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <iostream>
+#include <thread>
 
 #include "scheduler.h"
 
@@ -55,6 +56,7 @@ static int mySum_helper (int v[], int low, int high, int *t, int outermostIndex,
   int die = 0;
   for (int i=low; i < high; i++){
     if (heartbeat){
+      heartbeat = false;
       auto promoted = tryPromoteInnermost(v, i, high, t, outermostIndex, totalOutermostIterations, mSize, m, &die);
       if (promoted) {
         return 1;
@@ -73,6 +75,7 @@ static void myOutermostSum_helper (
   ){
   for (int j=low; j < high; j++){
     if (heartbeat){
+      heartbeat = false;
       auto promoted = tryPromoteOutermost(m, j, high, mSize, totalT);
       if (promoted) {
         return ;
@@ -99,6 +102,18 @@ static void myOutermostSum_helper (
 
 int myOutermostSum (int **m, int mSize){
 
+  bool done = false;
+
+  /*
+   * Spawn the ping thread
+   */
+  std::thread pingThread([&] {
+    while (! done) {
+      heartbeat = true;
+      std::this_thread::sleep_for(std::chrono::microseconds(100));
+    }
+  });
+
   /*
    * Allocate the main result
    */
@@ -116,6 +131,8 @@ int myOutermostSum (int **m, int mSize){
    * Launch
    */
   launch(mainTask);
+  done = true;
+  pingThread.join();
 
   return totalT;
 }

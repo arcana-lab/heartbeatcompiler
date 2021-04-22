@@ -8,7 +8,7 @@ all: crazy
 	$(CPP) $(INCLUDES) -g -c $^ -o $@
 
 crazy: $(OBJECTS)
-	$(CPP) $^ -o $@ $(LIBS)
+	$(CPP) -pthread $^ -o $@ $(LIBS)
 
 clean:
 	rm -f *.o crazy
