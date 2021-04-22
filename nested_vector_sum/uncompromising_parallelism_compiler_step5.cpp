@@ -1,10 +1,18 @@
 #include <assert.h>
 #include <iostream>
-#include <thread>
 
 #include "scheduler.h"
 
-volatile bool heartbeat = false;
+int cycleCounter = 0;
+int H = 5;
+
+bool heartbeat() {
+  if (++cycleCounter == H) {
+    cycleCounter = 0;
+    return true;
+  }
+  return false;
+}
 
 int myOutermostSum (int **m, int mSize);
 
@@ -55,8 +63,8 @@ static int tryPromoteOutermostAndInnerLeftover (
 static int mySum_helper (int v[], int low, int high, int *t, int outermostIndex, int totalOutermostIterations, int mSize, int **m){
   int die = 0;
   for (int i=low; i < high; i++){
-    if (heartbeat){
-      heartbeat = false;
+    if (heartbeat()){
+            std::cout << "promote! 2" << std::endl;
       auto promoted = tryPromoteInnermost(v, i, high, t, outermostIndex, totalOutermostIterations, mSize, m, &die);
       if (promoted) {
         return 1;
@@ -74,8 +82,8 @@ static void myOutermostSum_helper (
   , int innerIndex, int innerHigh // About the inner loop
   ){
   for (int j=low; j < high; j++){
-    if (heartbeat){
-      heartbeat = false;
+    if (heartbeat()){
+      std::cout << "promote!" << std::endl;
       auto promoted = tryPromoteOutermost(m, j, high, mSize, totalT);
       if (promoted) {
         return ;
@@ -95,24 +103,13 @@ static void myOutermostSum_helper (
       die = mySum_helper(currentV, 0, mSize, totalT, j, high, mSize, m);
     }
     if (die) {
-      exit(0) ;
+      //exit(0) ;
+      return;
     }
   }
 }
 
 int myOutermostSum (int **m, int mSize){
-
-  bool done = false;
-
-  /*
-   * Spawn the ping thread
-   */
-  std::thread pingThread([&] {
-    while (! done) {
-      heartbeat = true;
-      std::this_thread::sleep_for(std::chrono::microseconds(100));
-    }
-  });
 
   /*
    * Allocate the main result
@@ -131,8 +128,6 @@ int myOutermostSum (int **m, int mSize){
    * Launch
    */
   launch(mainTask);
-  done = true;
-  pingThread.join();
 
   return totalT;
 }
