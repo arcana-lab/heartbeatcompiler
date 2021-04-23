@@ -12,11 +12,18 @@ int mySum (int v[], int size){
 }
 
 int myOutermostSum (int **m, int mSize){
+
+  /*
+   * Allocate the main result
+   */
   int totalT = 0;
+
   for (int j=0; j < mSize; j++){
     int *currentV = m[j];
     totalT += mySum(currentV, mSize);
   }
+
+  return totalT;
 }
 
 int main (int argc, char *argv[]){
