@@ -71,7 +71,7 @@ static int mySum_helper (int v[], int low, int high, int *t, int outermostIndex,
   int die = 0;
   for (int i=low; i < high; i++){
     if (heartbeat()){
-            std::cout << "promote! 2" << std::endl;
+      std::cout << "promote! 2" << std::endl;
       auto promoted = tryPromoteInnermost(v, i, high, t, outermostIndex, totalOutermostIterations, mSize, m, &die);
       if (promoted) {
         return 1;
@@ -110,7 +110,6 @@ static void myOutermostSum_helper (
       die = mySum_helper(currentV, 0, mSize, totalT, j, high, mSize, m);
     }
     if (die) {
-      //exit(0) ;
       return;
     }
   }
@@ -163,8 +162,8 @@ static int tryPromoteOutermostAndInnerLeftover (
     /*
      * Free the memory
      */
-    delete t1;
-    delete t2;
+    //delete t1;
+    //delete t2;
   };
   auto taskJoin = new Task(j);
 
@@ -231,8 +230,8 @@ static int tryPromoteOutermost (
     /*
      * Free the memory
      */
-    delete t1;
-    delete t2;
+    //delete t1;
+    //delete t2;
   };
   auto taskJoin = new Task(j);
 
@@ -278,8 +277,7 @@ static int tryPromoteInnermost (int v[], int low, int high, int *t, int outermos
      * Promote the remaining outermost iterations of our outer-loop slice as well as the remaining inner iterations to complete the current outer loop iteration.
      */
     (*die) = tryPromoteOutermostAndInnerLeftover(m, outermostIndex + 1, totalOutermostIterations, mSize, t, low, high);
-    assert(*die);
-    return 0;
+    return *die;
   }
 
   /*
@@ -301,8 +299,8 @@ static int tryPromoteInnermost (int v[], int low, int high, int *t, int outermos
     /*
      * Free the memory
      */
-    delete t1;
-    delete t2;
+    //delete t1;
+    //delete t2;
   };
   auto taskJoin = new Task(j);
 
