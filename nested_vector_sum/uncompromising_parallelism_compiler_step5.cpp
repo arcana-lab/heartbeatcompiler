@@ -29,18 +29,25 @@ int main (int argc, char *argv[]){
   std::cout << "Matrix size = " << MSIZE << std::endl;
 
   /*
-   * Run
+   * Allocate
    */
   auto m = new int*[MSIZE];
   for (auto i=0; i < MSIZE; i++){
     m[i] = new int[MSIZE];
   }
-    //(int **)malloc(sizeof(int) * MSIZE * MSIZE);
+
+  /*
+   * Initialize
+   */
   for (auto i=0; i < MSIZE; i++){
     for (auto j=0; j < MSIZE; j++){
       m[i][j] = i * j;
     }
   }
+
+  /*
+   * Run
+   */
   auto r = myOutermostSum(m, MSIZE);
 
   /*
