@@ -70,13 +70,13 @@ static int tryPromoteOutermostAndInnerLeftover (
 static int mySum_helper (int v[], int low, int high, int *t, int outermostIndex, int totalOutermostIterations, int mSize, int **m){
   int die = 0;
   for (int i=low; i < high; i++){
-    if (heartbeat()){
+    /*if (heartbeat()){
       std::cout << "promote! 2" << std::endl;
       auto promoted = tryPromoteInnermost(v, i, high, t, outermostIndex, totalOutermostIterations, mSize, m, &die);
       if (promoted) {
         return 1;
       }
-    }
+    }*/
 
     (*t) += v[i];
   }
@@ -88,31 +88,35 @@ static void myOutermostSum_helper (
   int **m, int low, int high, int mSize, int *totalT    // About the outermost loop
   , int innerIndex, int innerHigh // About the inner loop
   ){
+  std::cout << "Outermost: " << low << " -> " << high << " (inner " << innerIndex << " -> " << innerHigh << ")\n";
   for (int j=low; j < high; j++){
     if (heartbeat()){
-      std::cout << "promote!" << std::endl;
+      std::cout << "Outermost:  heartbeat (iteration " << j << ")\n" << std::endl;
       auto promoted = tryPromoteOutermost(m, j, high, mSize, totalT);
       if (promoted) {
+        std::cout << "Outermost:    promoted\n";
         return ;
       }
+      std::cout << "Outermost:    not promoted\n";
     }
 
     int *currentV = m[j];
     int die;
-    if (j == low){
+//    if (j == low){
 
       /*
        * Execute the leftover of the current in-fly outermost loop iteration
        */
-      die = mySum_helper(currentV, innerIndex, innerHigh, totalT, j, high, mSize, m);
+//      die = mySum_helper(currentV, innerIndex, innerHigh, totalT, j, high, mSize, m);
 
-    } else {
+//    } else {
       die = mySum_helper(currentV, 0, mSize, totalT, j, high, mSize, m);
-    }
-    if (die) {
-      return;
-    }
+//    }
+    //if (die) {
+    //  return;
+    //}
   }
+  std::cout << "Outermost: completed " << low << " -> " << high << " : " << *totalT << std::endl;
 }
 
 int myOutermostSum (int **m, int mSize){
@@ -210,6 +214,7 @@ static int tryPromoteOutermostAndInnerLeftover (
 static int tryPromoteOutermost (
   int **m, int low, int high, int mSize, int *t // About the outermost loop
   ){
+  static int done = 0;
 
   /*
    * Profitability guard.
@@ -218,14 +223,20 @@ static int tryPromoteOutermost (
   if (leftoverIterations < 2){
     return 0;
   }
+  if (done > 3) {
+    return 0;
+  }
+  done++;
 
   /*
    * Create task join
    */
-  int *t1 = new int(*t);
+  std::cout << "At iteration " << low - 1 << " (potentially incomplete): " << *t << std::endl;
+  int *t1 = new int(0);
   int *t2 = new int(0);
-  auto j = [t1, t2, t](void) {
-    *t = *t1 + *t2;
+  auto j = [t1, t2, t, high](void) {
+    *t += (*t1 + *t2);
+    std::cout << "At iteration " << high - 1 << ": " << *t << std::endl;
 
     /*
      * Free the memory
@@ -239,6 +250,9 @@ static int tryPromoteOutermost (
    * Create task 1
    */
   int med = (high + low)/2;
+  std::cout << "Outermost:    Low = " << low << std::endl;
+  std::cout << "Outermost:    Mid = " << med << std::endl;
+  std::cout << "Outermost:    High = " << high << std::endl;
   auto l1 = [taskJoin, m, low, med, mSize, t1](void){
     myOutermostSum_helper(m, low, med, mSize, t1, 0, mSize);
     join(taskJoin);
@@ -257,8 +271,8 @@ static int tryPromoteOutermost (
   addEdge(task1, taskJoin);
   addEdge(task2, taskJoin);
 
-  release(task1);
   release(task2);
+  release(task1);
   release(taskJoin);
 
   return 1;

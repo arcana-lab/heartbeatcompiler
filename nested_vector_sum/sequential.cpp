@@ -21,6 +21,7 @@ int myOutermostSum (int **m, int mSize){
   for (int j=0; j < mSize; j++){
     auto currentV = m[j];
     totalT += mySum(currentV, mSize);
+    std::cout << "At iteration " << j << ": " << totalT << std::endl;
   }
 
   return totalT;
