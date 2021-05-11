@@ -72,13 +72,13 @@ static int tryPromoteOutermostAndInnerLeftover (
 static int mySum_helper (int v[], int low, int high, int *t, int outermostIndex, int totalOutermostIterations, int mSize, int **m, Task *k){
   int die = 0;
   for (int i=low; i < high; i++){
-    /*if (heartbeat()){
+    if (heartbeat()){
       std::cout << "promote! 2" << std::endl;
-      auto promoted = tryPromoteInnermost(v, i, high, t, outermostIndex, totalOutermostIterations, mSize, m, &die);
+      auto promoted = tryPromoteInnermost(v, i, high, t, outermostIndex, totalOutermostIterations, mSize, m, &die, k);
       if (promoted) {
         return 1;
       }
-    }*/
+    }
 
     (*t) += v[i];
   }
@@ -172,6 +172,7 @@ static int tryPromoteOutermostAndInnerLeftover (
   auto j = [t1, t2, t, k](void) {
     *t += *t1 + *t2;
     join(k);
+
     /*
      * Free the memory
      */
@@ -315,6 +316,7 @@ static int tryPromoteInnermost (int v[], int low, int high, int *t, int outermos
   auto j = [t1, t2, t, k](void) {
     *t = *t1 + *t2;
     join(k);
+
     /*
      * Free the memory
      */
