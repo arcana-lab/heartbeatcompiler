@@ -105,19 +105,19 @@ static void myOutermostSum_helper (
 
     int *currentV = m[j];
     int die;
-//    if (j == low){
+    if (j == low){
 
       /*
        * Execute the leftover of the current in-fly outermost loop iteration
        */
-//      die = mySum_helper(currentV, innerIndex, innerHigh, totalT, j, high, mSize, m);
+      die = mySum_helper(currentV, innerIndex, innerHigh, totalT, j, high, mSize, m, k);
 
-//    } else {
-    die = mySum_helper(currentV, 0, mSize, totalT, j, high, mSize, m, k);
-//    }
-    //if (die) {
-    //  return;
-    //}
+    } else {
+      die = mySum_helper(currentV, 0, mSize, totalT, j, high, mSize, m, k);
+    }
+    if (die) {
+      return;
+    }
   }
   std::cout << "Outermost: completed " << low << " -> " << high << " : " << *totalT << std::endl;
   join(k);
@@ -244,6 +244,7 @@ static int tryPromoteOutermost (
     *t += (*t1 + *t2);
     std::cout << "At iteration " << high - 1 << ": " << *t << std::endl;
     join(k);
+
     /*
      * Free the memory
      */
