@@ -5,7 +5,7 @@ CPP=clang++
 all: crazy sequential
 
 %.o: %.cpp
-	$(CPP) -O0 $(INCLUDES) -g -c $^ -o $@
+	$(CPP) $(INCLUDES) -g3 -c $^ -o $@
 
 sequential: sequential.o
 	$(CPP) $^ -o $@ $(LIBS)
