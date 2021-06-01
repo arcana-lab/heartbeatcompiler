@@ -70,7 +70,7 @@ static int tryPromoteOutermostAndInnerLeftover (
   Task *k
   );
 
-static int mySum_helper (int v[], int low, int high, int *t, int outermostIndex, int totalOutermostIterations, int mSize, int **m){
+static void mySum_helper (int v[], int low, int high, int *t, int outermostIndex, int totalOutermostIterations, int mSize, int **m){
   int die = 0;
   for (int i=low; i < high; i++){
     /*if (heartbeat()){
@@ -84,7 +84,7 @@ static int mySum_helper (int v[], int low, int high, int *t, int outermostIndex,
     (*t) += v[i];
   }
 
-  return die;
+  return ;
 }
 
 static void myOutermostSum_helper (
@@ -108,21 +108,8 @@ static void myOutermostSum_helper (
       }
     }
 
-    int *currentV = m[j];
-    int die;
-    if (j == low){
-
-      /*
-       * Execute the leftover of the current in-fly outermost loop iteration
-       */
-      die = mySum_helper(currentV, innerIndex, innerHigh, totalT, j, high, mSize, m);
-
-    } else {
-      die = mySum_helper(currentV, 0, mSize, totalT, j, high, mSize, m);
-    }
-    if (die) {
-      return;
-    }
+    auto currentV = m[j];
+    mySum_helper(currentV, 0, mSize, totalT, j, high, mSize, m);
   }
   std::cout << "Outermost: completed " << low << " -> " << high << " : " << *totalT << std::endl;
 
