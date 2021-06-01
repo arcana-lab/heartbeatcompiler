@@ -12,6 +12,23 @@ public:
 
 std::vector<Task*> ready;
 
+auto wait (Task *t) -> void {
+  //TODO: 
+  if (t->in == 0){
+    return ;
+  }
+
+  /*
+   * Work stealing: fetch a task to do
+   */
+  auto newT = ready.begin();
+
+  /*
+   * Switch to the new task using, for example, ULT-based runtime
+   */
+
+}
+
 auto join(Task* t) -> void {
   auto in = --t->in;
   if (in == 0) {

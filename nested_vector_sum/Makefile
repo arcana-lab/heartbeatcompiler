@@ -1,4 +1,5 @@
 OBJECTS=uncompromising_parallelism_compiler_step5.o
+FJ_OBJECTS=uncompromising_parallelism_compiler_step5_forkjoin.o
 INCLUDES=-I.
 CPP=clang++
 
@@ -11,6 +12,9 @@ sequential: sequential.o
 	$(CPP) $^ -o $@ $(LIBS)
 
 crazy: $(OBJECTS)
+	$(CPP) $^ -o $@ $(LIBS)
+
+forkjoin: $(FJ_OBJECTS)
 	$(CPP) $^ -o $@ $(LIBS)
 
 clean:
