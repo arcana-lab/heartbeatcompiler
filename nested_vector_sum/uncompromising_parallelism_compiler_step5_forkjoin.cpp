@@ -126,10 +126,28 @@ static void myOutermostSum_helper (
   }
   std::cout << "Outermost: completed " << low << " -> " << high << " : " << *totalT << std::endl;
 
+  /*
+   * Wait and reduce loop for all children
+   */
   uint32_t i=0;
   for (auto child : children){
+
+    /*
+     * Wait for the child task
+     */
     wait(child);
-    (*totalT) += (*newTs[i]);
+
+    /*
+     * Reduce child's output
+     */
+    auto childOutput = newTs[i];
+    (*totalT) += (*childOutput);
+
+    /*
+     * Free the memory
+     */
+    delete childOutput ;
+
     i++;
   }
 
