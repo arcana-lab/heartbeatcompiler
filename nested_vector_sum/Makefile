@@ -11,6 +11,9 @@ all: crazy sequential
 sequential: sequential.o
 	$(CPP) $^ -o $@ $(LIBS)
 
+parallel:
+	$(CPP) -std=c++17 -pthread -I. -I $(MCSL_PATH) -I $(CMDLINE_PATH) parallel.cpp -o $@ $(LIBS)
+
 crazy: $(OBJECTS)
 	$(CPP) $^ -o $@ $(LIBS)
 
@@ -18,6 +21,6 @@ forkjoin: $(FJ_OBJECTS)
 	$(CPP) $^ -o $@ $(LIBS)
 
 clean:
-	rm -f *.o crazy vgcor* sequential
+	rm -f *.o crazy vgcor* sequential parallel
 
 .PHONY: clean
