@@ -14,30 +14,68 @@ bool heartbeat() {
   return false;
 }
 
-int mySum (int v[], int size){
+void mySum (int v[], int low, int high, int* dst){
   int t=0;
 
-  for (int i=0; i < size; i++){
-    t += v[i];
+  if (! (low < high)) {
+    goto exit;
   }
-  
-  return t;
+  for (; ;) {
+    t += v[low];
+    low++;
+    if (! (low < high)) {
+      break;
+    }
+    if (heartbeat()) {
+      if (tryPromote(v, low, high, dst)) {
+	break;
+      }
+    }
+  }
+
+ exit:
+  *dst += t;
 }
 
-int64_t fib_fjnative(int64_t n) {
-  if (n <= 1) {
-    return n;
-  } else {
-    int64_t r1, r2;
-    mcsl::fork2([&] {
-      r1 = fib_fjnative(n-1);
-    }, [&] {
-      r2 = fib_fjnative(n-2);
-    });
-    return r1 + r2;
-  }
-}
+using namespace mcsl;
 
+int tryPromote (int v[], int low, int high, int* dst){
+  if ((high - low) <= 1) {
+    return 0;
+  }
+  int dst1 = 0; int dst2 = 0;
+  int mid = (low + high) / 2;
+  auto task1 = fjnative_of_function([&] {
+   mySum(v, low, mid, &dst1);
+  });
+  auto task2 = fjnative_of_function([&] {
+   mySum(v, mid, high, &dst2);
+  });
+  auto t1 = (fjnative*)&task1; auto t2 = (fjnative*)&task2;
+  auto current = (fjnative*)current_fiber.mine();
+  current->status = fiber_status_pause;
+  add_edge(t2, current); add_edge(t1, current);
+  t2->release(); t1->release();
+  if (context::capture<fjnative*>(context::addr(current->ctx))) {
+    return 1;
+  }
+  t1->stack = notownstackptr;
+  t1->swap_with_scheduler();
+  t1->run();
+  auto f = fjnative_scheduler::take<fiber>();
+  if (f == nullptr) {
+    current->status = fiber_status_finish;
+    current->exit_to_scheduler();
+    return; // unreachable
+  }
+  t2->stack = notownstackptr;
+  t2->swap_with_scheduler();
+  t2->run();
+  current->status = fiber_status_finish;
+  current->swap_with_scheduler();
+  *dst += dst1 + dst2;
+  return 1;
+}
 
 int main (int argc, char *argv[]){
 
@@ -68,14 +106,11 @@ int main (int argc, char *argv[]){
     }
   }
 
-  int64_t n = 30;
-  int64_t dst = 0;
-
   mcsl::launch([&] {
   }, [&] {
     printf("result %ld\n", dst);
   }, [&] {
-    dst = fib_fjnative(n);
+
   });
 
   return 0;
