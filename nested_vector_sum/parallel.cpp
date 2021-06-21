@@ -3,6 +3,17 @@
 #include "cmdline.hpp"
 #include "mcsl_fjnative.hpp"
 
+int cycleCounter = 0;
+int H = 5;
+
+bool heartbeat() {
+  if (++cycleCounter == H) {
+    cycleCounter = 0;
+    return true;
+  }
+  return false;
+}
+
 int mySum (int v[], int size){
   int t=0;
 
