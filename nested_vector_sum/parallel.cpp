@@ -14,6 +14,8 @@ bool heartbeat() {
   return false;
 }
 
+int tryPromote (int v[], int low, int high, int* dst);
+
 void mySum (int v[], int low, int high, int* dst){
   int t=0;
 
@@ -30,9 +32,8 @@ void mySum (int v[], int low, int high, int* dst){
       if (tryPromote(v, low, high, dst)) {
 	break;
       }
-    }
+    } 
   }
-
  exit:
   *dst += t;
 }
@@ -51,42 +52,41 @@ int tryPromote (int v[], int low, int high, int* dst){
   auto task2 = fjnative_of_function([&] {
    mySum(v, mid, high, &dst2);
   });
-  auto t1 = (fjnative*)&task1; auto t2 = (fjnative*)&task2;
+  auto join = fjnative_of_function([&] {
+    *dst = dst1 + dst2;
+  });
+  auto t1 = (fjnative*)&task1; auto t2 = (fjnative*)&task2; auto tj = (fjnative*)&join;
   auto current = (fjnative*)current_fiber.mine();
   current->status = fiber_status_pause;
-  add_edge(t2, current); add_edge(t1, current);
-  t2->release(); t1->release();
+  mcsl::fjnative::add_edge(t2, tj);
+  mcsl::fjnative::add_edge(t1, tj);
+  mcsl::fjnative::add_edge(tj, current);
+  tj->release();
+  t2->release();
+  t1->release();
   if (context::capture<fjnative*>(context::addr(current->ctx))) {
     return 1;
   }
-  t1->stack = notownstackptr;
+  t1->stack = mcsl::fjnative::notownstackptr;
   t1->swap_with_scheduler();
   t1->run();
   auto f = fjnative_scheduler::take<fiber>();
   if (f == nullptr) {
     current->status = fiber_status_finish;
     current->exit_to_scheduler();
-    return; // unreachable
+    return 1; // unreachable
   }
-  t2->stack = notownstackptr;
+  t2->stack = mcsl::fjnative::notownstackptr;
   t2->swap_with_scheduler();
   t2->run();
   current->status = fiber_status_finish;
   current->swap_with_scheduler();
-  *dst += dst1 + dst2;
   return 1;
 }
 
 int main (int argc, char *argv[]){
 
-  /*
-   * Fetch the inputs
-   */
-  if (argc <= 1){
-    std::cerr << "USAGE: " << argv[0] << " MATRIX_SIZE" << std::endl;
-    return 1;
-  }
-  auto MSIZE = atoll(argv[1]);
+  auto MSIZE = deepsea::cmdline::parse_or_default_int("n", 32);
   std::cout << "Matrix size = " << MSIZE << std::endl;
 
   /*
@@ -106,11 +106,13 @@ int main (int argc, char *argv[]){
     }
   }
 
+  int dst = 0;
+
   mcsl::launch([&] {
   }, [&] {
-    printf("result %ld\n", dst);
+    printf("dst=%d\n",dst);
   }, [&] {
-
+    mySum(m[1], 0, MSIZE, &dst);
   });
 
   return 0;
