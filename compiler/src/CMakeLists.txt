@@ -1,5 +1,5 @@
 # Project
-cmake_minimum_required(VERSION 3.4.3)
+cmake_minimum_required(VERSION 3.13)
 project(HeartBeat)
 
 # Programming languages to use
@@ -32,4 +32,4 @@ include(AddLLVM)
 add_subdirectory(src)
 
 # Install
-install(PROGRAMS bin/cat-c DESTINATION bin)
+install(PROGRAMS DESTINATION)

@@ -4,22 +4,24 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
-using namespace llvm::noelle;
+#include "Pass.hpp"
+
+using namespace llvm;
 
 HeartBeat::HeartBeat () 
   : ModulePass(ID) {
   return ;
 }
 
-bool HeartBeat::doInitialization (Module &M) override {
+bool HeartBeat::doInitialization (Module &M) {
   return false;
 }
 
-bool HeartBeat::runOnModule (Module &M) override {
+bool HeartBeat::runOnModule (Module &M) {
   return false;
 }
 
-void HeartBeat::getAnalysisUsage(AnalysisUsage &AU) const override {
+void HeartBeat::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
 }
 

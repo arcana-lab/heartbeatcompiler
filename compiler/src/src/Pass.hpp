@@ -6,6 +6,8 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
+using namespace llvm ;
+
 namespace {
 
  class HeartBeat : public ModulePass {
