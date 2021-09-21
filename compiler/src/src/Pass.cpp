@@ -26,15 +26,84 @@ bool HeartBeat::runOnModule (Module &M) {
   auto nbinstrs = noelle.numberOfProgramInstructions();
   errs() << "nbinstrs = " << nbinstrs << "\n";
 
+  /*
+   * Fetch all program loops
+   */
+  auto loops = noelle.getLoopStructures();
+
   // For now, let's just consider programs with a single loop
-  auto& loops = noelle.getLoopStructures();
-  auto loop = loops[0];
+  auto loop = (*loops)[0];
+  auto loopFunction = loop->getFunction();
+
   // For now, let's assume all iterations are independent
 
   // todo: collect live in / out
-  auto header = loop.
-  
+
+  /*
+   * Fetch the loop handler function
+   */
+  auto loopHandlerFunction = M.getFunction("loop_handler");
+  assert(loopHandlerFunction != nullptr);
+
+
+  /*
+   * Create a new basic block to invoke the loop handler
+   */
+  auto loopHandlerBB = BasicBlock::Create(loopFunction->getContext(), "loopHandlerBB", loopFunction);
+  IRBuilder<> bbBuilder(loopHandlerBB);
+  bbBuilder.CreateCall(loopHandlerFunction);
+  bbBuilder.CreateUnreachable();
+
+  /*
+   * Fetch the entry of the body of the loop
+   */
+  auto header = loop->getHeader();
+  BasicBlock *bodyBB = nullptr;
+  for (auto succ : successors(header)){
+    if (loop->isIncluded(succ)){
+      bodyBB = succ;
+      break ;
+    }
+  }
+  assert(bodyBB != nullptr);
+  auto entryBodyInst = bodyBB->getFirstNonPHI();
+
+  /*
+   * Split the basic block
+   *
+   * From 
+   * -------
+   * | PHI |
+   * | A   |
+   * | br X|
+   *
+   * to
+   * ------------------------------------
+   * | PHI                              |
+   * | %t = load i32*, heartbeatGlobal  |
+   * | br %t loopHandlerBB Y            |
+   * ------------------------------------
+   *
+   * ---Y---
+   * | A   |
+   * | br X|
+   * -------
+   */
+  errs() << "AAA " << *entryBodyInst << "\n";
   return false;
+  auto bottomHalfBB = bodyBB->splitBasicBlock(entryBodyInst);
+  IRBuilder<> topHalfBuilder(bodyBB);
+  auto heartBeatGlobalPtr = M.getGlobalVariable("heartbeat");
+  assert(heartBeatGlobalPtr != nullptr);
+  auto wasHeartBeatGlobalSet = topHalfBuilder.CreateLoad(heartBeatGlobalPtr);
+  auto typeManager = noelle.getTypesManager();
+  auto const0 = ConstantInt::get(typeManager->getIntegerType(32), 0);
+  auto cmpInst = topHalfBuilder.CreateICmpEQ(wasHeartBeatGlobalSet, const0);
+  topHalfBuilder.CreateCondBr(cmpInst, bottomHalfBB, loopHandlerBB);
+
+  errs() << *loopFunction ;
+
+  return true;
 }
 
 void HeartBeat::getAnalysisUsage(AnalysisUsage &AU) const {
