@@ -26,7 +26,13 @@ bool HeartBeat::runOnModule (Module &M) {
   auto nbinstrs = noelle.numberOfProgramInstructions();
   errs() << "nbinstrs = " << nbinstrs << "\n";
 
+  // For now, let's just consider programs with a single loop
   auto& loops = noelle.getLoopStructures();
+  auto loop = loops[0];
+  // For now, let's assume all iterations are independent
+
+  // todo: collect live in / out
+  auto header = loop.
   
   return false;
 }
