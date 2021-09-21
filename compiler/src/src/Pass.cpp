@@ -6,7 +6,10 @@
 
 #include "Pass.hpp"
 
+#include "Noelle.hpp"
+
 using namespace llvm;
+using namespace llvm::noelle;
 
 HeartBeat::HeartBeat () 
   : ModulePass(ID) {
@@ -18,11 +21,18 @@ bool HeartBeat::doInitialization (Module &M) {
 }
 
 bool HeartBeat::runOnModule (Module &M) {
+  errs() << "heartbeat pass\n";
+  auto& noelle = getAnalysis<Noelle>();
+  auto nbinstrs = noelle.numberOfProgramInstructions();
+  errs() << "nbinstrs = " << nbinstrs << "\n";
+
+  auto& loops = noelle.getLoopStructures();
+  
   return false;
 }
 
 void HeartBeat::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
+  AU.addRequired<Noelle>(); // so that LLVM knows this pass depends on noelle
 }
 
 // Next there is code to register your pass to "opt"

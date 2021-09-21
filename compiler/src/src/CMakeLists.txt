@@ -19,7 +19,7 @@ include(AddLLVM)
 
 message(STATUS "LLVM_DIR IS ${LLVM_CMAKE_DIR}.")
 
-include_directories(${LLVM_INCLUDE_DIRS})
+include_directories(${LLVM_INCLUDE_DIRS} /home/rainey/noelle/install/include /home/rainey/noelle/install/include/svf)
 
 # Declare the LLVM pass to compile
 add_llvm_library(${CATPassName} MODULE ${CATPassSrc})
