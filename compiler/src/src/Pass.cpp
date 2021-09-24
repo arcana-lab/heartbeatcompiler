@@ -21,10 +21,12 @@ bool HeartBeat::doInitialization (Module &M) {
 }
 
 bool HeartBeat::runOnModule (Module &M) {
-  errs() << "heartbeat pass\n";
+  errs() << "Heartbeat pass\n";
+
+  /*
+   * Fetch NOELLE.
+   */
   auto& noelle = getAnalysis<Noelle>();
-  auto nbinstrs = noelle.numberOfProgramInstructions();
-  errs() << "nbinstrs = " << nbinstrs << "\n";
 
   /*
    * Fetch all program loops
@@ -45,7 +47,6 @@ bool HeartBeat::runOnModule (Module &M) {
   auto loopHandlerFunction = M.getFunction("loop_handler");
   assert(loopHandlerFunction != nullptr);
 
-
   /*
    * Create a new basic block to invoke the loop handler
    */
@@ -57,14 +58,7 @@ bool HeartBeat::runOnModule (Module &M) {
   /*
    * Fetch the entry of the body of the loop
    */
-  auto header = loop->getHeader();
-  BasicBlock *bodyBB = nullptr;
-  for (auto succ : successors(header)){
-    if (loop->isIncluded(succ)){
-      bodyBB = succ;
-      break ;
-    }
-  }
+  auto bodyBB = loop->getFirstLoopBasicBlockAfterTheHeader();
   assert(bodyBB != nullptr);
   auto entryBodyInst = bodyBB->getFirstNonPHI();
 
