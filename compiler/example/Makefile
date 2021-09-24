@@ -1,0 +1,16 @@
+all: program_with_heartbeat
+
+program_with_heartbeat: program_with_heartbeat.bc
+	clang $^ -O3 -o $@
+
+%.bc: %.c
+	clang -O1 -Xclang -disable-llvm-passes -emit-llvm -c $^ -o $@
+	llvm-dis $@ 
+
+program_with_heartbeat.bc: incr_array.bc
+	noelle-norm $^ -o program_normalized.bc
+	llvm-dis program_normalized.bc
+	noelle-load -load ~/CAT/lib/HeartBeat.so -heartbeat program_normalized.bc -o $@
+
+clean:
+	rm -f *.bc *.ll
