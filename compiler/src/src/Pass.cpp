@@ -83,19 +83,20 @@ bool HeartBeat::runOnModule (Module &M) {
    * | br X|
    * -------
    */
-  errs() << "AAA " << *entryBodyInst << "\n";
-  return false;
   auto bottomHalfBB = bodyBB->splitBasicBlock(entryBodyInst);
   IRBuilder<> topHalfBuilder(bodyBB);
+  auto lastInstInBodyBB = bodyBB->getTerminator();
   auto heartBeatGlobalPtr = M.getGlobalVariable("heartbeat");
   assert(heartBeatGlobalPtr != nullptr);
   auto wasHeartBeatGlobalSet = topHalfBuilder.CreateLoad(heartBeatGlobalPtr);
+  wasHeartBeatGlobalSet->moveBefore(lastInstInBodyBB);
   auto typeManager = noelle.getTypesManager();
   auto const0 = ConstantInt::get(typeManager->getIntegerType(32), 0);
-  auto cmpInst = topHalfBuilder.CreateICmpEQ(wasHeartBeatGlobalSet, const0);
-  topHalfBuilder.CreateCondBr(cmpInst, bottomHalfBB, loopHandlerBB);
-
-  errs() << *loopFunction ;
+  auto cmpInst = cast<Instruction>(topHalfBuilder.CreateICmpEQ(wasHeartBeatGlobalSet, const0));
+  cmpInst->moveBefore(lastInstInBodyBB);
+  auto condBr = topHalfBuilder.CreateCondBr(cmpInst, bottomHalfBB, loopHandlerBB);
+  condBr->moveBefore(lastInstInBodyBB);
+  lastInstInBodyBB->eraseFromParent();
 
   return true;
 }
