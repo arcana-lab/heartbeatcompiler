@@ -12,7 +12,7 @@ void incr_array(int* a, int i, int sz) {
   }
 }
 
-//#if 0
+#if 0
 int loop_handler(int* a, int i, int sz) {
   if (sz - i < 2) {
     return 0; // no promotion
@@ -24,7 +24,12 @@ int loop_handler(int* a, int i, int sz) {
   // block until both branches finish
   return 1;
 }
-//#endif
+#else
+int loop_handler(void) {
+   return 1;
+}
+
+#endif
 
 int main() {
   int sz = 1000;

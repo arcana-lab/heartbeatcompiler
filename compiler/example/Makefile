@@ -11,6 +11,9 @@ program_with_heartbeat.bc: incr_array.bc
 	noelle-norm $^ -o program_normalized.bc
 	llvm-dis program_normalized.bc
 	noelle-load -load ~/CAT/lib/HeartBeat.so -heartbeat program_normalized.bc -o $@
+	llvm-dis program_with_heartbeat.bc
 
 clean:
-	rm -f *.bc *.ll
+	rm -f *.bc *.ll program_with_heartbeat
+
+.PHONY: clean
