@@ -6,6 +6,17 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
+/* Interface for TPAL runtime 
+ *   - assumptions: leaf loop (non nested), no reduction
+ *   - return nonzero value if promotion happened, zero otherwise
+ *   - indvar: loop induction variable, maxval: loop maximum value
+ *   - ...
+ *   int handler_for_fork2(int64_t indvar, int64_t maxval, 
+ *                         void** livein, void(*f)(int64_t,int64_t,void**)) {
+ *     ... here, we call a C++ function in the TPAL runtime
+ *   }
+ */
+
 using namespace llvm ;
 
 namespace {
