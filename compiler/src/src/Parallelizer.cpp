@@ -1,4 +1,5 @@
 #include "Pass.hpp"
+#include "HeartBeatTransformation.hpp"
 
 using namespace llvm;
 using namespace llvm::noelle;
@@ -11,8 +12,8 @@ bool HeartBeat::parallelizeLoop (
   /*
    * Clone the original loop and make the clone to be in the heartbeat form.
    */
-  ParallelizationTechnique *usedTechnique = nullptr;
-  auto codeModified = this->createHeartBeatLoop(noelle, loop, &usedTechnique);
+  HeartBeatTransformation HB(noelle);
+  auto codeModified = HB.apply(loop, noelle, nullptr);
   if (!codeModified){
     return false;
   }
@@ -22,15 +23,14 @@ bool HeartBeat::parallelizeLoop (
    *
    * Step 1: Fetch the environment array where the exit block ID has been stored.
    */
-  assert(usedTechnique != nullptr);
-  auto envArray = usedTechnique->getEnvArray();
+  auto envArray = HB.getEnvArray();
   assert(envArray != nullptr);
 
   /*
    * Step 2: Fetch entry and exit point executed by the parallelized loop.
    */
-  auto entryPoint = usedTechnique->getParLoopEntryPoint();
-  auto exitPoint = usedTechnique->getParLoopExitPoint();
+  auto entryPoint = HB.getParLoopEntryPoint();
+  auto exitPoint = HB.getParLoopExitPoint();
   assert(entryPoint != nullptr && exitPoint != nullptr);
 
   /*

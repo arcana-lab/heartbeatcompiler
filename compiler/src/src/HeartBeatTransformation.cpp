@@ -1,14 +1,47 @@
-#include "Pass.hpp"
+#include "HeartBeatTask.hpp"
+#include "HeartBeatTransformation.hpp"
 
 using namespace llvm;
 using namespace llvm::noelle;
 
-bool HeartBeat::createHeartBeatLoop(
-  Noelle &noelle, 
+HeartBeatTransformation::HeartBeatTransformation (
+  Noelle &noelle
+  ) : 
+    DOALL{*noelle.getProgram(), *noelle.getProfiles(), noelle.getVerbosity()}
+  , n{noelle} 
+{
+
+  /*
+   * Fetch the dispatcher to use to jump to a parallelized DOALL loop.
+   */
+  this->taskDispatcher = this->module.getFunction("handler_for_fork2");
+  if (this->taskDispatcher == nullptr){
+    errs() << "NOELLE: ERROR = function NOELLE_DOALLDispatcher couldn't be found\n";
+    abort();
+  }
+
+  /*
+   * Create the task signature
+   */
+  auto tm = noelle.getTypesManager();
+  auto int8 = tm->getIntegerType(8);
+  auto int64 = tm->getIntegerType(64);
+  auto funcArgTypes = ArrayRef<Type*>({
+    int64,
+    int64,
+    PointerType::getUnqual(int8),
+    PointerType::getUnqual(int8),
+  });
+  this->taskSignature = FunctionType::get(tm->getVoidType(), funcArgTypes, false);
+
+  return ;
+}
+
+bool HeartBeatTransformation::apply (
   LoopDependenceInfo *loop,
-  ParallelizationTechnique **usedTechnique
+  Noelle &noelle,
+  Heuristics *h
   ){
-  assert(usedTechnique != nullptr);
 
   /*
    * Fetch the program
@@ -23,9 +56,16 @@ bool HeartBeat::createHeartBeatLoop(
 
   /*
    * For now, let's assume all iterations are independent
+   *
+   * Fetch the environment of the loop.
    */
+  auto loopEnvironment = loop->environment;
 
-  // todo: collect live in / out
+  /*
+   * Generate an empty task for the heartbeat execution.
+   */
+  auto hbTask = new HeartBeatTask(this->taskSignature, this->module);
+  this->addPredecessorAndSuccessorsBasicBlocksToTasks(loop, { hbTask });
 
   /*
    * Fetch the loop handler function
@@ -85,4 +125,18 @@ bool HeartBeat::createHeartBeatLoop(
   lastInstInBodyBB->eraseFromParent();
 
   return true;
+}
+
+Value * HeartBeatTransformation::fetchClone (Value *original) const {
+  auto task = (HeartBeatTask *)this->tasks[0];
+  if (isa<ConstantData>(original)) return original;
+
+  if (task->isAnOriginalLiveIn(original)){
+    return task->getCloneOfOriginalLiveIn(original);
+  }
+
+  assert(isa<Instruction>(original));
+  auto iClone = task->getCloneOfOriginalInstruction(cast<Instruction>(original));
+  assert(iClone != nullptr);
+  return iClone;
 }
