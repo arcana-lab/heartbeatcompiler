@@ -6,6 +6,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "Noelle.hpp"
+#include "ParallelizationTechnique.hpp"
 
 /* Interface for TPAL runtime 
  *   - assumptions: leaf loop (non nested), no reduction
@@ -40,6 +41,13 @@ namespace {
         Noelle &noelle,
         LoopDependenceInfo *ldi
         );
+
+      bool createHeartBeatLoop (
+        Noelle &noelle,
+        LoopDependenceInfo *ldi,
+        ParallelizationTechnique **usedTechnique
+        );
+
   };
 
 }

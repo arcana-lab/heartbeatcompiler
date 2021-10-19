@@ -9,78 +9,49 @@ bool HeartBeat::parallelizeLoop (
   ){
 
   /*
-   * Fetch the program
+   * Clone the original loop and make the clone to be in the heartbeat form.
    */
-  auto program = noelle.getProgram();
+  ParallelizationTechnique *usedTechnique = nullptr;
+  auto codeModified = this->createHeartBeatLoop(noelle, loop, &usedTechnique);
+  if (!codeModified){
+    return false;
+  }
 
   /*
-   * Fetch the function that contains the loop.
-   */
-  auto ls = loop->getLoopStructure();
-  auto loopFunction = ls->getFunction();
-
-  /*
-   * For now, let's assume all iterations are independent
-   */
-
-  // todo: collect live in / out
-
-  /*
-   * Fetch the loop handler function
-   */
-  auto loopHandlerFunction = program->getFunction("loop_handler");
-  assert(loopHandlerFunction != nullptr);
-
-  /*
-   * Create a new basic block to invoke the loop handler
-   */
-  auto loopHandlerBB = BasicBlock::Create(loopFunction->getContext(), "loopHandlerBB", loopFunction);
-  IRBuilder<> bbBuilder(loopHandlerBB);
-  bbBuilder.CreateCall(loopHandlerFunction);
-  bbBuilder.CreateUnreachable();
-
-  /*
-   * Fetch the entry of the body of the loop
-   */
-  auto bodyBB = ls->getFirstLoopBasicBlockAfterTheHeader();
-  assert(bodyBB != nullptr);
-  auto entryBodyInst = bodyBB->getFirstNonPHI();
-
-  /*
-   * Split the basic block
+   * Link the heartbeat loop with the original code.
    *
-   * From 
-   * -------
-   * | PHI |
-   * | A   |
-   * | br X|
-   *
-   * to
-   * ------------------------------------
-   * | PHI                              |
-   * | %t = load i32*, heartbeatGlobal  |
-   * | br %t loopHandlerBB Y            |
-   * ------------------------------------
-   *
-   * ---Y---
-   * | A   |
-   * | br X|
-   * -------
+   * Step 1: Fetch the environment array where the exit block ID has been stored.
    */
-  auto bottomHalfBB = bodyBB->splitBasicBlock(entryBodyInst);
-  IRBuilder<> topHalfBuilder(bodyBB);
-  auto lastInstInBodyBB = bodyBB->getTerminator();
-  auto heartBeatGlobalPtr = program->getGlobalVariable("heartbeat");
-  assert(heartBeatGlobalPtr != nullptr);
-  auto wasHeartBeatGlobalSet = topHalfBuilder.CreateLoad(heartBeatGlobalPtr);
-  wasHeartBeatGlobalSet->moveBefore(lastInstInBodyBB);
-  auto typeManager = noelle.getTypesManager();
-  auto const0 = ConstantInt::get(typeManager->getIntegerType(32), 0);
-  auto cmpInst = cast<Instruction>(topHalfBuilder.CreateICmpEQ(wasHeartBeatGlobalSet, const0));
-  cmpInst->moveBefore(lastInstInBodyBB);
-  auto condBr = topHalfBuilder.CreateCondBr(cmpInst, bottomHalfBB, loopHandlerBB);
-  condBr->moveBefore(lastInstInBodyBB);
-  lastInstInBodyBB->eraseFromParent();
+  assert(usedTechnique != nullptr);
+  auto envArray = usedTechnique->getEnvArray();
+  assert(envArray != nullptr);
+
+  /*
+   * Step 2: Fetch entry and exit point executed by the parallelized loop.
+   */
+  auto entryPoint = usedTechnique->getParLoopEntryPoint();
+  auto exitPoint = usedTechnique->getParLoopExitPoint();
+  assert(entryPoint != nullptr && exitPoint != nullptr);
+
+  /*
+   * Step 3: Link the parallelized loop within the original function that includes the sequential loop.
+   */
+  auto tm = noelle.getTypesManager();
+  auto exitIndex = ConstantInt::get(tm->getIntegerType(64), loop->environment->indexOfExitBlockTaken());
+  auto loopStructure = loop->getLoopStructure();
+  auto loopPreHeader = loopStructure->getPreHeader();
+  auto loopFunction = loopStructure->getFunction();
+  auto loopExitBlocks = loopStructure->getLoopExitBasicBlocks();
+  noelle.linkTransformedLoopToOriginalFunction(
+      loopFunction->getParent(),
+      loopPreHeader,
+      entryPoint,
+      exitPoint, 
+      envArray,
+      exitIndex,
+      loopExitBlocks
+      );
+  assert(noelle.verifyCode());
 
   return true;
 }
