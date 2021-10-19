@@ -30,6 +30,3 @@ include(AddLLVM)
 
 # Pass
 add_subdirectory(src)
-
-# Install
-install(PROGRAMS DESTINATION)

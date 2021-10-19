@@ -5,6 +5,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "Noelle.hpp"
 
 /* Interface for TPAL runtime 
  *   - assumptions: leaf loop (non nested), no reduction
@@ -18,23 +19,27 @@
  */
 
 using namespace llvm ;
+using namespace llvm::noelle ;
 
 namespace {
 
  class HeartBeat : public ModulePass {
    public:
-     static char ID; 
+      static char ID; 
 
-     HeartBeat();
+      HeartBeat();
 
-     bool doInitialization (Module &M) override ;
+      bool doInitialization (Module &M) override ;
 
-     bool runOnModule (Module &M) override ;
+      bool runOnModule (Module &M) override ;
 
-     void getAnalysisUsage(AnalysisUsage &AU) const override ;
+      void getAnalysisUsage(AnalysisUsage &AU) const override ;
 
     private:
-
+      bool parallelizeLoop (
+        Noelle &noelle,
+        LoopDependenceInfo *ldi
+        );
   };
 
 }
