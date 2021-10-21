@@ -23,4 +23,7 @@ class HeartBeatTask : public llvm::noelle::DOALLTask {
       );
 
     void extractFuncArgs () override ;
+
+  protected:
+    Value *maxGIV;
 };

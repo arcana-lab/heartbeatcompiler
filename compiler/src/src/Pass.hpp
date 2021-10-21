@@ -22,32 +22,28 @@
 using namespace llvm ;
 using namespace llvm::noelle ;
 
-namespace {
+class HeartBeat : public ModulePass {
+ public:
+    static char ID; 
 
- class HeartBeat : public ModulePass {
-   public:
-      static char ID; 
+    HeartBeat();
 
-      HeartBeat();
+    bool doInitialization (Module &M) override ;
 
-      bool doInitialization (Module &M) override ;
+    bool runOnModule (Module &M) override ;
 
-      bool runOnModule (Module &M) override ;
+    void getAnalysisUsage(AnalysisUsage &AU) const override ;
 
-      void getAnalysisUsage(AnalysisUsage &AU) const override ;
+  private:
+    bool parallelizeLoop (
+      Noelle &noelle,
+      LoopDependenceInfo *ldi
+      );
 
-    private:
-      bool parallelizeLoop (
-        Noelle &noelle,
-        LoopDependenceInfo *ldi
-        );
+    bool createHeartBeatLoop (
+      Noelle &noelle,
+      LoopDependenceInfo *ldi,
+      ParallelizationTechnique **usedTechnique
+      );
 
-      bool createHeartBeatLoop (
-        Noelle &noelle,
-        LoopDependenceInfo *ldi,
-        ParallelizationTechnique **usedTechnique
-        );
-
-  };
-
-}
+};

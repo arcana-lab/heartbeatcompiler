@@ -31,14 +31,14 @@ class HeartBeatTransformation : public DOALL {
      * Methods
      */
     HeartBeatTransformation (
-      Noelle &noelle
-    );
+        Noelle &noelle
+        );
 
     bool apply (
-      LoopDependenceInfo *LDI,
-      Noelle &par,
-      Heuristics *h
-    ) override ;
+        LoopDependenceInfo *LDI,
+        Noelle &par,
+        Heuristics *h
+        ) override ;
 
   protected:
     Noelle &n;
@@ -48,4 +48,8 @@ class HeartBeatTransformation : public DOALL {
      * Helpers
      */
     Value *fetchClone(Value *original) const ;
+
+    void invokeHeartBeatFunctionAsideOriginalLoop (
+        LoopDependenceInfo *LDI
+        );
 };
