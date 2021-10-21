@@ -2,40 +2,20 @@
 #include <stdio.h>
 
 int heartbeat ;
-
-void incr_array(int* a, int i, int sz) {
-  for (int i = 0; i < sz; i++) {
-    if (heartbeat) {
-      loop_handler(a, i, sz);
-    }
-    a[i]++;
-  }
+int loop_handler (long long int startIteration, long long int maxItereation, void *env) {
+   return 0;
 }
 
-#if 0
-int loop_handler(int* a, int i, int sz) {
-  if (sz - i < 2) {
-    return 0; // no promotion
-  }
-  int mid = (i + sz) / 2;
-  // fork in parallel (call tpal runtime)
-  incr_array(a, i, mid); 
-  incr_array(a, mid, sz);
-  // block until both branches finish
+int NOELLE_DOALLDispatcher (void){
   return 1;
 }
-#else
-int loop_handler(void) {
-   return 1;
-}
-
-#endif
 
 int main() {
   int sz = 1000;
-  int* a = (int*)malloc(sizeof(int) * sz);
+  int* a = (int*)calloc(sz, sizeof(int));
   for (int i = 0; i < sz; i++) {
     a[i]++;
-  }  
+  }
+  printf("%d %d %d\n", a[0], a[sz/2], a[sz-1]);
   return 0;
 }
