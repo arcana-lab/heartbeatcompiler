@@ -164,7 +164,8 @@ bool HeartBeatTransformation::apply (
   auto callToHandler = cast<CallInst>(bbBuilder.CreateCall(loopHandlerFunction, ArrayRef<Value *>({
     cloneCurrentIVValue,
     lastIterationValue,
-    taskEnvPtr
+    taskEnvPtr,
+    hbTask->getTaskBody()
         })));
 
   /*
