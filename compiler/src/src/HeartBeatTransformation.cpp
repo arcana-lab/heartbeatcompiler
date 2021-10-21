@@ -15,12 +15,10 @@ HeartBeatTransformation::HeartBeatTransformation (
    * Create the task signature
    */
   auto tm = noelle.getTypesManager();
-  auto int8 = tm->getIntegerType(8);
-  auto int64 = tm->getIntegerType(64);
-  auto funcArgTypes = ArrayRef<Type*>({
-    int64,
-    int64,
-    PointerType::getUnqual(int8)
+  auto funcArgTypes = ArrayRef<Type *>({
+    tm->getIntegerType(64),
+    tm->getIntegerType(64),
+    tm->getVoidPointerType()
   });
   this->taskSignature = FunctionType::get(tm->getVoidType(), funcArgTypes, false);
 
@@ -100,7 +98,6 @@ bool HeartBeatTransformation::apply (
    */
   IRBuilder<> exitB(hbTask->getExit());
   exitB.CreateRetVoid();
-  this->adjustDataFlowToUseClones(loop, 0);
 
   /*
    * Store final results to loop live-out variables. Note this occurs after
