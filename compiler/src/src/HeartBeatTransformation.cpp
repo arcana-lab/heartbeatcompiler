@@ -127,8 +127,6 @@ bool HeartBeatTransformation::apply (
    */
   this->invokeHeartBeatFunctionAsideOriginalLoop(loop);
 
-  return true; //FIXME we need the rest as well
-
   /*
    * Fetch the loop handler function
    */
@@ -137,54 +135,79 @@ bool HeartBeatTransformation::apply (
 
   /*
    * Create a new basic block to invoke the loop handler
+   *
+   * Step 1: fetch the variable that holds the current loop-governing IV value
    */
-  auto loopHandlerBB = BasicBlock::Create(loopFunction->getContext(), "loopHandlerBB", loopFunction);
-  IRBuilder<> bbBuilder(loopHandlerBB);
-  bbBuilder.CreateCall(loopHandlerFunction);
-  bbBuilder.CreateUnreachable();
+  auto GIV_attr = loop->getLoopGoverningIVAttribution();
+  assert(GIV_attr != nullptr);
+  assert(GIV_attr->isSCCContainingIVWellFormed());
+  auto& GIV = GIV_attr->getInductionVariable();
+  auto firstIterationGoverningIVValue = GIV.getStartValue();
 
   /*
-   * Fetch the entry of the body of the loop
+   * Step 2: fetch the last value of the loop-governing IV
+   */
+  auto lastIterationGoverningIVValue = GIV_attr->getExitConditionValue();
+  auto currentIVValue = GIV_attr->getValueToCompareAgainstExitConditionValue();
+  auto cloneCurrentIVValue = this->fetchClone(currentIVValue);
+  assert(cloneCurrentIVValue != nullptr);
+
+  /*
+   * Step 3: fetch the first instruction of the body of the loop in the task.
    */
   auto bodyBB = ls->getFirstLoopBasicBlockAfterTheHeader();
   assert(bodyBB != nullptr);
   auto entryBodyInst = bodyBB->getFirstNonPHI();
+  auto entryBodyInstInTask = hbTask->getCloneOfOriginalInstruction(entryBodyInst);
+  assert(entryBodyInstInTask != nullptr);
+  auto entryBodyInTask = entryBodyInstInTask->getParent();
 
   /*
-   * Split the basic block
+   * Step 3: call the loop handler
+   */
+  IRBuilder<> bbBuilder(entryBodyInstInTask);
+  auto argIter = hbTask->getTaskBody()->arg_begin();
+  auto firstIterationValue = &*(argIter++);
+  auto lastIterationValue = &*(argIter++);
+  auto taskEnvPtr = &*(argIter++);
+  auto callToHandler = cast<CallInst>(bbBuilder.CreateCall(loopHandlerFunction, ArrayRef<Value *>({
+    cloneCurrentIVValue,
+    lastIterationValue,
+    taskEnvPtr
+        })));
+
+  /*
+   * Split the body basic block
    *
    * From 
    * -------
-   * | PHI |
-   * | A   |
-   * | br X|
+   * | PHI                        |
+   * | %Y = call loop_handler()   |
+   * | A                          | 
+   * | br X                       |
    *
    * to
    * ------------------------------------
    * | PHI                              |
-   * | %t = load i32*, heartbeatGlobal  |
-   * | br %t loopHandlerBB Y            |
+   * | %Y = call loop_handler()         |
+   * | %Y2 = icmp %Y, 0                 |
+   * | br %Y2 normalBody RET            |
    * ------------------------------------
    *
-   * ---Y---
+   * ---normalBody ---
    * | A   |
    * | br X|
    * -------
    */
-  auto bottomHalfBB = bodyBB->splitBasicBlock(entryBodyInst);
-  IRBuilder<> topHalfBuilder(bodyBB);
-  auto lastInstInBodyBB = bodyBB->getTerminator();
-  auto heartBeatGlobalPtr = program->getGlobalVariable("heartbeat");
-  assert(heartBeatGlobalPtr != nullptr);
-  auto wasHeartBeatGlobalSet = topHalfBuilder.CreateLoad(heartBeatGlobalPtr);
-  wasHeartBeatGlobalSet->moveBefore(lastInstInBodyBB);
+  auto bottomHalfBB = entryBodyInTask->splitBasicBlock(callToHandler->getNextNode());
+  auto addedFakeTerminatorOfEntryBodyInTask = entryBodyInTask->getTerminator();
+  IRBuilder<> topHalfBuilder(entryBodyInTask);
   auto typeManager = noelle.getTypesManager();
   auto const0 = ConstantInt::get(typeManager->getIntegerType(32), 0);
-  auto cmpInst = cast<Instruction>(topHalfBuilder.CreateICmpEQ(wasHeartBeatGlobalSet, const0));
-  cmpInst->moveBefore(lastInstInBodyBB);
-  auto condBr = topHalfBuilder.CreateCondBr(cmpInst, bottomHalfBB, loopHandlerBB);
-  condBr->moveBefore(lastInstInBodyBB);
-  lastInstInBodyBB->eraseFromParent();
+  auto cmpInst = cast<Instruction>(topHalfBuilder.CreateICmpEQ(callToHandler, const0));
+  auto exitBasicBlockInTask = hbTask->getExit();
+  auto condBr = topHalfBuilder.CreateCondBr(cmpInst, bottomHalfBB, exitBasicBlockInTask);
+  addedFakeTerminatorOfEntryBodyInTask->eraseFromParent();
 
   return true;
 }
@@ -212,6 +235,7 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
    * Fetch the last value of the loop-governing IV
    */
   auto lastIterationGoverningIVValue = GIV_attr->getExitConditionValue();
+  auto currentIVValue = GIV_attr->getValueToCompareAgainstExitConditionValue();
   
   /*
    * Fetch the pointer to the environment.
