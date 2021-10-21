@@ -46,8 +46,6 @@ class HeartBeatTransformation : public DOALL {
     /*
      * Helpers
      */
-    Value *fetchClone(Value *original) const ;
-
     void invokeHeartBeatFunctionAsideOriginalLoop (
         LoopDependenceInfo *LDI
         );

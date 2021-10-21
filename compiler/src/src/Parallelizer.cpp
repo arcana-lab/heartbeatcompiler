@@ -51,7 +51,7 @@ bool HeartBeat::parallelizeLoop (
       exitIndex,
       loopExitBlocks
       );
-  //assert(noelle.verifyCode());
+  assert(noelle.verifyCode());
 
   return true;
 }

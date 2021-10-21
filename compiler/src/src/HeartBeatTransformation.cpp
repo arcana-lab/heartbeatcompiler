@@ -49,7 +49,7 @@ bool HeartBeatTransformation::apply (
    *
    * Fetch the environment of the loop.
    */
-  auto loopEnvironment = loop->environment;
+  auto loopEnvironment = loop->getEnvironment();
 
   /*
    * Generate an empty task for the heartbeat execution.
@@ -93,11 +93,7 @@ bool HeartBeatTransformation::apply (
   /*
    * Add the jump from the entry of the function after loading all live-ins to the header of the cloned loop.
    */
-  auto loopHeader = ls->getHeader();
-  auto headerClone = hbTask->getCloneOfOriginalBasicBlock(loopHeader);
-  IRBuilder<> entryBuilder(hbTask->getEntry());
-  auto temporaryBrToLoop = entryBuilder.CreateBr(headerClone);
-  entryBuilder.SetInsertPoint(temporaryBrToLoop);
+  this->addJumpToLoop(loop, hbTask);
   
   /*
    * Add the final return to the single task's exit block.
@@ -250,18 +246,4 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
   doallBuilder.CreateBr(this->exitPointOfParallelizedLoop);
 
   return ;
-}
-
-Value * HeartBeatTransformation::fetchClone (Value *original) const {
-  auto task = (HeartBeatTask *)this->tasks[0];
-  if (isa<ConstantData>(original)) return original;
-
-  if (task->isAnOriginalLiveIn(original)){
-    return task->getCloneOfOriginalLiveIn(original);
-  }
-
-  assert(isa<Instruction>(original));
-  auto iClone = task->getCloneOfOriginalInstruction(cast<Instruction>(original));
-  assert(iClone != nullptr);
-  return iClone;
 }
