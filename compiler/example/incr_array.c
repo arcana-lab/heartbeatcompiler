@@ -2,8 +2,16 @@
 #include <stdio.h>
 
 int heartbeat ;
-int loop_handler (long long int startIteration, long long int maxItereation, void *env) {
-   return 0;
+int loop_handler (
+    long long int startIteration, 
+    long long int maxIteration, 
+    void *env, 
+    void (*f)(int64_t, int64_t, void *)
+    ) {
+  printf("Loop_handler: startIteration = %lld\n", startIteration);
+  printf("Loop_handler: maxIteration = %lld\n", maxIteration);
+
+  return 0;
 }
 
 int NOELLE_DOALLDispatcher (void){
