@@ -12,15 +12,6 @@ HeartBeatTransformation::HeartBeatTransformation (
 {
 
   /*
-   * Fetch the dispatcher to use to jump to a parallelized DOALL loop.
-   */
-  this->taskDispatcher = this->module.getFunction("handler_for_fork2");
-  if (this->taskDispatcher == nullptr){
-    errs() << "NOELLE: ERROR = function \"handler_for_fork2\" couldn't be found\n";
-    abort();
-  }
-
-  /*
    * Create the task signature
    */
   auto tm = noelle.getTypesManager();

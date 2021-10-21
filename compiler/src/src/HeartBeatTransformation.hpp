@@ -42,7 +42,6 @@ class HeartBeatTransformation : public DOALL {
 
   protected:
     Noelle &n;
-    Function *taskDispatcher;
 
     /*
      * Helpers
