@@ -14,10 +14,6 @@ int loop_handler (
   return 0;
 }
 
-int NOELLE_DOALLDispatcher (void){
-  return 1;
-}
-
 int main() {
   int sz = 1000;
   int* a = (int*)calloc(sz, sizeof(int));
