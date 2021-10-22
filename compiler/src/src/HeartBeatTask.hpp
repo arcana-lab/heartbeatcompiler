@@ -10,7 +10,7 @@
  */
 #pragma once
 
-#include "DOALLTask.hpp"
+#include "noelle/tools/DOALLTask.hpp"
 
 using namespace llvm::noelle ;
 

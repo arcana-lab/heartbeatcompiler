@@ -16,11 +16,11 @@
 #include "SCC.hpp"
 #include "SCCDAG.hpp"
 #include "PDGAnalysis.hpp"
-#include "Noelle.hpp"
-#include "HeuristicsPass.hpp"
-#include "ParallelizationTechnique.hpp"
 #include "IVStepperUtility.hpp"
-#include "DOALL.hpp"
+#include "noelle/core/Noelle.hpp"
+#include "noelle/tools/HeuristicsPass.hpp"
+#include "noelle/tools/ParallelizationTechnique.hpp"
+#include "noelle/tools/DOALL.hpp"
 
 using namespace llvm::noelle;
 

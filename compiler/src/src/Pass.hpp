@@ -5,8 +5,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "Noelle.hpp"
-#include "ParallelizationTechnique.hpp"
+#include "noelle/core/Noelle.hpp"
+#include "noelle/tools/ParallelizationTechnique.hpp"
 
 /* Interface for TPAL runtime 
  *   - assumptions: leaf loop (non nested), no reduction
