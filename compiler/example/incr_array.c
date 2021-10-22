@@ -8,10 +8,24 @@ int loop_handler (
     void *env, 
     void (*f)(int64_t, int64_t, void *)
     ) {
-  printf("Loop_handler: startIteration = %lld\n", startIteration);
-  printf("Loop_handler: maxIteration = %lld\n", maxIteration);
+  static long long int currentIter = 0;
+  printf("Loop_handler: Start\n");
+  printf("Loop_handler:   startIteration = %lld\n", startIteration);
+  if (  0
+        || ((startIteration % 2) == 0)
+        || (startIteration == currentIter)
+     ){
+    printf("Loop_handler: Exit\n");
+    return 0;
+  }
+  currentIter = startIteration;
+  printf("Loop_handler:   Promotion\n");
+  printf("Loop_handler:   maxIteration = %lld\n", maxIteration);
 
-  return 0;
+  (*f)(startIteration, maxIteration, env);
+
+  printf("Loop_handler: Exit\n");
+  return 1;
 }
 
 int main() {
