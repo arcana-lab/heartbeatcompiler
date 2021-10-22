@@ -125,19 +125,13 @@ bool HeartBeatTransformation::apply (
   auto GIV_attr = loop->getLoopGoverningIVAttribution();
   assert(GIV_attr != nullptr);
   assert(GIV_attr->isSCCContainingIVWellFormed());
-  auto& GIV = GIV_attr->getInductionVariable();
-  auto firstIterationGoverningIVValue = GIV.getStartValue();
-
-  /*
-   * Step 2: fetch the last value of the loop-governing IV
-   */
-  auto lastIterationGoverningIVValue = GIV_attr->getExitConditionValue();
   auto currentIVValue = GIV_attr->getValueToCompareAgainstExitConditionValue();
+  assert(currentIVValue != nullptr);
   auto cloneCurrentIVValue = this->fetchClone(currentIVValue);
   assert(cloneCurrentIVValue != nullptr);
 
   /*
-   * Step 3: fetch the first instruction of the body of the loop in the task.
+   * Step 2: fetch the first instruction of the body of the loop in the task.
    */
   auto bodyBB = ls->getFirstLoopBasicBlockAfterTheHeader();
   assert(bodyBB != nullptr);
@@ -194,6 +188,15 @@ bool HeartBeatTransformation::apply (
   auto condBr = topHalfBuilder.CreateCondBr(cmpInst, bottomHalfBB, exitBasicBlockInTask);
   addedFakeTerminatorOfEntryBodyInTask->eraseFromParent();
 
+  /*
+   * Adjust the first starting value of the loop-governing IV to use the first parameter of the task.
+   */
+  auto& GIV = GIV_attr->getInductionVariable();
+  auto originalPHI = GIV.getLoopEntryPHI();
+  auto clonePHI = cast<PHINode>(this->fetchClone(originalPHI));
+  assert(clonePHI != nullptr);
+  clonePHI->setIncomingValueForBlock(hbTask->getEntry(), firstIterationValue);
+
   return true;
 }
 
@@ -231,7 +234,7 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
    * Call the function that incudes the parallelized loop.
    */
   IRBuilder<> doallBuilder(this->entryPointOfParallelizedLoop);
-  auto doallCallInst = doallBuilder.CreateCall(this->tasks[0]->getTaskBody(), ArrayRef<Value *>({
+  doallBuilder.CreateCall(this->tasks[0]->getTaskBody(), ArrayRef<Value *>({
     firstIterationGoverningIVValue,
     lastIterationGoverningIVValue,
     envPtr
