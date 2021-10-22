@@ -7,7 +7,7 @@ using namespace llvm::noelle;
 HeartBeatTransformation::HeartBeatTransformation (
   Noelle &noelle
   ) : 
-    DOALL{*noelle.getProgram(), *noelle.getProfiles(), noelle.getVerbosity()}
+    DOALL{noelle}
   , n{noelle} 
 {
 
