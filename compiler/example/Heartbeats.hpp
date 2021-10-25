@@ -10,7 +10,7 @@ class HeartBeatsManager {
   public:
     HeartBeatsManager();
 
-    void addThread (void);
+    std::atomic_bool * addThread (void);
 
     ~HeartBeatsManager();
 

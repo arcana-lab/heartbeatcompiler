@@ -2,8 +2,8 @@ LIBS=-lpthread -lm -lstdc++
 
 all: original_program program_with_heartbeat
 
-original_program: incr_array.cpp
-	clang++ $^ -O3 -o $@
+original_program: incr_array.cpp Heartbeats.cpp
+	clang++ $(LIBS) $^ -O3 -o $@
 
 program_with_heartbeat: program_with_heartbeat.bc Heartbeats.o
 	clang $(LIBS) $^ -O3 -o $@

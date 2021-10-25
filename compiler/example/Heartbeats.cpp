@@ -7,18 +7,21 @@ HeartBeatsManager::HeartBeatsManager() {
   return ;
 }
 
-void HeartBeatsManager::addThread (void){
+std::atomic_bool * HeartBeatsManager::addThread (void){
   uint64_t threadID = pthread_self();
+  auto newBool = new std::atomic_bool(false);
 
   pthread_spin_lock(&this->lock);
   fromThreadIDToIndex[threadID] = (this->globalThreadID)++;
-  heartbeats.push_back(new std::atomic_bool(false));
+  heartbeats.push_back(newBool);
   pthread_spin_unlock(&this->lock);
 
-  return ;
+  return newBool;
 }
 
 HeartBeatsManager::~HeartBeatsManager() {
+  return ;
+
   for (auto &p : fromThreadIDToIndex){
     std::cout << p.first << " " << p.second << " " << *heartbeats[p.second] << std::endl;
   }
