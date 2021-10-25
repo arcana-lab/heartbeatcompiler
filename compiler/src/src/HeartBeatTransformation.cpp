@@ -197,6 +197,45 @@ bool HeartBeatTransformation::apply (
   assert(clonePHI != nullptr);
   clonePHI->setIncomingValueForBlock(hbTask->getEntry(), firstIterationValue);
 
+  /*
+   * Adjust the exit condition value of the loop-governing IV to use the second parameter of the task.
+   *
+   * Step 1: find the Use of the exit value used in the compare instruction of the loop-governing IV.
+   */
+  auto LGIV_cmpInst = GIV_attr->getHeaderCmpInst();
+  auto LGIV_lastValue = GIV_attr->getExitConditionValue();
+  auto LGIV_currentValue = GIV_attr->getValueToCompareAgainstExitConditionValue();
+  int32_t operandNumber = -1;
+  for (auto &use: LGIV_currentValue->uses()){
+    auto user = use.getUser();
+    auto userInst = dyn_cast<Instruction>(user);
+    if (userInst == nullptr){
+      continue ;
+    }
+    if (userInst == LGIV_cmpInst){
+
+      /*
+       * We found the Use we are interested.
+       */
+      switch (use.getOperandNo()){
+        case 0:
+          operandNumber = 1;
+          break ;
+        case 1:
+          operandNumber = 0;
+          break ;
+        default:
+          abort();
+      }
+      break ;
+    }
+  }
+  assert(operandNumber != -1);
+  auto cloneCmpInst = cast<CmpInst>(this->fetchClone(LGIV_cmpInst));
+  auto cloneLastValue = this->fetchClone(LGIV_lastValue);
+  auto cloneCurrentValue = cast<Instruction>(this->fetchClone(LGIV_currentValue));
+  cloneCmpInst->setOperand(operandNumber, lastIterationValue);
+
   return true;
 }
 
