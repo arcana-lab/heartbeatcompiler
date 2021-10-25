@@ -34,25 +34,26 @@ extern "C" {
     }
 
     /*
-     * Step 3: split the remaining work
+     * Step 3: avoid re-splitting the same work
      */
-    //TODO
-
-    printf("Loop_handler: Start\n");
-    printf("Loop_handler:   startIteration = %lld\n", startIteration);
-    if (  0
-          || ((startIteration % 2) == 0)
-          || (startIteration == currentIter)
-       ){
-      printf("Loop_handler: Exit\n");
+    if (startIteration == currentIter){
       return 0;
     }
     currentIter = startIteration;
-    printf("Loop_handler:   Promotion\n");
-    printf("Loop_handler:   maxIteration = %lld\n", maxIteration);
-    
 
-    (*f)(startIteration, maxIteration, env);
+    /*
+     * Step 4: split the remaining work
+     */
+    auto med = (maxIteration + startIteration)/2;
+
+    printf("Loop_handler: Start\n");
+    printf("Loop_handler:   Promotion\n");
+    printf("Loop_handler:   startIteration = %lld\n", startIteration);
+    printf("Loop_handler:   maxIteration = %lld\n", maxIteration);
+    printf("Loop_handler:     Mid = %lld\n", med);
+    
+    (*f)(startIteration, med, env);
+    (*f)(med, maxIteration, env);
 
     printf("Loop_handler: Exit\n");
     return 1;
