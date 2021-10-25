@@ -50,7 +50,7 @@ extern "C" {
     printf("Loop_handler:   Promotion\n");
     printf("Loop_handler:   startIteration = %lld\n", startIteration);
     printf("Loop_handler:   maxIteration = %lld\n", maxIteration);
-    printf("Loop_handler:     Mid = %lld\n", med);
+    printf("Loop_handler:     Med = %lld\n", med);
     
     (*f)(startIteration, med, env);
     (*f)(med, maxIteration, env);

@@ -58,7 +58,7 @@ int main (int argc, char *argv[]){
   return 0;
 }
 
-static int tryPromoteInnermost (int v[], int low, int high, int *t, int outermostIndex, int totalOutermostIterations, int mSize, int **m, int *die, Task *k);
+static int tryPromoteInnermost (int v[], int low, int high, int *t, int outermostIndex, int totalOutermostIterations, int mSize, int **m, Task *k);
 
 static Task * tryPromoteOutermost (
   int **m, int low, int high, int mSize, int *t, int **newT, int *newHigh
@@ -71,17 +71,49 @@ static int tryPromoteOutermostAndInnerLeftover (
   );
 
 static void mySum_helper (int v[], int low, int high, int *t, int outermostIndex, int totalOutermostIterations, int mSize, int **m){
-  int die = 0;
+  std::vector<int *> newTs;
+  std::vector<Task *> children;
   for (int i=low; i < high; i++){
-    /*if (heartbeat()){
-      std::cout << "promote! 2" << std::endl;
-      auto promoted = tryPromoteInnermost(v, i, high, t, outermostIndex, totalOutermostIterations, mSize, m, &die, k);
+    if (heartbeat()){
+      std::cout << "Innermost:  heartbeat (iteration " << i << ")\n" << std::endl;
+      int *newT ;
+      auto promoted = tryPromoteInnermost(v, i, high, t, outermostIndex, totalOutermostIterations, mSize, m);
       if (promoted) {
-        return 1;
+        std::cout << "Innermost:    promoted\n";
+        newTs.push_back(newT);
+        children.push_back(promoted);
+      } else {
+        std::cout << "Innermost:    not promoted\n";
       }
-    }*/
+    }
 
     (*t) += v[i];
+  }
+  std::cout << "Innermost: completed " << low << " -> " << high << " : " << *t << std::endl;
+
+  /*
+   * Wait and reduce loop for all children
+   */
+  uint32_t i=0;
+  for (auto child : children){
+
+    /*
+     * Wait for the child task
+     */
+    wait(child);
+
+    /*
+     * Reduce child's output
+     */
+    auto childOutput = newTs[i];
+    (*t) += (*childOutput);
+
+    /*
+     * Free the memory
+     */
+    delete childOutput ;
+
+    i++;
   }
 
   return ;
@@ -264,7 +296,7 @@ static Task * tryPromoteOutermost (
   return task2;
 }
 
-static int tryPromoteInnermost (int v[], int low, int high, int *t, int outermostIndex, int totalOutermostIterations, int mSize, int **m, int *die, Task *k){
+static int tryPromoteInnermost (int v[], int low, int high, int *t, int outermostIndex, int totalOutermostIterations, int mSize, int **m, Task *k){
 
   /*
    * Am I running the last iteration of my slice of the parent loop?
@@ -276,8 +308,8 @@ static int tryPromoteInnermost (int v[], int low, int high, int *t, int outermos
      *
      * Promote the remaining outermost iterations of our outer-loop slice as well as the remaining inner iterations to complete the current outer loop iteration.
      */
-    (*die) = tryPromoteOutermostAndInnerLeftover(m, outermostIndex + 1, totalOutermostIterations, mSize, t, low, high, k);
-    return *die;
+    tryPromoteOutermostAndInnerLeftover(m, outermostIndex + 1, totalOutermostIterations, mSize, t, low, high, k);
+    return 0;
   }
 
   /*
