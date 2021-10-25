@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include "Heartbeats.hpp"
 
+extern "C" {
 int loop_handler (
     long long int startIteration, 
     long long int maxIteration, 
@@ -25,6 +27,7 @@ int loop_handler (
 
   printf("Loop_handler: Exit\n");
   return 1;
+}
 }
 
 int main() {
