@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include "Heartbeats.hpp"
 #include "loop_handler.cpp"
 
 int main() {

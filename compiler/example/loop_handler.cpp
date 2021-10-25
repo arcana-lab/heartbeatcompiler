@@ -1,4 +1,5 @@
 #include <atomic>
+#include "Heartbeats.hpp"
 
 extern "C" {
   int loop_handler (
