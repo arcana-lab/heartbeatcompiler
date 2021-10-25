@@ -11,12 +11,12 @@
 #pragma once
 
 #include "SystemHeaders.hpp"
-#include "LoopDependenceInfo.hpp"
 #include "PDG.hpp"
 #include "SCC.hpp"
 #include "SCCDAG.hpp"
 #include "PDGAnalysis.hpp"
 #include "IVStepperUtility.hpp"
+#include "noelle/core/LoopDependenceInfo.hpp"
 #include "noelle/core/Noelle.hpp"
 #include "noelle/tools/HeuristicsPass.hpp"
 #include "noelle/tools/ParallelizationTechnique.hpp"
