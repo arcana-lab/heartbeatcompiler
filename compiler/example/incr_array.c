@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int heartbeat ;
 int loop_handler (
     long long int startIteration, 
     long long int maxIteration, 
