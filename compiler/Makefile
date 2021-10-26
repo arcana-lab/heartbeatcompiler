@@ -1,4 +1,6 @@
-all:
+all: compiler
+
+compiler: runtime
 	cd src ; ./run_me.sh ;
 
 runtime:
@@ -8,7 +10,7 @@ clean:
 	cd src ; rm -rf build .clangd ; rm -f *.json ;
 	cd example ; make clean ;
 
-uninstall:
+uninstall: clean
 	rm -rf runtime ;
 
-.PHONY: clean uninstall
+.PHONY: clean uninstall compiler
