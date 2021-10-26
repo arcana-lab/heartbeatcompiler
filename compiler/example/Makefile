@@ -1,5 +1,6 @@
+TASKPARTS?=../../../taskparts/include/
 LIBS=-lpthread -lm -lstdc++
-CXXFLAGS=-fno-stack-protector -DTASKPARTS_POSIX -DTASKPARTS_X64 -fno-asynchronous-unwind-tables -fomit-frame-pointer
+CXXFLAGS=-fno-stack-protector -DTASKPARTS_POSIX -DTASKPARTS_X64 -fno-asynchronous-unwind-tables -fomit-frame-pointer -I $(TASKPARTS)
 
 all: original_program program_with_heartbeat
 
