@@ -1,19 +1,20 @@
 LIBS=-lpthread -lm -lstdc++
+CXXFLAGS=-fno-stack-protector -DTASKPARTS_POSIX -DTASKPARTS_X64 -fno-asynchronous-unwind-tables -fomit-frame-pointer
 
 all: original_program program_with_heartbeat
 
 original_program: incr_array.cpp Heartbeats.cpp
-	clang++ $(LIBS) $^ -O3 -o $@
+	clang++ $(CXXFLAGS) $(LIBS) $^ -O3 -o $@
 
 program_with_heartbeat: program_with_heartbeat.bc Heartbeats.o
-	clang $(LIBS) $^ -O3 -o $@
+	clang $(CXXFLAGS) $(LIBS) $^ -O3 -o $@
 
 %.bc: %.c
-	clang -O1 -Xclang -disable-llvm-passes -emit-llvm -c $^ -o $@
+	clang $(CXXFLAGS) -O1 -Xclang -disable-llvm-passes -emit-llvm -c $^ -o $@
 	llvm-dis $@ 
 
 %.bc: %.cpp
-	clang++ -O1 -Xclang -disable-llvm-passes -emit-llvm -c $^ -o $@
+	clang++ $(CXXFLAGS) -O1 -Xclang -disable-llvm-passes -emit-llvm -c $^ -o $@
 	llvm-dis $@ 
 
 %.o: %.cpp
