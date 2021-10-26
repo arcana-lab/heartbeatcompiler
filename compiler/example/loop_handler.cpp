@@ -2,6 +2,7 @@
 #include "Heartbeats.hpp"
 
 extern "C" {
+
   int loop_handler (
       long long int startIteration, 
       long long int maxIteration, 
@@ -57,5 +58,16 @@ extern "C" {
     printf("Loop_handler: Exit\n");
     return 1;
   }
-}
 
+  void loop_dispatcher (
+    long long int startIteration, 
+      long long int maxIteration, 
+      void *env, 
+      void (*f)(int64_t, int64_t, void *)
+
+      ){
+    (*f)(startIteration, maxIteration, env);
+    return ;
+  }
+
+}

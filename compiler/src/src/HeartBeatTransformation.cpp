@@ -270,13 +270,19 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
   auto envPtr = envBuilder->getEnvArrayInt8Ptr();
 
   /*
-   * Call the function that incudes the parallelized loop.
+   * Call the dispatcher function that will invoke the parallelized loop.
    */
   IRBuilder<> doallBuilder(this->entryPointOfParallelizedLoop);
-  doallBuilder.CreateCall(this->tasks[0]->getTaskBody(), ArrayRef<Value *>({
+  auto program = this->n.getProgram();
+  auto loopDispatcherFunction = program->getFunction("loop_dispatcher");
+  assert(loopDispatcherFunction != nullptr);
+  auto taskBody = this->tasks[0]->getTaskBody();
+  assert(taskBody != nullptr);
+  doallBuilder.CreateCall(loopDispatcherFunction, ArrayRef<Value *>({
     firstIterationGoverningIVValue,
     lastIterationGoverningIVValue,
-    envPtr
+    envPtr,
+    taskBody
   }));
 
   /*
