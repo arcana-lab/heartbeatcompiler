@@ -1,4 +1,5 @@
 #include <atomic>
+#include <taskparts/benchmark.hpp>
 #include "Heartbeats.hpp"
 
 extern "C" {
@@ -52,8 +53,11 @@ extern "C" {
     printf("Loop_handler:   maxIteration = %lld\n", maxIteration);
     printf("Loop_handler:     Med = %lld\n", med);
 
-    (*f)(startIteration, med, env);
-    (*f)(med, maxIteration, env);
+    taskparts::tpalrts_promote_via_nativefj([&] {
+      (*f)(startIteration, med, env);
+    }, [&] {
+      (*f)(med, maxIteration, env);
+    }, [] { }, taskparts::bench_scheduler());
 
     printf("Loop_handler: Exit\n");
     return 1;
@@ -66,7 +70,9 @@ extern "C" {
       void (*f)(int64_t, int64_t, void *)
 
       ){
-    (*f)(startIteration, maxIteration, env);
+    taskparts::benchmark_nativeforkjoin([&] (auto sched) {
+      (*f)(startIteration, maxIteration, env);
+    });
     return ;
   }
 
