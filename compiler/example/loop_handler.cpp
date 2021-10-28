@@ -10,7 +10,8 @@ extern "C" {
       void *env, 
       void (*f)(int64_t, int64_t, void *)
       ) {
-    static std::atomic_bool * me = hbm.addThread();
+    static std::atomic_bool * me = taskparts::hardware_alarm_signal_workers::my_heartbeat_flag();
+    //hbm.addThread();
     static long long int currentIter = 0;
 
     /*
