@@ -1,6 +1,6 @@
 TASKPARTS?=../../../taskparts/include/
 LIBS=-lpthread -lm -lstdc++
-CXXFLAGS=--std=c++17 -fno-stack-protector -DTASKPARTS_POSIX -DTASKPARTS_X64 -DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING -fno-asynchronous-unwind-tables -fomit-frame-pointer -DTASKPARTS_TPALRTS -I $(TASKPARTS)
+CXXFLAGS=--std=c++17 -fno-stack-protector -DTASKPARTS_POSIX -DTASKPARTS_X64 -DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING -DTASKPARTS_STATS -DTASKPARTS_TPALRTS -fno-asynchronous-unwind-tables -fomit-frame-pointer -I $(TASKPARTS)
 
 all: original_program program_with_heartbeat
 
