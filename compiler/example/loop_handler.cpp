@@ -48,11 +48,13 @@ extern "C" {
      */
     auto med = (maxIteration + startIteration)/2;
 
+    /*
     printf("Loop_handler: Start\n");
     printf("Loop_handler:   Promotion\n");
     printf("Loop_handler:   startIteration = %lld\n", startIteration);
     printf("Loop_handler:   maxIteration = %lld\n", maxIteration);
     printf("Loop_handler:     Med = %lld\n", med);
+    */
 
     taskparts::tpalrts_promote_via_nativefj([&] {
       (*f)(startIteration, med, env);
@@ -60,7 +62,7 @@ extern "C" {
       (*f)(med, maxIteration, env);
     }, [] { }, taskparts::bench_scheduler());
 
-    printf("Loop_handler: Exit\n");
+    //printf("Loop_handler: Exit\n");
     return 1;
   }
 
