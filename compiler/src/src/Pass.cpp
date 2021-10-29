@@ -27,15 +27,16 @@ bool HeartBeat::runOnModule (Module &M) {
   auto loops = noelle.getLoopStructures();
 
   /*
-   * For now, let's just consider programs with a single loop
+   * Select the loops to parallelize
    */
-  auto loop = (*loops)[0];
-  auto ldi = noelle.getLoop(loop);
+  auto selectedLoops = this->selectLoopsToTransform(noelle, *loops);
 
   /*
    * Parallelize the selected loop.
    */
-  modified |= this->parallelizeLoop(noelle, ldi);
+  for (auto loop : selectedLoops){
+    modified |= this->parallelizeLoop(noelle, loop);
+  }
 
   return modified;
 }

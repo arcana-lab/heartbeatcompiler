@@ -46,4 +46,9 @@ class HeartBeat : public ModulePass {
       ParallelizationTechnique **usedTechnique
       );
 
+    std::set<LoopDependenceInfo *> selectLoopsToTransform (
+      Noelle &noelle,
+      const std::vector<LoopStructure *> &allLoops
+      );
+
 };
