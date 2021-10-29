@@ -4,7 +4,10 @@ using namespace llvm;
 using namespace llvm::noelle;
 
 HeartBeat::HeartBeat () 
-  : ModulePass(ID) {
+  : ModulePass(ID) 
+  , outputPrefix("HeartBeat: ")
+  , functionSubString("HEARTBEAT_")
+{
   return ;
 }
 
@@ -14,7 +17,7 @@ bool HeartBeat::doInitialization (Module &M) {
 
 bool HeartBeat::runOnModule (Module &M) {
   auto modified = false;
-  errs() << "Heartbeat pass\n";
+  errs() << this->outputPrefix << "Start\n";
 
   /*
    * Fetch NOELLE.
@@ -25,11 +28,13 @@ bool HeartBeat::runOnModule (Module &M) {
    * Fetch all program loops
    */
   auto loops = noelle.getLoopStructures();
+  errs() << this->outputPrefix << "  There are " << loops->size() << " loops in the program\n";
 
   /*
    * Select the loops to parallelize
    */
   auto selectedLoops = this->selectLoopsToTransform(noelle, *loops);
+  errs() << this->outputPrefix << "    " << selectedLoops.size() << " loops will be parallelized\n";
 
   /*
    * Parallelize the selected loop.
@@ -37,7 +42,11 @@ bool HeartBeat::runOnModule (Module &M) {
   for (auto loop : selectedLoops){
     modified |= this->parallelizeLoop(noelle, loop);
   }
+  if (modified){
+    errs() << this->outputPrefix << "  The code has been modified\n";
+  }
 
+  errs() << this->outputPrefix << "Exit\n";
   return modified;
 }
 

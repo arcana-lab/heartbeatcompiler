@@ -13,13 +13,45 @@ std::set<LoopDependenceInfo *> HeartBeat::selectLoopsToTransform (
   /*
    * Organize all program loops into their nesting hierarchy
    */
-
+  auto forest = noelle.organizeLoopsInTheirNestingForest(allLoops);
 
   /*
-   * For now, let's just consider programs with a single loop
+   * Remove loops that are not inside the pre-defined functions.
    */
-  auto loop = allLoops[0];
-  auto ldi = noelle.getLoop(loop);
+  auto filter = [this](StayConnectedNestedLoopForestNode *node, uint32_t depth) -> bool {
+    auto loop = node->getLoop();
+    auto loopFunction = loop->getFunction();
+    auto loopFunctionName = loopFunction->getName();
+    if (!loopFunctionName.contains(this->functionSubString)){
+      delete node ;
+    }
+      
+    return false;
+  };
+  for (auto tree : forest->getTrees()){
+    tree->visitPreOrder(filter);
+  }
+
+  /*
+   * Consider all outermost loops left in the forest.
+   */
+  for (auto tree : forest->getTrees()){
+
+    /*
+     * Fetch the loop
+     */
+    auto loop = tree->getLoop();
+
+    /*
+     * Compute the LoopDependenceInfo
+     */
+    auto ldi = noelle.getLoop(loop);
+
+    /*
+     * Add the loop to the list
+     */
+    selectedLoops.insert(ldi);
+  }
 
   return selectedLoops;
 }

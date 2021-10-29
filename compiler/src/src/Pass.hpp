@@ -35,6 +35,9 @@ class HeartBeat : public ModulePass {
     void getAnalysisUsage(AnalysisUsage &AU) const override ;
 
   private:
+    StringRef outputPrefix;
+    StringRef functionSubString;
+
     bool parallelizeLoop (
       Noelle &noelle,
       LoopDependenceInfo *ldi
