@@ -4,23 +4,46 @@
 #include <iostream>
 #include "loop_handler.cpp"
 
-void HEARTBEAT_loop0 (uint64_t sz, int32_t *a, uint32_t innerIterations){
-  for (uint64_t i = 0; i < sz; i++) {
-    for (auto j = 0; j < innerIterations; j++){
-      a[i] = (int32_t)sin((double)a[i]);
-    }
+/*
+for (uint64_t i = 0; i < rows; i++) {
+  for (uint64_t j = 0; j < cols; j++){
+    a[i][j]++;
+  }
+ }
+*/
+
+// need new signature for the general purpose handler and its semantics
+// e.g., what's the meaning of the return value
+/* handler for non nested case:
+
+int loop_handler (
+       long long int startIteration,
+       long long int maxIteration,
+       void *env,
+       void (*f)(int64_t, int64_t, void *)
+       ) {
+  ... return 0 if no promotion, 1 if yes
+}
+
+For nested, we need a handler that takes something like a vector of
+all arguments, corresponding to the nesting structure of the place
+where the handler is called.
+
+Potential convention: if handler returns 1, then...
+Convention: introduce param for each handler function indicating its nesting depth. Level 1 represents outermost, 2 one level deeper, etc.
+*/
+
+void HEARTBEAT_loop_inner (int
+  for (uint64_t j = 0; j < cols; j++){
+    a[i][j]++;
   }
 }
 
-void HEARTBEAT_loop1 (uint64_t sz, int32_t *a, uint32_t innerIterations){
-  for (uint64_t i = 0; i < sz; i++) {
-    for (auto j = 0; j < innerIterations; j++){
-      a[i]++;
-    }
+void HEARTBEAT_loop_outer (int32_t[][] a, uint64_t rows, uint64_t cols){
+  for (uint64_t i = 0; i < rows; i++) {
+    HEARTBEAT_loop_inner(a, i, cols);
   }
 }
-
-
 
 int main (int argc, char *argv[]) {
   if (argc < 3){

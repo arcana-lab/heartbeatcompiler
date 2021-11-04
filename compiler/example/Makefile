@@ -7,6 +7,12 @@ OPTS=-O3
 
 all: original_program program_with_heartbeat
 
+# Experiment
+# Plot 1:
+#  just $ make
+# Plot 2:
+#  uncomment the second OPTS above and make clean and make
+
 original_program: incr_array.cpp Heartbeats.cpp
 	clang++ $(CXXFLAGS) $(LIBS) $^ $(OPTS) -o $@
 
