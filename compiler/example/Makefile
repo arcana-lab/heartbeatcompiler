@@ -1,15 +1,17 @@
 TASKPARTS?=../../../taskparts/include/
 LIBS=-lpthread -lm -lstdc++
 CXXFLAGS=--std=c++17 -fno-stack-protector -DTASKPARTS_POSIX -DTASKPARTS_X64 -DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING -DTASKPARTS_STATS -DTASKPARTS_LOG -DTASKPARTS_TPALRTS -fno-asynchronous-unwind-tables -fomit-frame-pointer -I $(TASKPARTS)
-INPUT=100000 100000
+INPUT=100 100000 1 1 1
+OPTS=-O3 
+#OPTS=-O3 -fno-vectorize -fno-slp-vectorize
 
 all: original_program program_with_heartbeat
 
 original_program: incr_array.cpp Heartbeats.cpp
-	clang++ $(CXXFLAGS) $(LIBS) $^ -O3 -o $@
+	clang++ $(CXXFLAGS) $(LIBS) $^ $(OPTS) -o $@
 
 program_with_heartbeat: program_with_heartbeat.bc Heartbeats.o
-	clang $(CXXFLAGS) $(LIBS) $^ -O3 -o $@
+	clang $(CXXFLAGS) $(LIBS) $^ $(OPTS) -o $@
 
 %.bc: %.c
 	clang $(CXXFLAGS) -O1 -Xclang -disable-llvm-passes -emit-llvm -c $^ -o $@
