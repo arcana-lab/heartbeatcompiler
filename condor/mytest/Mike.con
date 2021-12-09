@@ -1,0 +1,48 @@
+# Set the universe
+Universe = vanilla
+
+# Describe the target machine
+#Requirements = (Machine != "fix.cs.northwestern.edu") && (Machine != "allagash.cs.northwestern.edu") && (Machine != "piraat.cs.northwestern.edu") 
+Requirements = (Machine == "fix.cs.northwestern.edu") 
+
+Rank = TARGET.Mips
+Copy_To_Spool = False
+
+# Notification
+Notification = error
+
+# Notification email
+Notify_User = simonec@eecs.northwestern.edu
+
+# Set the environment
+Getenv = True
+#Environment = VAR="value";VAR2="value2"
+
+# Set the repository
+RepoPath = /home/simonec/mytest
+
+# Set the directories for the execution
+InitialDir = $(RepoPath)
+Executable = $(RepoPath)/myExe
+
+# Define the output directories
+LogDir = $(RepoPath)/condor/log
+OutputFileName = out.txt
+ErrorFileName = err.txt
+LogFileName = log.txt
+Output = $(LogDir)/$(OutputFileName)
+Error = $(LogDir)/$(ErrorFileName)
+Log = $(LogDir)/$(LogFileName)
+
+# Each job requires access to the whole machine
++IsWholeMachineJob      = true
++IsSuspensionJob        = false
+
+# Set the priority
+priority = 0
+
+# Arguments of run.sh
+Arguments = "$(InitialDir) 0"
+
+# List the tests
+Queue
