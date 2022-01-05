@@ -12,14 +12,14 @@ Copy_To_Spool = False
 Notification = error
 
 # Notification email
-Notify_User = simonec@eecs.northwestern.edu
+Notify_User = l3mm4@protonmail.com
 
 # Set the environment
 Getenv = True
 #Environment = VAR="value";VAR2="value2"
 
 # Set the repository
-RepoPath = /home/simonec/mytest
+RepoPath = /home/rainey/heartbeatcompiler/condor/mytest
 
 # Set the directories for the execution
 InitialDir = $(RepoPath)
