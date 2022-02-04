@@ -8,6 +8,12 @@ To check the status of your job:
 condor_q
 ```
 
+To check on details of your job:
+```
+condor_q -analyze JOB_ID
+```
+where JOB_ID is printed when you submit a job
+
 To kill all of your jobs:
 ```
 condor_rm `whoami`
