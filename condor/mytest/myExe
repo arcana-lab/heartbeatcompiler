@@ -1,8 +1,10 @@
 #!/bin/bash
 
-echo "I'm running YAY"
-echo "Arguments: $@" 
+# echo "I'm running YAY"
+# echo "Arguments: $@" 
 
-echo "My current directory is `pwd`" ;
-cd $1 
-echo "My current directory is `pwd`" ;
+# echo "My current directory is `pwd`" ;
+# cd $1 
+# echo "My current directory is `pwd`" ;
+
+../../compiler/example/benchmark.sh

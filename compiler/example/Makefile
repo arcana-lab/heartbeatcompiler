@@ -14,7 +14,7 @@ all: original_program program_with_heartbeat
 #  uncomment the second OPTS above and make clean and make
 
 original_program: incr_array.cpp Heartbeats.cpp
-	clang++ $(CXXFLAGS) $(LIBS) $^ $(OPTS) -o $@
+	clang++ $(CXXFLAGS) -DORIGINAL_PROGRAM $(LIBS) $^ $(OPTS) -o $@
 
 program_with_heartbeat: program_with_heartbeat.bc Heartbeats.o
 	clang $(CXXFLAGS) $(LIBS) $^ $(OPTS) -o $@
