@@ -36,7 +36,6 @@ class HeartBeatTransformation : public DOALL {
 
     bool apply (
         LoopDependenceInfo *LDI,
-        Noelle &par,
         Heuristics *h
         ) override ;
 

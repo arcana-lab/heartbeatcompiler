@@ -19,7 +19,9 @@ include(AddLLVM)
 
 message(STATUS "LLVM_DIR IS ${LLVM_CMAKE_DIR}.")
 
-include_directories(${LLVM_INCLUDE_DIRS} /nfs-scratch/simonec/parallelism/parallelization/NOELLE_4/install/include /nfs-scratch/simonec/parallelism/parallelization/NOELLE_4/install/include/svf)
+include_directories(${LLVM_INCLUDE_DIRS} 
+  /nfs-scratch/simonec/parallelism/parallelization/NOELLEs/3/install/include
+  )
 
 # Declare the LLVM pass to compile
 add_llvm_library(${CATPassName} MODULE ${CATPassSrc})

@@ -27,14 +27,13 @@ HeartBeatTransformation::HeartBeatTransformation (
 
 bool HeartBeatTransformation::apply (
   LoopDependenceInfo *loop,
-  Noelle &noelle,
   Heuristics *h
   ){
 
   /*
    * Fetch the program
    */
-  auto program = noelle.getProgram();
+  auto program = this->n.getProgram();
 
   /*
    * Fetch the function that contains the loop.
@@ -52,7 +51,7 @@ bool HeartBeatTransformation::apply (
   /*
    * Generate an empty task for the heartbeat execution.
    */
-  auto hbTask = new HeartBeatTask(this->taskSignature, this->module);
+  auto hbTask = new HeartBeatTask(this->taskSignature, *program);
   this->addPredecessorAndSuccessorsBasicBlocksToTasks(loop, { hbTask });
 
   /*
@@ -202,7 +201,7 @@ bool HeartBeatTransformation::apply (
    *
    * Step 1: find the Use of the exit value used in the compare instruction of the loop-governing IV.
    */
-  auto LGIV_cmpInst = GIV_attr->getHeaderCmpInst();
+  auto LGIV_cmpInst = GIV_attr->getHeaderCompareInstructionToComputeExitCondition();
   auto LGIV_lastValue = GIV_attr->getExitConditionValue();
   auto LGIV_currentValue = GIV_attr->getValueToCompareAgainstExitConditionValue();
   int32_t operandNumber = -1;

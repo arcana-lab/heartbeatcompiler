@@ -13,7 +13,7 @@ bool HeartBeat::parallelizeLoop (
    * Clone the original loop and make the clone to be in the heartbeat form.
    */
   HeartBeatTransformation HB(noelle);
-  auto codeModified = HB.apply(loop, noelle, nullptr);
+  auto codeModified = HB.apply(loop, nullptr);
   if (!codeModified){
     return false;
   }
@@ -37,7 +37,8 @@ bool HeartBeat::parallelizeLoop (
    * Step 3: Link the parallelized loop within the original function that includes the sequential loop.
    */
   auto tm = noelle.getTypesManager();
-  auto exitIndex = ConstantInt::get(tm->getIntegerType(64), loop->environment->indexOfExitBlockTaken());
+  auto loopEnv = loop->getEnvironment();
+  auto exitIndex = ConstantInt::get(tm->getIntegerType(64), loopEnv->indexOfExitBlockTaken());
   auto loopStructure = loop->getLoopStructure();
   auto loopPreHeader = loopStructure->getPreHeader();
   auto loopFunction = loopStructure->getFunction();
