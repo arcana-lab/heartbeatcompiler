@@ -7,20 +7,27 @@
 #endif
 #include "loop_handler.cpp"
 
-void HEARTBEAT_loop0 (uint64_t sz, int32_t *a, uint32_t innerIterations){
-  for (uint64_t i = 0; i < sz; i++) {
-    for (auto j = 0; j < innerIterations; j++){
-      a[i] = (int32_t)sin((double)a[i]);
-    }
-  }
-}
+typedef struct {
+  int32_t f0;
+  int32_t f1;
+} my_t;
 
 void HEARTBEAT_loop1 (uint64_t sz, int32_t *a, uint32_t innerIterations){
   for (uint64_t i = 0; i < sz; i++) {
+    my_t t;
+    t.f0 = a[i];
+    t.f1 = 0;
     for (auto j = 0; j < innerIterations; j++){
-      a[i]++;
+      if (j % 20){
+        t.f0++;
+      } {
+        t.f1 += 2;
+      }
     }
+    a[i]  = t.f1;
   }
+
+  return ;
 }
 
 int main (int argc, char *argv[]) {
@@ -42,6 +49,10 @@ int main (int argc, char *argv[]) {
 
 
   HEARTBEAT_loop1(sz, a, inner);
+
+  for (auto i=0; i < sz; i++){
+    std::cout << a[i] << std::endl;
+  }
   
 #ifdef ORIGINAL_PROGRAM
   const sec duration = clock::now() - before;

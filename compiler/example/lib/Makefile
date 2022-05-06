@@ -1,4 +1,4 @@
-TASKPARTS?=../../../taskparts/include/
+TASKPARTS?=../../../../taskparts/include/
 LIBS=-lpthread -lm -lstdc++
 CXXFLAGS=--std=c++17 -fno-stack-protector -DTASKPARTS_POSIX -DTASKPARTS_X64 -DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING -DTASKPARTS_STATS -DTASKPARTS_LOG -DTASKPARTS_TPALRTS -fno-asynchronous-unwind-tables -fomit-frame-pointer -I $(TASKPARTS)
 INPUT=100 100000 1 1 1
@@ -33,7 +33,7 @@ program_with_heartbeat: program_with_heartbeat.bc Heartbeats.o
 program_with_heartbeat.bc: incr_array.bc
 	noelle-norm $< -o program_normalized.bc
 	llvm-dis program_normalized.bc
-	noelle-parallel-load -load ~/CAT/lib/HeartBeat.so -heartbeat program_normalized.bc -o $@
+	noelle-parallel-load -noelle-verbose=2 -load ~/CAT/lib/HeartBeat.so -heartbeat program_normalized.bc -o $@
 	llvm-dis program_with_heartbeat.bc
 
 run: program_with_heartbeat
