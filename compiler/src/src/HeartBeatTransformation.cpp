@@ -42,6 +42,17 @@ bool HeartBeatTransformation::apply (
   auto loopFunction = ls->getFunction();
 
   /*
+   * Fetch the maximum number of cores we can use for this loop.
+   */
+  auto ltm = loop->getLoopTransformationsManager();
+  auto maxCores = ltm->getMaximumNumberOfCores();
+
+  /*
+   * Set the number of cores we target.
+   */
+  this->numTaskInstances = maxCores;
+
+  /*
    * For now, let's assume all iterations are independent
    *
    * Fetch the environment of the loop.
@@ -64,6 +75,11 @@ bool HeartBeatTransformation::apply (
   this->initializeEnvironmentBuilder(loop, nonReducableVars, reducableVars);
 
   /*
+   * Clone loop into the single task used by DOALL
+   */
+  this->cloneSequentialLoop(loop, 0);
+
+  /*
    * Load all loop live-in values at the entry point of the task.
    */
   auto envUser = this->envBuilder->getUser(0);
@@ -76,16 +92,23 @@ bool HeartBeatTransformation::apply (
   this->generateCodeToLoadLiveInVariables(loop, 0);
 
   /*
-   * Clone loop into the single task used by DOALL
+   * Clone memory objects that are not blocked by RAW data dependences
    */
-  this->cloneSequentialLoop(loop, 0);
- 
+  if (ltm->isOptimizationEnabled(LoopDependenceInfoOptimization::MEMORY_CLONING_ID)) {
+    this->cloneMemoryLocationsLocallyAndRewireLoop(loop, 0);
+  }
+
   /*
    * Fix the data flow within the parallelized loop by redirecting operands of
    * cloned instructions to refer to the other cloned instructions. Currently,
    * they still refer to the original loop's instructions.
    */
   this->adjustDataFlowToUseClones(loop, 0);
+
+  /*
+   * Handle the reduction variables.
+   */
+  //this->setReducableVariablesToBeginAtIdentityValue(loop, 0);
 
   /*
    * Add the jump from the entry of the function after loading all live-ins to the header of the cloned loop.

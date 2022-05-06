@@ -20,7 +20,7 @@ include(AddLLVM)
 message(STATUS "LLVM_DIR IS ${LLVM_CMAKE_DIR}.")
 
 include_directories(${LLVM_INCLUDE_DIRS} 
-  /nfs-scratch/simonec/parallelism/parallelization/NOELLEs/3/install/include
+  /nfs-scratch/simonec/parallelism/parallelization/NOELLEs/1/install/include
   )
 
 # Declare the LLVM pass to compile

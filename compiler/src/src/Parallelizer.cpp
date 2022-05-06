@@ -8,11 +8,18 @@ bool HeartBeat::parallelizeLoop (
   Noelle &noelle,
   LoopDependenceInfo *loop
   ){
+  HeartBeatTransformation HB(noelle);
+
+  /*
+   * Check if the loop is a DOALL
+   */
+  if (!HB.canBeAppliedToLoop(loop, nullptr)){
+    errs() << this->outputPrefix << "WARNING: we cannot guarantee the outermost loop in " << loop->getLoopStructure()->getFunction()->getName() << " is a DOALL loop\n";
+  }
 
   /*
    * Clone the original loop and make the clone to be in the heartbeat form.
    */
-  HeartBeatTransformation HB(noelle);
   auto codeModified = HB.apply(loop, nullptr);
   if (!codeModified){
     return false;

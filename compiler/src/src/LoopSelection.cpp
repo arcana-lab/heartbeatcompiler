@@ -45,7 +45,8 @@ std::set<LoopDependenceInfo *> HeartBeat::selectLoopsToTransform (
     /*
      * Compute the LoopDependenceInfo
      */
-    auto ldi = noelle.getLoop(tree);
+    auto optimizations = { LoopDependenceInfoOptimization::MEMORY_CLONING_ID, LoopDependenceInfoOptimization::THREAD_SAFE_LIBRARY_ID};
+    auto ldi = noelle.getLoop(loop, optimizations);
 
     /*
      * Add the loop to the list
