@@ -39,8 +39,6 @@ int main (int argc, char *argv[]) {
   auto inner = atoi(argv[2]);
   auto a = (int32_t*)calloc(sz, sizeof(int32_t));
 
-  
-  //HEARTBEAT_loop0(sz, a, inner);
 #ifdef ORIGINAL_PROGRAM
   using clock = std::chrono::system_clock;
   using sec = std::chrono::duration<double>;
