@@ -8,11 +8,13 @@ extern "C" {
       long long int startIteration, 
       long long int maxIteration, 
       void *env, 
-      void (*f)(int64_t, int64_t, void *)
+      long long int currentTaskID,
+      void (*f)(int64_t, int64_t, void *, int64_t)
       ) {
     static std::atomic_bool * me = taskparts::hardware_alarm_polling_interrupt::my_heartbeat_flag();
     //hbm.addThread();
     static long long int currentIter = 0;
+    static int64_t taskID = 0;
 
     /*
      * Check if an heartbeat happened.
@@ -56,10 +58,14 @@ extern "C" {
     printf("Loop_handler:     Med = %lld\n", med);
     */
 
+    /*
+     * Spawn a new task.
+     */
+    taskID++;
     taskparts::tpalrts_promote_via_nativefj([&] {
-      (*f)(startIteration, med, env);
+      (*f)(startIteration, med, env, currentTaskID);
     }, [&] {
-      (*f)(med, maxIteration, env);
+      (*f)(med, maxIteration, env, taskID);
     }, [] { }, taskparts::bench_scheduler());
 
     //printf("Loop_handler: Exit\n");
@@ -70,11 +76,11 @@ extern "C" {
     long long int startIteration, 
       long long int maxIteration, 
       void *env, 
-      void (*f)(int64_t, int64_t, void *)
+      void (*f)(int64_t, int64_t, void *, int64_t)
 
       ){
     taskparts::benchmark_nativeforkjoin([&] (auto sched) {
-      (*f)(startIteration, maxIteration, env);
+      (*f)(startIteration, maxIteration, env, 0);
     });
     return ;
   }

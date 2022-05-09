@@ -18,7 +18,8 @@ HeartBeatTransformation::HeartBeatTransformation (
   auto funcArgTypes = ArrayRef<Type *>({
     tm->getIntegerType(64),
     tm->getIntegerType(64),
-    tm->getVoidPointerType()
+    tm->getVoidPointerType(),
+    tm->getIntegerType(64)
   });
   this->taskSignature = FunctionType::get(tm->getVoidType(), funcArgTypes, false);
 
@@ -108,7 +109,7 @@ bool HeartBeatTransformation::apply (
   /*
    * Handle the reduction variables.
    */
-  //this->setReducableVariablesToBeginAtIdentityValue(loop, 0);
+  this->setReducableVariablesToBeginAtIdentityValue(loop, 0);
 
   /*
    * Add the jump from the entry of the function after loading all live-ins to the header of the cloned loop.
@@ -170,10 +171,12 @@ bool HeartBeatTransformation::apply (
   auto firstIterationValue = &*(argIter++);
   auto lastIterationValue = &*(argIter++);
   auto taskEnvPtr = &*(argIter++);
+  auto taskID = &*(argIter++);
   auto callToHandler = cast<CallInst>(bbBuilder.CreateCall(loopHandlerFunction, ArrayRef<Value *>({
     cloneCurrentIVValue,
     lastIterationValue,
     taskEnvPtr,
+    taskID,
     hbTask->getTaskBody()
         })));
 
@@ -308,9 +311,19 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
   }));
 
   /*
+   * Propagate the last value of live-out variables to the code outside the parallelized loop.
+   * This core performs the reduction for reduction variables.
+   */
+  auto com = this->n.getCompilationOptionsManager();
+  auto tm = this->n.getTypesManager();
+  auto numOfCores = ConstantInt::get(tm->getIntegerType(32), com->getMaximumNumberOfCores());
+  auto latestBBAfterDOALLCall = this->performReductionToAllReducableLiveOutVariables(LDI, numOfCores);
+  IRBuilder<> afterDOALLBuilder{latestBBAfterDOALLCall};
+
+  /*
    * Jump to the unique successor of the loop.
    */
-  doallBuilder.CreateBr(this->exitPointOfParallelizedLoop);
+  afterDOALLBuilder.CreateBr(this->exitPointOfParallelizedLoop);
 
   return ;
 }
