@@ -55,8 +55,5 @@ int main (int argc, char *argv[]) {
   printf("[{\"exectime\":  %f}]\n", duration.count());
 #endif
   
-
-  //printf("%lld %d %d %d\n", sz, a[0], a[sz/2], a[sz-1]);
-
   return 0;
 }
