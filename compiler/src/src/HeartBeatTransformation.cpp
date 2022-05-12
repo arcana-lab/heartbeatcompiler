@@ -292,7 +292,7 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
   /*
    * Fetch the pointer to the environment.
    */
-  auto envPtr = envBuilder->getEnvArrayInt8Ptr();
+  auto envPtr = envBuilder->getEnvironmentArrayVoidPtr();
 
   /*
    * Call the dispatcher function that will invoke the parallelized loop.
