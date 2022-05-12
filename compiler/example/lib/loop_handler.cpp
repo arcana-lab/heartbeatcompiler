@@ -1,8 +1,17 @@
 #include <atomic>
 #include <taskparts/benchmark.hpp>
 #include "Heartbeats.hpp"
+#include <pthread.h>
 
 extern "C" {
+
+  static pthread_spinlock_t lock;
+  __attribute__((constructor))
+  void lock_constructor () {
+    if ( pthread_spin_init ( &lock, 0 ) != 0 ) {
+        exit ( 1 );
+    }
+  }
 
   int loop_handler (
       long long int startIteration, 
@@ -61,14 +70,18 @@ extern "C" {
     /*
      * Spawn a new task.
      */
+    int64_t newTaskID;
+    pthread_spin_lock(&lock);
     taskID++;
+    newTaskID = taskID;
+    pthread_spin_unlock(&lock);
+
     taskparts::tpalrts_promote_via_nativefj([&] {
       (*f)(startIteration, med, env, currentTaskID);
     }, [&] {
-      (*f)(med, maxIteration, env, taskID);
+      (*f)(med, maxIteration, env, newTaskID);
     }, [] { }, taskparts::bench_scheduler());
 
-    //printf("Loop_handler: Exit\n");
     return 1;
   }
 
