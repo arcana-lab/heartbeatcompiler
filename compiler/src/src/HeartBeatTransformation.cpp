@@ -69,11 +69,13 @@ bool HeartBeatTransformation::apply (
   /*
    * Allocate memory for all environment variables
    */
-  auto preEnvRange = loopEnvironment->getEnvIndicesOfLiveInVars();
-  auto postEnvRange = loopEnvironment->getEnvIndicesOfLiveOutVars();
-  std::set<int> nonReducableVars(preEnvRange.begin(), preEnvRange.end());
-  std::set<int> reducableVars(postEnvRange.begin(), postEnvRange.end());
-  this->initializeEnvironmentBuilder(loop, nonReducableVars, reducableVars);
+  auto isReducible = [](uint32_t idx, bool isLiveOut) -> bool {
+    if (!isLiveOut){
+      return false;
+    }
+    return true;
+  };
+  this->initializeEnvironmentBuilder(loop, isReducible);
 
   /*
    * Clone loop into the single task used by DOALL
