@@ -45,7 +45,12 @@ bool HeartBeat::parallelizeLoop (
    */
   auto tm = noelle.getTypesManager();
   auto loopEnv = loop->getEnvironment();
-  auto exitIndex = ConstantInt::get(tm->getIntegerType(64), loopEnv->indexOfExitBlockTaken());
+  auto exitID = loopEnv->getExitBlockID();
+  auto exitIndex = ConstantInt::get(
+      tm->getIntegerType(64),
+      exitID >= 0
+          ? HB.getIndexOfEnvironmentVariable(exitID)
+          : -1);
   auto loopStructure = loop->getLoopStructure();
   auto loopPreHeader = loopStructure->getPreHeader();
   auto loopFunction = loopStructure->getFunction();

@@ -86,11 +86,11 @@ bool HeartBeatTransformation::apply (
    * Load all loop live-in values at the entry point of the task.
    */
   auto envUser = this->envBuilder->getUser(0);
-  for (auto envIndex : loopEnvironment->getEnvIndicesOfLiveInVars()) {
-    envUser->addLiveInIndex(envIndex);
+  for (auto envID : loopEnvironment->getEnvIDsOfLiveInVars()) {
+    envUser->addLiveIn(envID);
   }
-  for (auto envIndex : loopEnvironment->getEnvIndicesOfLiveOutVars()) {
-    envUser->addLiveOutIndex(envIndex);
+  for (auto envID : loopEnvironment->getEnvIDsOfLiveOutVars()) {
+    envUser->addLiveOut(envID);
   }
   this->generateCodeToLoadLiveInVariables(loop, 0);
 
