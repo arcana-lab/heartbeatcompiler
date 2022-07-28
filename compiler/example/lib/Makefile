@@ -1,4 +1,4 @@
-TASKPARTS?=../../../../taskparts/include/
+TASKPARTS?=../../runtime/include/
 LIBS=-lpthread -lm -lstdc++
 CXXFLAGS=--std=c++17 -fno-stack-protector -DTASKPARTS_POSIX -DTASKPARTS_X64 -DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING -DTASKPARTS_STATS -DTASKPARTS_LOG -DTASKPARTS_TPALRTS -fno-asynchronous-unwind-tables -fomit-frame-pointer -I $(TASKPARTS)
 INPUT=100 100000 1 1 1
