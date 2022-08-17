@@ -1,9 +1,12 @@
 TASKPARTS?=../../runtime/include/
-LIBS=-lpthread -lm -lstdc++
 CXXFLAGS=--std=c++17 -fno-stack-protector -DTASKPARTS_POSIX -DTASKPARTS_X64 -DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING -DTASKPARTS_STATS -DTASKPARTS_LOG -DTASKPARTS_TPALRTS -fno-asynchronous-unwind-tables -fomit-frame-pointer -I $(TASKPARTS)
-INPUT=100 100000 1 1 1
+FRONTEND_FLAGS=-O1 -Xclang -disable-llvm-passes -emit-llvm
+LIBS=-lpthread -lm -lstdc++
+
 OPTS=-O3 
 #OPTS=-O3 -fno-vectorize -fno-slp-vectorize
+
+INPUT=100 100000 1 1 1
 
 all: original_program program_with_heartbeat
 
@@ -20,15 +23,15 @@ program_with_heartbeat: program_with_heartbeat.bc Heartbeats.o
 	clang $(CXXFLAGS) $(LIBS) $^ $(OPTS) -o $@
 
 %.bc: %.c
-	clang $(CXXFLAGS) -O1 -Xclang -disable-llvm-passes -emit-llvm -c $^ -o $@
+	clang $(CXXFLAGS) $(FRONTEND_FLAGS) -c $^ -o $@
 	llvm-dis $@ 
 
 %.bc: %.cpp
-	clang++ $(CXXFLAGS) -O1 -Xclang -disable-llvm-passes -emit-llvm -c $^ -o $@
+	clang++ $(CXXFLAGS) $(FRONTEND_FLAGS) -c $^ -o $@
 	llvm-dis $@ 
 
 %.o: %.cpp
-	clang $^ -c -O3 -o $@
+	clang++ $^ -c -O3 -o $@
 
 program_with_heartbeat.bc: incr_array.bc
 	noelle-norm $< -o program_normalized.bc
