@@ -16,14 +16,12 @@ extern "C" {
   int loop_handler (
       long long int startIteration, 
       long long int maxIteration, 
-      void *env, 
+      void *singleEnv, 
+      void *reducibleEnv,
       long long int currentTaskID,
-      void (*f)(int64_t, int64_t, void *, int64_t)
+      void (*f)(int64_t, int64_t, void *, void *, int64_t)
       ) {
     static std::atomic_bool * me = taskparts::hardware_alarm_polling_interrupt::my_heartbeat_flag();
-    //hbm.addThread();
-    static long long int currentIter = 0;
-    static int64_t taskID = 0;
 
     /*
      * Check if an heartbeat happened.
@@ -47,39 +45,20 @@ extern "C" {
     }
 
     /*
-     * Step 3: avoid re-splitting the same work
-     */
-    if (startIteration == currentIter){
-      return 0;
-    }
-    currentIter = startIteration;
-
-    /*
-     * Step 4: split the remaining work
+     * Step 3: split the remaining work
      */
     auto med = (maxIteration + startIteration)/2;
 
-    /*
     printf("Loop_handler: Start\n");
     printf("Loop_handler:   Promotion\n");
     printf("Loop_handler:   startIteration = %lld\n", startIteration);
     printf("Loop_handler:   maxIteration = %lld\n", maxIteration);
     printf("Loop_handler:     Med = %lld\n", med);
-    */
-
-    /*
-     * Spawn a new task.
-     */
-    int64_t newTaskID;
-    pthread_spin_lock(&lock);
-    taskID++;
-    newTaskID = taskID;
-    pthread_spin_unlock(&lock);
 
     taskparts::tpalrts_promote_via_nativefj([&] {
-      (*f)(startIteration, med, env, currentTaskID);
+      (*f)(startIteration, med, singleEnv, reducibleEnv, currentTaskID);
     }, [&] {
-      (*f)(med, maxIteration, env, newTaskID);
+      (*f)(med, maxIteration, singleEnv, reducibleEnv, currentTaskID == 0 ? 1 : 0);
     }, [] { }, taskparts::bench_scheduler());
 
     return 1;
@@ -88,12 +67,13 @@ extern "C" {
   void loop_dispatcher (
     long long int startIteration, 
       long long int maxIteration, 
-      void *env, 
-      void (*f)(int64_t, int64_t, void *, int64_t)
+      void *singleEnv, 
+      void *reducibleEnv,
+      void (*f)(int64_t, int64_t, void *, void *, int64_t)
 
       ){
     taskparts::benchmark_nativeforkjoin([&] (auto sched) {
-      (*f)(startIteration, maxIteration, env, 0);
+      (*f)(startIteration, maxIteration, singleEnv, reducibleEnv, 0);
     });
     return ;
   }

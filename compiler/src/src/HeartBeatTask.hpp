@@ -24,6 +24,11 @@ class HeartBeatTask : public llvm::noelle::DOALLTask {
 
     void extractFuncArgs () override ;
 
+    inline Value * getSingleEnvironment() { return this->singleEnvArg; };
+    inline Value * getReducibleEnvironment() { return this->reducibleEnvArg; };
+
   protected:
+    Value *singleEnvArg;
+    Value *reducibleEnvArg;
     Value *maxGIV;
 };

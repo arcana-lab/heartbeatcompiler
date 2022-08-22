@@ -22,6 +22,9 @@
 #include "noelle/tools/ParallelizationTechnique.hpp"
 #include "noelle/tools/DOALL.hpp"
 
+#include "HeartBeatLoopEnvironmentBuilder.hpp"
+#include "HeartBeatLoopEnvironmentUser.hpp"
+
 using namespace llvm::noelle;
 
 class HeartBeatTransformation : public DOALL {
@@ -48,4 +51,18 @@ class HeartBeatTransformation : public DOALL {
     void invokeHeartBeatFunctionAsideOriginalLoop (
         LoopDependenceInfo *LDI
         );
+
+  private:
+    void initializeEnvironmentBuilder(LoopDependenceInfo *LDI, 
+                                      std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeReduced,
+                                      std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeSkipped) override;
+    void initializeLoopEnvironmentUsers() override;
+    void generateCodeToLoadLiveInVariables(LoopDependenceInfo *LDI, int taskIndex) override;
+    void setReducableVariablesToBeginAtIdentityValue(LoopDependenceInfo *LDI, int taskIndex) override;
+    void generateCodeToStoreLiveOutVariables(LoopDependenceInfo *LDI, int taskIndex) override;
+    void allocateNextLevelReducibleEnvironmentInsideTask(LoopDependenceInfo *LDI, int taskIndex);
+    BasicBlock *performReductionAfterCallingLoopHandler(LoopDependenceInfo *LDI, int taskIndex, BasicBlock *loopHandlerBB, Instruction *cmpInst, BasicBlock *bottomHalfBB, Value *numOfReducerV);
+    void allocateEnvironmentArray(LoopDependenceInfo *LDI) override;
+    void populateLiveInEnvironment(LoopDependenceInfo *LDI) override;
+    BasicBlock * performReductionWithInitialValueToAllReducibleLiveOutVariables(LoopDependenceInfo *LDI);
 };

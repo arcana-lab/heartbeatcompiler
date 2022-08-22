@@ -64,6 +64,7 @@ bool HeartBeat::parallelizeLoop (
       exitIndex,
       loopExitBlocks
       );
+  loop->getLoopStructure()->getFunction()->print(errs() << "Final Original Loop\n");
   assert(noelle.verifyCode());
 
   return true;

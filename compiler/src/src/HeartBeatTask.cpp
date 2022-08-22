@@ -41,7 +41,12 @@ void HeartBeatTask::extractFuncArgs (void) {
   /*
    * Third argument: live-in and live-out variables
    */
-  this->envArg = (Value *) &*(argIter++);
+  this->singleEnvArg = (Value *) &*(argIter++);
+
+  /*
+   * Forth argumemt: live-out (reducible) variables      
+   */
+  this->reducibleEnvArg = (Value *) &*(argIter++);
 
   /*
    * Forth argument: task ID 
