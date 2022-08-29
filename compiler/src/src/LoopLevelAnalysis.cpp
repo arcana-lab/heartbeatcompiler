@@ -34,6 +34,10 @@ void HeartBeat::performLoopLevelAnalysis(Noelle &noelle, const std::set<LoopDepe
      */
     if (this->loopToLevel.find(ldi) != this->loopToLevel.end()) {
       assert(this->loopToRoot.find(ldi) != this->loopToRoot.end() && "Loop level has been set but the root loop isn't correctly yet");
+      /*
+       * Print result
+       */
+      errs() << ldi->getLoopStructure()->getFunction()->getName() << " of level " << this->loopToLevel[ldi] << ", and root loop " << this->loopToRoot[ldi]->getLoopStructure()->getFunction()->getName() << "\n";
       continue;
     }
 
@@ -89,20 +93,20 @@ void HeartBeat::setLoopLevelAndRoot(
    */
   auto callerLDI = callGraphNodeToLoop[callerNode];
   assert(callerLDI != nullptr && "Caller loop hasn't been set yet");
-  if (this->loopToLevel.find(callerLDI) != this->loopToLevel.end()) {
-    assert(this->loopToRoot.find(callerLDI) != this->loopToRoot.end() && "Caller loop gets level info already but not for the root loop");
 
-    /*
-     * We are the nested loop and already have the parent loop information recorded
-     */
-    this->loopToLevel[ldi] = this->loopToLevel[callerLDI] + 1;
-    this->loopToRoot[ldi] = this->loopToRoot[callerLDI];
-  } else {
-    /*
-     * Information for the parent loop hasn't been recorded yet
-     */
+  /*
+   * Information for the parent loop hasn't been recorded yet
+   */
+  if (this->loopToLevel.find(callerLDI) == this->loopToLevel.end()) {
+    assert(this->loopToRoot.find(callerLDI) == this->loopToRoot.end() && "Caller loop doesn't have level info but have root info set");
     setLoopLevelAndRoot(callerLDI, loopToCallGraphNode, callGraphNodeToLoop, callGraph);
   }
+
+  /*
+   * We are the nested loop and already have the parent loop information recorded
+   */
+  this->loopToLevel[ldi] = this->loopToLevel[callerLDI] + 1;
+  this->loopToRoot[ldi] = this->loopToRoot[callerLDI];
 
   return;
 }
