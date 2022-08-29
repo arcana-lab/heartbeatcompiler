@@ -38,6 +38,12 @@ class HeartBeat : public ModulePass {
     StringRef outputPrefix;
     StringRef functionSubString;
 
+    /*
+     * Results for loop-level analysis
+     */
+    std::unordered_map<LoopDependenceInfo *, uint32_t> loopToLevel;
+    std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> loopToRoot; 
+
     bool parallelizeLoop (
       Noelle &noelle,
       LoopDependenceInfo *ldi
@@ -53,5 +59,17 @@ class HeartBeat : public ModulePass {
       Noelle &noelle,
       const std::vector<LoopStructure *> &allLoops
       );
+
+    void performLoopLevelAnalysis(
+      Noelle &noelle,
+      const std::set<LoopDependenceInfo *> &selectedLoops
+    );
+
+    void setLoopLevelAndRoot(
+      LoopDependenceInfo *ldi,
+      std::unordered_map<LoopDependenceInfo *, CallGraphFunctionNode *> &loopToCallGraphNode,
+      std::unordered_map<CallGraphFunctionNode *, LoopDependenceInfo *> &callGraphNodeToLoop,
+      llvm::noelle::CallGraph &callGraph
+    );
 
 };

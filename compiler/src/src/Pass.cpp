@@ -37,6 +37,12 @@ bool HeartBeat::runOnModule (Module &M) {
   errs() << this->outputPrefix << "    " << selectedLoops.size() << " loops will be parallelized\n";
 
   /*
+   * Determine the level of the targeted heartbeat loop, and the root loop for each targeted loop
+   */
+  this->performLoopLevelAnalysis(noelle, selectedLoops);
+  errs() << this->outputPrefix << "Loop level analysis completed\n";
+
+  /*
    * Parallelize the selected loop.
    */
   for (auto loop : selectedLoops){
