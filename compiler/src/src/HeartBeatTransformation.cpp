@@ -179,7 +179,7 @@ bool HeartBeatTransformation::apply (
   auto taskID = &*(argIter++);
   auto hbEnvBuilder = (HeartBeatLoopEnvironmentBuilder *)this->envBuilder;
   auto callToHandler = cast<CallInst>(bbBuilder.CreateCall(loopHandlerFunction, ArrayRef<Value *>({
-    cloneCurrentIVValue,
+    bbBuilder.CreateZExtOrTrunc(cloneCurrentIVValue, firstIterationValue->getType()),
     lastIterationValue,
     singleEnvPtr,
     // if there's no reducible live-out environment, which means the next level reducible environment won't be allocated
@@ -223,13 +223,21 @@ bool HeartBeatTransformation::apply (
   addedFakeTerminatorOfEntryBodyInTask->eraseFromParent();
 
   /*
+   * Create the bitcast instructions at the entry block of the task to match the type of the GIV
+   */
+  IRBuilder<> entryTaskBuilder{ hbTask->getEntry() };
+  entryTaskBuilder.SetInsertPoint(&(*hbTask->getEntry()->begin()));
+  auto firstIterationValueCasted = entryTaskBuilder.CreateZExtOrTrunc(firstIterationValue, cloneCurrentIVValue->getType());
+  auto lastIterationValueCasted = entryTaskBuilder.CreateZExtOrTrunc(lastIterationValue, cloneCurrentIVValue->getType());
+
+  /*
    * Adjust the first starting value of the loop-governing IV to use the first parameter of the task.
    */
   auto& GIV = GIV_attr->getInductionVariable();
   auto originalPHI = GIV.getLoopEntryPHI();
   auto clonePHI = cast<PHINode>(this->fetchClone(originalPHI));
   assert(clonePHI != nullptr);
-  clonePHI->setIncomingValueForBlock(hbTask->getEntry(), firstIterationValue);
+  clonePHI->setIncomingValueForBlock(hbTask->getEntry(), firstIterationValueCasted);
 
   /*
    * Adjust the exit condition value of the loop-governing IV to use the second parameter of the task.
@@ -268,7 +276,7 @@ bool HeartBeatTransformation::apply (
   auto cloneCmpInst = cast<CmpInst>(this->fetchClone(LGIV_cmpInst));
   auto cloneLastValue = this->fetchClone(LGIV_lastValue);
   auto cloneCurrentValue = cast<Instruction>(this->fetchClone(LGIV_currentValue));
-  cloneCmpInst->setOperand(operandNumber, lastIterationValue);
+  cloneCmpInst->setOperand(operandNumber, lastIterationValueCasted);
 
   /*
    * Create reduction loop here
@@ -595,12 +603,15 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
   auto program = this->n.getProgram();
   auto loopDispatcherFunction = program->getFunction("loop_dispatcher");
   assert(loopDispatcherFunction != nullptr);
+  auto argIter = loopDispatcherFunction->arg_begin();
+  auto firstIterationArgument = &*(argIter++);
+  auto lastIteratioinArgument = &*(argIter++);
   auto taskBody = this->tasks[0]->getTaskBody();
   assert(taskBody != nullptr);
   auto hbEnvBuilder = (HeartBeatLoopEnvironmentBuilder *)this->envBuilder;
   doallBuilder.CreateCall(loopDispatcherFunction, ArrayRef<Value *>({
-    firstIterationGoverningIVValue,
-    lastIterationGoverningIVValue,
+    doallBuilder.CreateZExtOrTrunc(firstIterationGoverningIVValue, firstIterationArgument->getType()),
+    doallBuilder.CreateZExtOrTrunc(lastIterationGoverningIVValue, lastIteratioinArgument->getType()),
     singleEnvPtr,
     // Hacking for now, if there's no reducible environment, which won't be alloacted,
     // then use the singleEnvPtr for valid code, this pointer won't get's loaded in the
