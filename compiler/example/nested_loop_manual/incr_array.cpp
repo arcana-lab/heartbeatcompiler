@@ -101,7 +101,7 @@ uint64_t HEARTBEAT_loop0_cloned (uint64_t *startIterations, uint64_t *maxIterati
   uint64_t returnLevel = 1 + 1;
 
   for (; startIterations[myLevel] < maxIterations[myLevel]; startIterations[myLevel]++) {
-    uint64_t rc = loop_handler(startIterations, maxIterations, liveInEnvironments, clonedTasks, myLevel, &returnLevel);
+    int64_t rc = loop_handler(startIterations, maxIterations, liveInEnvironments, clonedTasks, myLevel, &returnLevel);
     if (rc != -1) {
       // the return level checking at the root level loop is redundant because the lowest 
       // returnLevel can not be smaller than 0, which will always return false
@@ -145,7 +145,7 @@ uint64_t HEARTBEAT_loop1_cloned (uint64_t *startIterations, uint64_t *maxIterati
   uint64_t returnLevel = 1 + 1;
 
   for (; startIterations[myLevel] < maxIterations[myLevel]; startIterations[myLevel]++) {
-    uint64_t rc = loop_handler(startIterations, maxIterations, liveInEnvironments, clonedTasks, myLevel, &returnLevel);
+    int64_t rc = loop_handler(startIterations, maxIterations, liveInEnvironments, clonedTasks, myLevel, &returnLevel);
     if (rc != -1) {
       if (returnLevel < myLevel) {
         goto leftover;

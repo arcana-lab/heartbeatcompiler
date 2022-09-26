@@ -18,7 +18,7 @@ extern "C" {
    * -1: nothing happens, return and keep executing the remaining iterations
    * otherwise: heartbeat happens, indicating the returnLevel
    */
-  uint64_t loop_handler (
+  int64_t loop_handler (
       uint64_t *startIterations, 
       uint64_t *maxIterations, 
       void **liveInEnvironments,
@@ -30,7 +30,7 @@ extern "C" {
     // if we need to return back, heartbeat splits already
     // or we reach the start of the next iteration of the leftover task at the return level
     if (*returnLevel < myLevel) {
-      return *returnLevel;
+      return (int64_t)(*returnLevel);
     }
 
     /*
@@ -112,7 +112,7 @@ extern "C" {
       (*f[splittingLevel])(startIterationsSecondHalf, maxIterationsSecondHalf, (void **)liveInEnvironmentsSecondHalf, splittingLevel);
     }, [] { }, taskparts::bench_scheduler());
 
-    return *returnLevel;
+    return (int64_t)(*returnLevel);
   }
 
   void loop_dispatcher (
