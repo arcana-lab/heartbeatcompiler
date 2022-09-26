@@ -28,11 +28,11 @@ uint64_t *b;
 uint64_t *c;
 
 void HEARTBEAT_loop0 (uint64_t **, uint64_t, uint64_t);
-void HEARTBEAT_loop0_cloned (uint64_t *, uint64_t *, void **, uint64_t, uint64_t *);
 void HEARTBEAT_loop1 (uint64_t **, uint64_t, uint64_t);
-void HEARTBEAT_loop1_cloned (uint64_t *, uint64_t *, void **, uint64_t, uint64_t *);
+uint64_t HEARTBEAT_loop0_cloned (uint64_t *, uint64_t *, void **, uint64_t);
+uint64_t HEARTBEAT_loop1_cloned (uint64_t *, uint64_t *, void **, uint64_t);
 
-typedef void(*functionPointer)(uint64_t *, uint64_t *, void **, uint64_t, uint64_t *);
+typedef uint64_t(*functionPointer)(uint64_t *, uint64_t *, void **, uint64_t);
 functionPointer clonedTasks[2] = {
   &HEARTBEAT_loop0_cloned,
   &HEARTBEAT_loop1_cloned
@@ -61,11 +61,8 @@ void HEARTBEAT_loop0 (uint64_t **a, uint64_t sz, uint64_t innerIterations) {
     uint64_t maxIterations[2];
     maxIterations[0] = sz;
 
-    // allocate the return level variable and set its value to highest nested level + 1
-    uint64_t returnLevel = 1 + 1;
-
     // invoking loop_dispatcher to execute the loop0 in its heartbeat format
-    loop_dispatcher(startIterations, maxIterations, (void **)liveInEnvironments, &HEARTBEAT_loop0_cloned, &returnLevel);
+    loop_dispatcher(startIterations, maxIterations, (void **)liveInEnvironments, &HEARTBEAT_loop0_cloned);
     
     heartbeat_running = false;
     goto ret;
@@ -81,7 +78,15 @@ ret:
   return;
 }
 
-void HEARTBEAT_loop0_cloned (uint64_t *startIterations, uint64_t *maxIterations, void **liveInEnvironments, uint64_t myLevel, uint64_t *returnLevel) {
+void HEARTBEAT_loop1 (uint64_t **a, uint64_t i, uint64_t innerIterations) {
+  for (uint64_t j = 0; j < innerIterations; j++) {
+    a[i][j]++;
+  }
+
+  return;
+}
+
+uint64_t HEARTBEAT_loop0_cloned (uint64_t *startIterations, uint64_t *maxIterations, void **liveInEnvironments, uint64_t myLevel) {
   // load live-in environment
   uint64_t *liveInEnvironment = ((uint64_t **)liveInEnvironments)[myLevel];
   uint64_t **a = (uint64_t **)liveInEnvironment[0];
@@ -92,9 +97,12 @@ void HEARTBEAT_loop0_cloned (uint64_t *startIterations, uint64_t *maxIterations,
   uint64_t liveInEnvironmentForLoop1[2];
   ((uint64_t **)liveInEnvironments)[myLevel + 1] = (uint64_t *)liveInEnvironmentForLoop1;
 
+  // allocate returnLevel variable and initialize
+  uint64_t returnLevel = 1 + 1;
+
   for (; startIterations[myLevel] < maxIterations[myLevel]; startIterations[myLevel]++) {
-    int rc = loop_handler(startIterations, maxIterations, liveInEnvironments, clonedTasks, myLevel, returnLevel);
-    if (rc == 1) {
+    uint64_t rc = loop_handler(startIterations, maxIterations, liveInEnvironments, clonedTasks, myLevel, &returnLevel);
+    if (rc != -1) {
       // the return level checking at the root level loop is redundant because the lowest 
       // returnLevel can not be smaller than 0, which will always return false
       // 2 < 0 --> false
@@ -114,37 +122,32 @@ void HEARTBEAT_loop0_cloned (uint64_t *startIterations, uint64_t *maxIterations,
     // start and max iterations for next loop is set by the parent task
     startIterations[myLevel + 1] = 0;
     maxIterations[myLevel + 1] = innerIterations;
-    HEARTBEAT_loop1_cloned(startIterations, maxIterations, liveInEnvironments, myLevel + 1, returnLevel);
+    returnLevel = HEARTBEAT_loop1_cloned(startIterations, maxIterations, liveInEnvironments, myLevel + 1);
 
     c[startIterations[myLevel]]++;
   }
 reduction:
     // barrier_wait();
     // reduce on children's live-out environment
-    return;
+    return returnLevel;
 
   // there also won't be any left over task for the root level loop because this is the loop
   // that everyone will always trying to priortize splitting
 }
 
-void HEARTBEAT_loop1 (uint64_t **a, uint64_t i, uint64_t innerIterations) {
-  for (uint64_t j = 0; j < innerIterations; j++) {
-    a[i][j]++;
-  }
-
-  return;
-}
-
-void HEARTBEAT_loop1_cloned (uint64_t *startIterations, uint64_t *maxIterations, void **liveInEnvironments, uint64_t myLevel, uint64_t *returnLevel) {
+uint64_t HEARTBEAT_loop1_cloned (uint64_t *startIterations, uint64_t *maxIterations, void **liveInEnvironments, uint64_t myLevel) {
   // load live-in environment
   uint64_t *liveInEnvironment = ((uint64_t **)liveInEnvironments)[myLevel];
   uint64_t **a = (uint64_t **)liveInEnvironment[0];
   uint64_t i = (uint64_t)liveInEnvironment[1];
 
+  // allocate returnLevel variable and initialize
+  uint64_t returnLevel = 1 + 1;
+
   for (; startIterations[myLevel] < maxIterations[myLevel]; startIterations[myLevel]++) {
-    int rc = loop_handler(startIterations, maxIterations, liveInEnvironments, clonedTasks, myLevel, returnLevel);
-    if (rc == 1) {
-      if (*returnLevel < myLevel) {
+    uint64_t rc = loop_handler(startIterations, maxIterations, liveInEnvironments, clonedTasks, myLevel, &returnLevel);
+    if (rc != -1) {
+      if (returnLevel < myLevel) {
         goto leftover;
       }
 
@@ -156,13 +159,13 @@ void HEARTBEAT_loop1_cloned (uint64_t *startIterations, uint64_t *maxIterations,
 reduction:
   // barrier_wait();
   // // reduce on children's live-out environment
-  return;
+  return returnLevel;
 
 leftover:
   for (; startIterations[myLevel] < maxIterations[myLevel]; startIterations[myLevel]++) {
     a[i][startIterations[myLevel]]++;
   }
-  return;
+  return returnLevel;
 }
 
 int main (int argc, char *argv[]) {

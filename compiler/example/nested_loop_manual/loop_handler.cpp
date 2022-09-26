@@ -13,11 +13,16 @@ extern "C" {
     }
   }
 
-  int loop_handler (
+  /*
+   * Return code for loop_handler
+   * -1: nothing happens, return and keep executing the remaining iterations
+   * otherwise: heartbeat happens, indicating the returnLevel
+   */
+  uint64_t loop_handler (
       uint64_t *startIterations, 
       uint64_t *maxIterations, 
       void **liveInEnvironments,
-      void (*f[])(uint64_t *, uint64_t *, void **, uint64_t, uint64_t *),
+      uint64_t (*f[])(uint64_t *, uint64_t *, void **, uint64_t),
       uint64_t myLevel,
       uint64_t *returnLevel) {
     static std::atomic_bool * me = taskparts::hardware_alarm_polling_interrupt::my_heartbeat_flag();
@@ -25,14 +30,14 @@ extern "C" {
     // if we need to return back, heartbeat splits already
     // or we reach the start of the next iteration of the leftover task at the return level
     if (*returnLevel < myLevel) {
-      return 1;
+      return *returnLevel;
     }
 
     /*
      * Check if an heartbeat happened.
      */
     if (!(*me)) {
-      return 0;
+      return -1;
     }
 
     // reach here with the following guaranteed facts
@@ -55,7 +60,7 @@ extern "C" {
       }
     }
     if (splittingLevel == -1) {
-      return 0;
+      return -1;
     }
 
     // set returnLevel variable
@@ -93,12 +98,6 @@ extern "C" {
 
     maxIterations[splittingLevel] = startIterations[splittingLevel] + 1;
 
-    // TODO: performance issue, need to pre allocate those variables in a non false sharing manner
-    uint64_t *returnLevelFirst = (uint64_t *)malloc(1 * sizeof(uint64_t));
-    *returnLevelFirst = 1 + 1;
-    uint64_t *returnLevelSecond = (uint64_t *)malloc(1 * sizeof(uint64_t));
-    *returnLevelSecond = 1 + 1;
-
     // allocate the new liveInEnvironments for both tasks
     uint64_t *liveInEnvironmentsFirstHalf[2];
     uint64_t *liveInEnvironmentsSecondHalf[2];
@@ -108,22 +107,21 @@ extern "C" {
     }
 
     taskparts::tpalrts_promote_via_nativefj([&] {
-      (*f[splittingLevel])(startIterationsFirstHalf, maxIterationsFirstHalf, (void **)liveInEnvironmentsFirstHalf, splittingLevel, returnLevelFirst);
+      (*f[splittingLevel])(startIterationsFirstHalf, maxIterationsFirstHalf, (void **)liveInEnvironmentsFirstHalf, splittingLevel);
     }, [&] {
-      (*f[splittingLevel])(startIterationsSecondHalf, maxIterationsSecondHalf, (void **)liveInEnvironmentsSecondHalf, splittingLevel, returnLevelSecond);
+      (*f[splittingLevel])(startIterationsSecondHalf, maxIterationsSecondHalf, (void **)liveInEnvironmentsSecondHalf, splittingLevel);
     }, [] { }, taskparts::bench_scheduler());
 
-    return 1;
+    return *returnLevel;
   }
 
   void loop_dispatcher (
       uint64_t *startIterations,
       uint64_t *maxIterations,
       void **liveInEnvironments,
-      void (*f)(uint64_t *, uint64_t *, void **, uint64_t, uint64_t *),
-      uint64_t *returnLevel) {
+      uint64_t (*f)(uint64_t *, uint64_t *, void **, uint64_t)) {
     taskparts::benchmark_nativeforkjoin([&] (auto sched) {
-        (*f)(startIterations, maxIterations, liveInEnvironments, 0, returnLevel);
+        (*f)(startIterations, maxIterations, liveInEnvironments, 0);
     });
 
     return;
