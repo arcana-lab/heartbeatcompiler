@@ -30,14 +30,14 @@ extern "C" {
     // if we need to return back, heartbeat splits already
     // or we reach the start of the next iteration of the leftover task at the return level
     if (*returnLevel < myLevel) {
-      return (int64_t)(*returnLevel);
+      return 1;
     }
 
     /*
      * Check if an heartbeat happened.
      */
     if (!(*me)) {
-      return -1;
+      return 0;
     }
 
     // reach here with the following guaranteed facts
@@ -60,7 +60,7 @@ extern "C" {
       }
     }
     if (splittingLevel == -1) {
-      return -1;
+      return 0;
     }
 
     // set returnLevel variable
@@ -112,7 +112,7 @@ extern "C" {
       (*f[splittingLevel])(startIterationsSecondHalf, maxIterationsSecondHalf, (void **)liveInEnvironmentsSecondHalf, splittingLevel);
     }, [] { }, taskparts::bench_scheduler());
 
-    return (int64_t)(*returnLevel);
+    return 1;
   }
 
   void loop_dispatcher (

@@ -102,7 +102,7 @@ uint64_t HEARTBEAT_loop0_cloned (uint64_t *startIterations, uint64_t *maxIterati
 
   for (; startIterations[myLevel] < maxIterations[myLevel]; startIterations[myLevel]++) {
     int64_t rc = loop_handler(startIterations, maxIterations, liveInEnvironments, clonedTasks, myLevel, &returnLevel);
-    if (rc != -1) {
+    if (rc == 1) {
       // the return level checking at the root level loop is redundant because the lowest 
       // returnLevel can not be smaller than 0, which will always return false
       // 2 < 0 --> false
@@ -126,13 +126,19 @@ uint64_t HEARTBEAT_loop0_cloned (uint64_t *startIterations, uint64_t *maxIterati
 
     c[startIterations[myLevel]]++;
   }
+  if (returnLevel == myLevel) {
 reduction:
     // barrier_wait();
     // reduce on children's live-out environment
     return returnLevel;
+  }
 
   // there also won't be any left over task for the root level loop because this is the loop
   // that everyone will always trying to priortize splitting
+  
+  // store into live-out environment
+  // barrier_wait();
+  return returnLevel;
 }
 
 uint64_t HEARTBEAT_loop1_cloned (uint64_t *startIterations, uint64_t *maxIterations, void **liveInEnvironments, uint64_t myLevel) {
@@ -146,7 +152,7 @@ uint64_t HEARTBEAT_loop1_cloned (uint64_t *startIterations, uint64_t *maxIterati
 
   for (; startIterations[myLevel] < maxIterations[myLevel]; startIterations[myLevel]++) {
     int64_t rc = loop_handler(startIterations, maxIterations, liveInEnvironments, clonedTasks, myLevel, &returnLevel);
-    if (rc != -1) {
+    if (rc == 1) {
       if (returnLevel < myLevel) {
         goto leftover;
       }
@@ -156,15 +162,21 @@ uint64_t HEARTBEAT_loop1_cloned (uint64_t *startIterations, uint64_t *maxIterati
 
     a[i][startIterations[myLevel]]++;
   }
+  if (returnLevel == myLevel) {
 reduction:
+    // barrier_wait();
+    // // reduce on children's live-out environment
+    return returnLevel;
+  }
+  // store into live-out environment
   // barrier_wait();
-  // // reduce on children's live-out environment
   return returnLevel;
 
 leftover:
   for (; startIterations[myLevel] < maxIterations[myLevel]; startIterations[myLevel]++) {
     a[i][startIterations[myLevel]]++;
   }
+  // store into live-out environment
   return returnLevel;
 }
 
