@@ -8,6 +8,11 @@ bool HeartBeat::parallelizeLoop (
   Noelle &noelle,
   LoopDependenceInfo *loop
   ){
+  // at the moment we only parallel outermost loop
+  if (this->loopToLevel[loop] != 0) {
+    return false;
+  } 
+
   HeartBeatTransformation HB(noelle);
 
   /*
