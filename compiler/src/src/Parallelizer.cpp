@@ -55,8 +55,8 @@ bool HeartBeat::parallelizeLoop (
   auto loopPreHeader = loopStructure->getPreHeader();
   auto loopFunction = loopStructure->getFunction();
   auto loopExitBlocks = loopStructure->getLoopExitBasicBlocks();
-  noelle.linkTransformedLoopToOriginalFunction(
-      loopFunction->getParent(),
+  auto linker = noelle.getLinker();
+  linker->linkTransformedLoopToOriginalFunction(
       loopPreHeader,
       entryPoint,
       exitPoint, 

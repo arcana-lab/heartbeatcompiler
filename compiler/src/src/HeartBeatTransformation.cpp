@@ -399,6 +399,12 @@ void HeartBeatTransformation::setReducableVariablesToBeginAtIdentityValue(LoopDe
   auto environment = LDI->getEnvironment();
   assert(environment != nullptr);
 
+  /*
+   * Fetch the SCCDAG.
+   */
+  auto sccManager = LDI->getSCCManager();
+  auto sccdag = sccManager->getSCCDAG();
+
   for (auto envID : environment->getEnvIDsOfLiveOutVars()) {
     auto isThisLiveOutVariableReducible = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->hasVariableBeenReduced(envID);
     if (!isThisLiveOutVariableReducible) {
@@ -407,7 +413,9 @@ void HeartBeatTransformation::setReducableVariablesToBeginAtIdentityValue(LoopDe
 
     auto producer = environment->getProducer(envID);
     assert(producer != nullptr);
-    auto loopEntryProducerPHI = this->fetchLoopEntryPHIOfProducer(LDI, producer);
+    auto producerSCC = sccdag->sccOfValue(producer);
+    auto reductionVar = static_cast<Reduction *>(sccManager->getSCCAttrs(producerSCC));
+    auto loopEntryProducerPHI = reductionVar->getPhiThatAccumulatesValuesBetweenLoopIterations();
     assert(loopEntryProducerPHI != nullptr);
 
     auto producerClone = cast<PHINode>(task->getCloneOfOriginalInstruction(loopEntryProducerPHI));
@@ -416,7 +424,7 @@ void HeartBeatTransformation::setReducableVariablesToBeginAtIdentityValue(LoopDe
     auto incomingIndex = producerClone->getBasicBlockIndex(loopPreHeaderClone);
     assert(incomingIndex != -1 && "Doesn't find loop preheader clone as an entry for the reducible phi instruction\n");
 
-    auto identityV = this->getIdentityValueForEnvironmentValue(LDI, envID, loopEntryProducerPHI->getType());
+    auto identityV = reductionVar->getIdentityValue();
 
     producerClone->setIncomingValue(incomingIndex, identityV);
   }
@@ -438,6 +446,12 @@ void HeartBeatTransformation::generateCodeToStoreLiveOutVariables(LoopDependence
 
   auto &taskFunction = *task->getTaskBody();
   auto cfgAnalysis = this->noelle.getCFGAnalysis();
+
+  /*
+   * Fetch the loop SCCDAG
+   */
+  auto sccManager = LDI->getSCCManager();
+  auto loopSCCDAG = sccManager->getSCCDAG();
 
   auto envUser = (HeartBeatLoopEnvironmentUser *)this->envBuilder->getUser(taskIndex);
   for (auto envID : envUser->getEnvIDsOfLiveOutVars()) {
@@ -461,9 +475,17 @@ void HeartBeatTransformation::generateCodeToStoreLiveOutVariables(LoopDependence
 
     // Assumption from now on, all live-out variables should be reducible
     auto envPtr = envUser->getEnvPtr(envID);
-    
+
+    /*
+     * Fetch the reduction
+     */
+    auto producerSCC = loopSCCDAG->sccOfValue(producer);
+    auto reductionVariable =
+        static_cast<Reduction *>(sccManager->getSCCAttrs(producerSCC));
+    assert(reductionVariable != nullptr);
+
     // Reducible live-out initialization
-    auto identityV = this->getIdentityValueForEnvironmentValue(LDI, envID, envType);
+    auto identityV = reductionVariable->getIdentityValue();
     auto newStore = entryBuilder.CreateStore(identityV, envPtr);
     mm->addMetadata(newStore, "heartbeat.environment_variable.live_out.reducible.initialize_private_copy", std::to_string(envID));
 
@@ -555,7 +577,7 @@ BasicBlock * HeartBeatTransformation::performReductionAfterCallingLoopHandler(Lo
      * 1. The identity value,
      * 2. The current phi value (the loop has been exectued for several iterations)
      */
-    auto loopEntryProducerPHI = this->fetchLoopEntryPHIOfProducer(LDI, producer);
+    auto loopEntryProducerPHI = producerSCCAttributes->getPhiThatAccumulatesValuesBetweenLoopIterations();
     auto loopEntryProducerPHIClone = this->tasks[0]->getCloneOfOriginalInstruction(loopEntryProducerPHI);
     initialValues[envID] = castToCorrectReducibleType(builder, loopEntryProducerPHIClone, producer->getType());
   }
@@ -718,7 +740,7 @@ BasicBlock * HeartBeatTransformation::performReductionWithInitialValueToAllReduc
     auto reducableOperation = producerSCCAttributes->getReductionOperation();
     reducableBinaryOps[envID] = reducableOperation;
 
-    auto loopEntryProducerPHI = this->fetchLoopEntryPHIOfProducer(LDI, producer);
+    auto loopEntryProducerPHI = producerSCCAttributes->getPhiThatAccumulatesValuesBetweenLoopIterations();
     auto initValPHIIndex = loopEntryProducerPHI->getBasicBlockIndex(loopPreHeader);
     auto initialValue = loopEntryProducerPHI->getIncomingValue(initValPHIIndex);
     initialValues[envID] = castToCorrectReducibleType(builder, initialValue, producer->getType());
