@@ -1,0 +1,8 @@
+.vscode/
+
+compiler/runtime/
+compiler/src/build/
+compiler/src/compile_commands.json
+
+manual_transformation/runtime/
+manual_transformation/tests/*/Makefile
