@@ -157,7 +157,6 @@ extern "C" {
       } else if (splittingLevel == 0 && myLevel == 2) {
         leftoverTaskIndex = 2;
       }
-      assert(leftoverTaskIndex != 0 && "leftover task index shouldn't be 0\n");
 
       taskparts::tpalrts_promote_via_nativefj([&] {
           (*leftoverTasks[leftoverTaskIndex])(startIterationsLeftover, maxIterationsLeftover, (void **)liveInEnvironmentsLeftover, myLevel);
