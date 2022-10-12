@@ -16,3 +16,5 @@ for tst in `ls` ; do
   cd ../ ;
 
 done
+
+exit 0 ;
