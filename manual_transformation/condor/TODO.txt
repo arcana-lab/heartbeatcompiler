@@ -1,0 +1,13 @@
+1. generate baseline binaries
+  - no transformations, raw benchmark
+  - ${root}/manual_transformation/benchmarks/${bench}/baseline/bench.cpp
+  - [Yian] Makefile for compilation process $: make [ DNO_PRINTING ]
+2. copy generated binaries        
+  - path: ${root}/manual_transformation/results/[current_machine, authors_machine]/binary/${bench}/baseline/${bench}
+3. run binaries to collect baseline time resutls [5 runs]
+  - 1 physical core on fix
+  - /usr/bin/time -p make run to collect time result >> ${bench}.txt
+  - ${root}/manual_transformation/results/time/${bench}/baseline/${bench}.txt
+4. run binaries to collect baseline LLC-load-missses and dynamic instructions committed [5 runs]
+  - perf
+  - ${root}/manual_transformation/results/LLC-load-misses/baseline/${bench.txt}
