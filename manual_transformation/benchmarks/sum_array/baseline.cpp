@@ -1,37 +1,17 @@
-#ifndef TASKPARTS_TPALRTS
-#error "need to compile with tpal flags, e.g., TASKPARTS_TPALRTS"
-#endif
-#include <taskparts/benchmark.hpp>
+#include <stdint.h>
+#include <stdio.h>
+#include <algorithm>
 
-void sum_array_heartbeat(double* a, uint64_t lo, uint64_t hi, double r, double* dst);
-
-/* Outlined-loop functions */
-/* ======================= */
-
-#define D 64
-
-void sum_array_heartbeat(double* a, uint64_t lo, uint64_t hi, double r, double* dst) {
-  if (! (lo < hi)) {
-    goto exit;
+double sum_array(double* a, uint64_t lo, uint64_t hi) {
+  double r = 0.0;
+  for (uint64_t i = lo; i != hi; i++) {
+    r += a[i];
   }
-  for (; ; ) {
-    uint64_t lo2 = lo;
-    uint64_t hi2 = std::min(lo + D, hi);
-    for (; lo2 < hi2; lo2++) {
-      r += a[lo2];
-    }
-    lo = lo2;
-    if (! (lo < hi)) {
-      break;
-    }
-
-  }
- exit:
-  *dst = r;
+  return r;
 }
 
 int main() {
-  uint64_t n = taskparts::cmdline::parse_or_default_long("n", 1000 * 1000 * 1000);
+  uint64_t n = 1000 * 1000 * 1000;
   double result = 0.0;
   double* a;
 
@@ -40,7 +20,7 @@ int main() {
     a[i] = 1.0;
   }
 
-  sum_array_heartbeat(a, 0, n, 0.0, &result);
+  result = sum_array(a, 0, n);
 
   delete [] a;
   

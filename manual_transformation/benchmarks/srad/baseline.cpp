@@ -1,84 +1,73 @@
-#ifndef TASKPARTS_TPALRTS
-#error "need to compile with tpal flags, e.g., TASKPARTS_TPALRTS"
-#endif
-#include <taskparts/benchmark.hpp>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <math.h>
-
-/*
-  128 //number of rows in the domain
-  128 //number of cols in the domain
-  0	//y1 position of the speckle
-  31	//y2 position of the speckle
-  0	//x1 position of the speckle
-  31	//x2 position of the speckle
-  4	//number of threads
-  0.5	//Lambda value
-  2	//number of iterations
-*/
+#include <algorithm>
+#include <cstdint>
 
 int rows=4000;
 int cols=4000, size_I, size_R;
-float *_srad_I, *_srad_J, q0sqr, sum, sum2, tmp, meanROI,varROI ;
+float *I, *J, q0sqr, sum, sum2, tmp, meanROI,varROI ;
 int *iN,*iS,*jE,*jW;
 float *dN,*dS,*dW,*dE;
 int r1, r2, c1, c2;
-float *_srad_c;
+float *c, D;
 float lambda;
 
-void srad_interrupt(int rows, int cols, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda);
-void srad_interrupt_1(int rows, int cols, int rows_lo, int rows_hi, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda);
-void srad_interrupt_2(int rows, int cols, int rows_lo, int rows_hi, int cols_lo, int cols_hi, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda);
-void srad_interrupt_inner_1(int rows, int cols, int rows_lo, int rows_hi, int cols_lo, int cols_hi, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda);
-void srad_interrupt_inner_2(int rows, int cols, int rows_lo, int rows_hi, int cols_lo, int cols_hi, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda);
+uint64_t hash64(uint64_t u) {
+  uint64_t v = u * 3935559000370003845ul + 2691343689449507681ul;
+  v ^= v >> 21;
+  v ^= v << 37;
+  v ^= v >>  4;
+  v *= 4768777513237032717ul;
+  v ^= v << 20;
+  v ^= v >> 41;
+  v ^= v <<  5;
+  return v;
+}
 
-/* Outlined-loop functions */
-/* ======================= */
+void random_matrix(float *I, int rows, int cols){
 
-#define DT 64
+  for( int i = 0 ; i < rows ; i++){
+    for ( int j = 0 ; j < cols ; j++){
+      I[i * cols + j] = (float)hash64(i+j)/(float)RAND_MAX ;
+    }
+  }
 
-void srad_interrupt(int rows, int cols, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda) {
+}
+
+void srad(int rows, int cols, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda) {
   for (int i = 0 ; i < rows ; i++) {
-    int col_lo = 0;
-    int col_hi = cols;
-    if (! (col_lo < col_hi)) {
-      continue;
+    for (int j = 0; j < cols; j++) { 
+		
+      int k = i * cols + j;
+      float Jc = J[k];
+ 
+      // directional derivates
+      dN[k] = J[iN[i] * cols + j] - Jc;
+      dS[k] = J[iS[i] * cols + j] - Jc;
+      dW[k] = J[i * cols + jW[j]] - Jc;
+      dE[k] = J[i * cols + jE[j]] - Jc;
+			
+      float G2 = (dN[k]*dN[k] + dS[k]*dS[k] 
+		  + dW[k]*dW[k] + dE[k]*dE[k]) / (Jc*Jc);
+
+      float L = (dN[k] + dS[k] + dW[k] + dE[k]) / Jc;
+
+      float num  = (0.5*G2) - ((1.0/16.0)*(L*L)) ;
+      float den  = 1 + (.25*L);
+      float qsqr = num/(den*den);
+ 
+      // diffusion coefficent (equ 33)
+      den = (qsqr-q0sqr) / (q0sqr * (1+q0sqr)) ;
+      c[k] = 1.0 / (1.0+den) ;
+                
+      // saturate diffusion coefficent
+      if (c[k] < 0) {c[k] = 0;}
+      else if (c[k] > 1) {c[k] = 1;}
+   
     }
-    for (;;) {
-      int col_lo2 = col_lo;
-      int col_hi2 = std::min(col_lo + DT, col_hi);
-      for (; col_lo2 < col_hi2; col_lo2++) {
-	int j = col_lo2;
-	int k = i * cols + j;
-	float Jc = J[k];
-
-	// directional derivates
-	dN[k] = J[iN[i] * cols + j] - Jc;
-	dS[k] = J[iS[i] * cols + j] - Jc;
-	dW[k] = J[i * cols + jW[j]] - Jc;
-	dE[k] = J[i * cols + jE[j]] - Jc;
-
-	float G2 = (dN[k]*dN[k] + dS[k]*dS[k] 
-		    + dW[k]*dW[k] + dE[k]*dE[k]) / (Jc*Jc);
-
-	float L = (dN[k] + dS[k] + dW[k] + dE[k]) / Jc;
-
-	float num  = (0.5*G2) - ((1.0/16.0)*(L*L)) ;
-	float den  = 1 + (.25*L);
-	float qsqr = num/(den*den);
-
-	// diffusion coefficent (equ 33)
-	den = (qsqr-q0sqr) / (q0sqr * (1+q0sqr)) ;
-	c[k] = 1.0 / (1.0+den) ;
-
-	// saturate diffusion coefficent
-	if (c[k] < 0) {c[k] = 0;}
-	else if (c[k] > 1) {c[k] = 1;}
-      }
-      col_lo = col_lo2;
-      if (! (col_lo < col_hi)) {
-        break;
-      }
-    }
+  
   }
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++) {        
@@ -101,188 +90,6 @@ void srad_interrupt(int rows, int cols, int size_I, int size_R, float* I, float*
   }
 }
 
-void srad_interrupt_1(int rows, int cols, int rows_lo, int rows_hi, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda) {
-  for (int i = rows_lo ; i < rows_hi ; i++) {
-    int col_lo = 0;
-    int col_hi = cols;
-    if (! (col_lo < col_hi)) {
-      continue;
-    }
-    for (;;) {
-      int col_lo2 = col_lo;
-      int col_hi2 = std::min(col_lo + DT, col_hi);
-      for (; col_lo2 < col_hi2; col_lo2++) {
-	int j = col_lo2;
-	int k = i * cols + j;
-	float Jc = J[k];
-
-	// directional derivates
-	dN[k] = J[iN[i] * cols + j] - Jc;
-	dS[k] = J[iS[i] * cols + j] - Jc;
-	dW[k] = J[i * cols + jW[j]] - Jc;
-	dE[k] = J[i * cols + jE[j]] - Jc;
-
-	float G2 = (dN[k]*dN[k] + dS[k]*dS[k] 
-		    + dW[k]*dW[k] + dE[k]*dE[k]) / (Jc*Jc);
-
-	float L = (dN[k] + dS[k] + dW[k] + dE[k]) / Jc;
-
-	float num  = (0.5*G2) - ((1.0/16.0)*(L*L)) ;
-	float den  = 1 + (.25*L);
-	float qsqr = num/(den*den);
-
-	// diffusion coefficent (equ 33)
-	den = (qsqr-q0sqr) / (q0sqr * (1+q0sqr)) ;
-	c[k] = 1.0 / (1.0+den) ;
-
-	// saturate diffusion coefficent
-	if (c[k] < 0) {c[k] = 0;}
-	else if (c[k] > 1) {c[k] = 1;}
-      }
-      col_lo = col_lo2;
-      if (! (col_lo < col_hi)) {
-        break;
-      }
-    }
-  }
-}
-
-void srad_interrupt_inner_1(int rows, int cols, int rows_lo, int rows_hi, int cols_lo, int cols_hi, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda) {
-  int i = rows_lo;
-  int col_lo = cols_lo;
-  int col_hi = cols_hi;
-  if (! (col_lo < col_hi)) {
-    return;
-  }
-  for (;;) {
-    int col_lo2 = col_lo;
-    int col_hi2 = std::min(col_lo + DT, col_hi);
-    for (; col_lo2 < col_hi2; col_lo2++) {
-      int j = col_lo2;
-      int k = i * cols + j;
-      float Jc = J[k];
-
-      // directional derivates
-      dN[k] = J[iN[i] * cols + j] - Jc;
-      dS[k] = J[iS[i] * cols + j] - Jc;
-      dW[k] = J[i * cols + jW[j]] - Jc;
-      dE[k] = J[i * cols + jE[j]] - Jc;
-
-      float G2 = (dN[k]*dN[k] + dS[k]*dS[k] 
-		  + dW[k]*dW[k] + dE[k]*dE[k]) / (Jc*Jc);
-
-      float L = (dN[k] + dS[k] + dW[k] + dE[k]) / Jc;
-
-      float num  = (0.5*G2) - ((1.0/16.0)*(L*L)) ;
-      float den  = 1 + (.25*L);
-      float qsqr = num/(den*den);
-
-      // diffusion coefficent (equ 33)
-      den = (qsqr-q0sqr) / (q0sqr * (1+q0sqr)) ;
-      c[k] = 1.0 / (1.0+den) ;
-
-      // saturate diffusion coefficent
-      if (c[k] < 0) {c[k] = 0;}
-      else if (c[k] > 1) {c[k] = 1;}
-    }
-    col_lo = col_lo2;
-    if (! (col_lo < col_hi)) {
-      break;
-    }
-  }
-}
-
-void srad_interrupt_2(int rows, int cols, int rows_lo, int rows_hi, int cols_lo, int cols_hi, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda) {
-  for (int i = rows_lo; i < rows_hi; i++) {
-    int col_lo = 0;
-    int col_hi = cols;
-    if (! (col_lo < col_hi)) {
-      continue;
-    }
-    for (;;) {
-      int col_lo2 = col_lo;
-      int col_hi2 = std::min(col_lo + DT, col_hi);
-      for (; col_lo2 < col_hi2; col_lo2++) {
-	int j = col_lo2;
-
-	// current index
-	int k = i * cols + j;
-
-	// diffusion coefficent
-	float cN = c[k];
-	float cS = c[iS[i] * cols + j];
-	float cW = c[k];
-	float cE = c[i * cols + jE[j]];
-
-	// divergence (equ 58)
-	float D = cN * dN[k] + cS * dS[k] + cW * dW[k] + cE * dE[k];
-
-	// image update (equ 61)
-	J[k] = J[k] + 0.25*lambda*D;
-      }
-      col_lo = col_lo2;
-      if (! (col_lo < col_hi)) {
-	break;
-      }
-    }
-  }
-}
-
-void srad_interrupt_inner_2(int rows, int cols, int rows_lo, int rows_hi, int cols_lo, int cols_hi, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda) {
-  int i = rows_lo;
-  int col_lo = cols_lo;
-  int col_hi = cols_hi;
-  if (! (col_lo < col_hi)) {
-    return;
-  }
-  for (;;) {
-    int col_lo2 = col_lo;
-    int col_hi2 = std::min(col_lo + DT, col_hi);
-    for (; col_lo2 < col_hi2; col_lo2++) {
-      int j = col_lo2;
-
-      // current index
-      int k = i * cols + j;
-
-      // diffusion coefficent
-      float cN = c[k];
-      float cS = c[iS[i] * cols + j];
-      float cW = c[k];
-      float cE = c[i * cols + jE[j]];
-
-      // divergence (equ 58)
-      float D = cN * dN[k] + cS * dS[k] + cW * dW[k] + cE * dE[k];
-
-      // image update (equ 61)
-      J[k] = J[k] + 0.25*lambda*D;
-    }
-    col_lo = col_lo2;
-    if (! (col_lo < col_hi)) {
-      break;
-    }
-  }
-}
-
-int64_t hash64(uint64_t u) {
-  uint64_t v = u * 3935559000370003845ul + 2691343689449507681ul;
-  v ^= v >> 21;
-  v ^= v << 37;
-  v ^= v >>  4;
-  v *= 4768777513237032717ul;
-  v ^= v << 20;
-  v ^= v >> 41;
-  v ^= v <<  5;
-  return v;
-}
-
-void random_matrix(float *I, int rows, int cols){
-  for( int i = 0 ; i < rows ; i++){
-    for ( int j = 0 ; j < cols ; j++){
-      I[i * cols + j] = (float)hash64(i+j)/(float)RAND_MAX ;
-    }
-  }
-}
-
 int main() {
 
   r1   = 0;
@@ -294,19 +101,21 @@ int main() {
   size_I = cols * rows;
   size_R = (r2-r1+1)*(c2-c1+1);   
 
-  _srad_I = (float *)malloc( size_I * sizeof(float) );
-  _srad_J = (float *)malloc( size_I * sizeof(float) );
-  _srad_c  = (float *)malloc(sizeof(float)* size_I) ;
+  I = (float *)malloc( size_I * sizeof(float) );
+  J = (float *)malloc( size_I * sizeof(float) );
+  c  = (float *)malloc(sizeof(float)* size_I) ;
 
   iN = (int *)malloc(sizeof(unsigned int*) * rows) ;
   iS = (int *)malloc(sizeof(unsigned int*) * rows) ;
   jW = (int *)malloc(sizeof(unsigned int*) * cols) ;
   jE = (int *)malloc(sizeof(unsigned int*) * cols) ;    
 
+
   dN = (float *)malloc(sizeof(float)* size_I) ;
   dS = (float *)malloc(sizeof(float)* size_I) ;
   dW = (float *)malloc(sizeof(float)* size_I) ;
   dE = (float *)malloc(sizeof(float)* size_I) ;    
+    
 
   for (int i=0; i< rows; i++) {
     iN[i] = i-1;
@@ -321,16 +130,16 @@ int main() {
   jW[0]    = 0;
   jE[cols-1] = cols-1;
 
-  random_matrix(_srad_I, rows, cols);
+  random_matrix(I, rows, cols);
 
   for (int k = 0;  k < size_I; k++ ) {
-    _srad_J[k] = (float)exp((double)_srad_I[k]) ;
+    J[k] = (float)exp((double)I[k]) ;
   }
 
   sum=0; sum2=0;     
   for (int i=r1; i<=r2; i++) {
     for (int j=c1; j<=c2; j++) {
-      tmp   = _srad_J[i * cols + j];
+      tmp   = J[i * cols + j];
       sum  += tmp ;
       sum2 += tmp*tmp;
     }
@@ -340,15 +149,14 @@ int main() {
   q0sqr   = varROI / (meanROI*meanROI);
 
 
-  srad_interrupt(rows, cols, size_I, size_R, _srad_I, _srad_J, q0sqr, dN, dS, dW, dE, _srad_c, iN, iS, jE, jW, lambda);
+  srad(rows, cols, size_I, size_R, I, J, q0sqr, dN, dS, dW, dE, c, iN, iS, jE, jW, lambda);
 
 
-  free(_srad_I);
-  free(_srad_J);
+  free(I);
+  free(J);
   free(iN); free(iS); free(jW); free(jE);
   free(dN); free(dS); free(dW); free(dE);
+  free(c);
 
-  free(_srad_c);
-  
   return 0;
 }

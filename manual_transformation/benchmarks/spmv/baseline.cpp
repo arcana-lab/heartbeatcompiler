@@ -1,114 +1,10 @@
-#ifndef TASKPARTS_TPALRTS
-#error "need to compile with tpal flags, e.g., TASKPARTS_TPALRTS"
-#endif
-#include <taskparts/benchmark.hpp>
-#include <cstdint>
-#if defined(TASKPARTS_LINUX)
+#include <stdint.h>
+#include <algorithm>
 #include <cmath>
-double mypow(double x, double y) {
-  return std::pow(x, y);
-}
-#elif defined(TASKPARTS_NAUTILUS)
-extern "C"
-double pow(double x, double y);
-double mypow(double x, double y) {
-  return pow(x, y);
-}
-#endif
+#include <cassert>
+#include <vector>
+#include <functional>
 
-void spmv_interrupt(
-  double* val,
-  uint64_t* row_ptr,
-  uint64_t* col_ind,
-  double* x,
-  double* y,
-  uint64_t row_lo,
-  uint64_t row_hi);
-void spmv_interrupt_col_loop(
-  double* val,
-  uint64_t* row_ptr,
-  uint64_t* col_ind,
-  double* x,
-  double* y,
-  uint64_t col_lo,
-  uint64_t col_hi,
-  double r,
-  double* dst);
-
-/* Outlined-loop functions */
-/* ======================= */
-
-#define D 1024
-
-void spmv_interrupt(
-  double* val,
-  uint64_t* row_ptr,
-  uint64_t* col_ind,
-  double* x,
-  double* y,
-  uint64_t row_lo,
-  uint64_t row_hi) {
-  if (! (row_lo < row_hi)) { // row loop
-    return;
-  }
-  for (; ; ) { 
-    double r = 0.0;
-    uint64_t col_lo = row_ptr[row_lo];
-    uint64_t col_hi = row_ptr[row_lo + 1];
-    if (! (col_lo < col_hi)) { // col loop (1)
-      goto exit_col_loop;
-    }
-    for (; ; ) {
-      uint64_t col_lo2 = col_lo;
-      uint64_t col_hi2 = std::min(col_lo + D, col_hi);
-      for (; col_lo2 < col_hi2; col_lo2++) { // col loop (2)
-        r += val[col_lo2] * x[col_ind[col_lo2]];
-      }
-      col_lo = col_lo2;
-      if (! (col_lo < col_hi)) {
-        break;
-      }
-    }
-  exit_col_loop:
-    y[row_lo] = r;
-    row_lo++;
-    if (! (row_lo < row_hi)) {
-      break;
-    }
-  }
-}
-
-void spmv_interrupt_col_loop(
-  double* val,
-  uint64_t* row_ptr,
-  uint64_t* col_ind,
-  double* x,
-  double* y,
-  uint64_t col_lo,
-  uint64_t col_hi,
-  double r,
-  double* dst) {
-  if (! (col_lo < col_hi)) {
-    goto exit;
-  }
-  for (; ; ) {
-    uint64_t col_lo2 = col_lo;
-    uint64_t col_hi2 = std::min(col_lo + D, col_hi);
-    for (; col_lo2 < col_hi2; col_lo2++) {
-      r += val[col_lo2] * x[col_ind[col_lo2]];
-    }
-    col_lo = col_lo2;
-    if (! (col_lo < col_hi)) {
-      break;
-    }
-  }
-exit:
-  *dst = r;
-}
-
-char* random_bigrows_input = "random_bigrows";
-char* random_bigcols_input = "random_bigcols";
-char* arrowhead_input = "arrowhead";
 
 uint64_t n_bigrows = 3000000;
 //uint64_t n_bigrows = 300000;
@@ -139,7 +35,7 @@ uint64_t hash64(uint64_t u) {
   return v;
 }
 
-auto rand_double(size_t i) -> double {
+	auto rand_double(size_t i) -> double {
   int m = 1000000;
   double v = hash64(i) % m;
   return v / m;
@@ -159,14 +55,14 @@ auto mk_random_local_edgelist(size_t dim, size_t degree, size_t num_rows)
     if (dim==0) {
       size_t h = k;
       do {
-	j = ((h = hash64(h)) % num_rows);
+	      j = ((h = hash64(h)) % num_rows);
       } while (j == i);
     } else {
       size_t _pow = dim+2;
       size_t h = k;
       do {
-	while ((((h = hash64(h)) % 1000003) < 500001)) _pow += dim;
-	j = (i + ((h = hash64(h)) % (((long) 1) << _pow))) % num_rows;
+	      while ((((h = hash64(h)) % 1000003) < 500001)) _pow += dim;
+	      j = (i + ((h = hash64(h)) % (((long) 1) << _pow))) % num_rows;
       } while (j == i);
     }
     edges.push_back(std::make_pair(i, j));
@@ -174,25 +70,6 @@ auto mk_random_local_edgelist(size_t dim, size_t degree, size_t num_rows)
   return edges;
 }
 
-  /*
-static float powerlaw_random(size_t i, float dmin, float dmax, float n) {
-  float r = (float)hash64(i) / RAND_MAX;
-  return mypow((mypow(dmax, n) - mypow(dmin, n)) * mypow(r, 3) + mypow(dmin, n), 1.0 / n);
-}
-std::vector<int> siteSizes(size_t n) {
-  std::vector<int> site_sizes;
-  for (int i = 0; i < n;) {
-    int c = powerlaw_random(i, 1,
-                            std::min(50000, (int) (100000. * n / 100e6)),
-                            0.001);
-    c = (c==0)?1:c;
-    site_sizes.push_back(c);
-    i += c;
-  }
-  return site_sizes;
-}
-  */
-  
 auto mk_powerlaw_edgelist(size_t lg) {
   edgelist_type edges;
   size_t o = 0;
@@ -202,8 +79,8 @@ auto mk_powerlaw_edgelist(size_t lg) {
   for (size_t i = 0; i < lg; i++) {
     for (size_t j = 0; j < n; j++) {
       for (size_t k = 0; k < m; k++) {
-	auto d = hash64(o + k) % tot;
-	edges.push_back(std::make_pair(o, d));
+        auto d = hash64(o + k) % tot;
+        edges.push_back(std::make_pair(o, d));
       }
       o++;
     }
@@ -211,38 +88,7 @@ auto mk_powerlaw_edgelist(size_t lg) {
     m /= 2;
   }
   
-  return edges; 
-  /*
-  size_t n = num_rows;
-  size_t inRatio = 10;
-  size_t degree = 15;
-  std::vector<int> site_sizes = siteSizes(n);
-  size_t sites = site_sizes.size();
-  size_t *sizes = (size_t*)malloc(sizeof(size_t) * sites);
-  size_t *offsets = (size_t*)malloc(sizeof(size_t) * sites);
-  size_t o = 0;
-  for (size_t i=0; i < sites; i++) {
-    sizes[i] = site_sizes[i];
-    offsets[i] = o;
-    o += sizes[i];
-    if (o > n) sizes[i] = std::max<size_t>(0,sizes[i] + n - o);
-  }
-  for (size_t i=0; i < sites; i++) {
-    for (size_t j =0; j < sizes[i]; j++) {
-      for (size_t k = 0; k < degree; k++) {
-	auto h1 = hash64(i+j+k);
-	auto h2 = hash64(h1);
-	auto h3 = hash64(h2);
-	size_t target_site = (h1 % inRatio != 0) ? i : (h2 % sites);
-	size_t site_id = h3 % sizes[target_site];
-	size_t idx = offsets[i] + j;
-	edges.push_back(std::make_pair(idx, offsets[target_site] + site_id));
-      }
-    }
-  }
-  free(sizes);
-  free(offsets);
-  return edges; */
+  return edges;
 }
 
 auto mk_arrowhead_edgelist(size_t n) {
@@ -266,7 +112,7 @@ auto csr_of_edgelist(edgelist_type& edges) {
     edge_type prev = edges.back();
     for (auto& e : edges) {
       if (e != prev) {
-	edges2.push_back(e);
+	      edges2.push_back(e);
       }
       prev = e;
     }
@@ -313,29 +159,6 @@ auto csr_of_edgelist(edgelist_type& edges) {
       val[i] = rand_double(i);
     }
   }
-#ifdef MCSL_NAUTILUS
-  aprintf("nb_vals %lu\n", nb_vals);
-  aprintf("max_col_len %lu\n", max_col_len);
-  aprintf("tot_col_len %lu\n", tot_col_len);
-#else
-  printf("nb_vals %lu\n", nb_vals);
-  printf("max_col_len %lu\n", max_col_len);
-  printf("tot_col_len %lu\n", tot_col_len);
-#endif
-  { /*
-    for (auto& e : edges) {
-      std::cout << e.first << "," << e.second << " ";
-    }
-    std::cout << std::endl;
-    for (size_t i = 0; i < nb_rows+1; i++) {
-      std::cout << "r[" << i << "]=" << row_ptr[i] << " ";
-    }
-    std::cout << std::endl;
-    for (size_t i = 0; i < nb_vals; i++) {
-      std::cout << "c[" << i << "]=" << col_ind[i] << " ";
-    }
-    std::cout << std::endl;  */
-  } 
 }
 
 template <typename Gen_matrix>
@@ -352,8 +175,7 @@ auto bench_pre_shared(const Gen_matrix& gen_matrix) {
       _spmv_x[i] = rand_double(i);
       _spmv_y[i] = 0.0;
     }
-    //    tpalrts::zero_init(y, nb_rows);
-  }  
+  }
 };
 
 auto bench_pre_bigrows() {
@@ -381,33 +203,35 @@ auto bench_pre_arrowhead() {
   });
 }
 
+void spmv(
+  double* val,
+  uint64_t* row_ptr,
+  uint64_t* col_ind,
+  double* x,
+  double* y,
+  uint64_t n) {
+  for (uint64_t i = 0; i < n; i++) { // row loop
+    double r = 0.0;
+    for (uint64_t k = row_ptr[i]; k < row_ptr[i + 1]; k++) { // col loop
+      r += val[k] * x[col_ind[k]];
+    }
+    y[i] = r;
+  }
+}
+
 int main() {
-  //    spmv_manual_col_T = taskparts::cmdline::parse_or_default_int("spmv_manual_col_T", spmv_manual_col_T);
-  taskparts::cmdline::dispatcher d;
-  d.add("bigrows", [&] {
-    n_bigrows = taskparts::cmdline::parse_or_default_long("n", n_bigrows);
-    degree_bigrows = taskparts::cmdline::parse_or_default_long("degree", std::max((uint64_t)2, degree_bigrows));
-    bench_pre_bigrows();
-  });
-  d.add("bigcols", [&] {
-    n_bigcols = taskparts::cmdline::parse_or_default_long("n", n_bigcols);
-    bench_pre_bigcols();
-  });
-  d.add("arrowhead", [&] {
-    n_arrowhead = taskparts::cmdline::parse_or_default_long("n", n_arrowhead);
-    bench_pre_arrowhead();
-  });
-  d.dispatch_or_default("inputname", "bigrows");
 
+  bench_pre_bigrows();
+  bench_pre_bigcols();
+  bench_pre_arrowhead();
 
-  spmv_interrupt(val, row_ptr, col_ind, _spmv_x, _spmv_y, 0, nb_rows);
-
+  spmv(val, row_ptr, col_ind, _spmv_x, _spmv_y, nb_rows);
 
   free(val);
   free(row_ptr);
   free(col_ind);
   free(_spmv_x);
   free(_spmv_y);
-  
+
   return 0;
 }
