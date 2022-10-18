@@ -8,8 +8,8 @@ CXXFLAGS_OPENMP=$(CXXFLAGS_BASELINE) -DUSE_OPENMP -fopenmp
 LIBS_OPENMP=$(LIBS_BASELINE) -fopenmp
 
 TASKPARTS?=../../runtime/include
-CXXFLAGS=$(CXXFLAGS_BASELINE) -fno-stack-protector -DTASKPARTS_POSIX -DTASKPARTS_X64 -DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING -DTASKPARTS_STATS -DTASKPARTS_LOG -DTASKPARTS_TPALRTS -fno-asynchronous-unwind-tables -fomit-frame-pointer -I $(TASKPARTS)
-LIBS=$(LIBS_BASELINE) -lpthread
+CXXFLAGS_HEARTBEAT=$(CXXFLAGS_BASELINE) -fno-stack-protector -DTASKPARTS_POSIX -DTASKPARTS_X64 -DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING -DTASKPARTS_STATS -DTASKPARTS_LOG -DTASKPARTS_TPALRTS -fno-asynchronous-unwind-tables -fomit-frame-pointer -I $(TASKPARTS)
+LIBS_HEARTBEAT=$(LIBS_BASELINE) -lpthread
 
 OPTS=-O3 -march=native -fno-vectorize -fno-slp-vectorize
 
@@ -18,8 +18,8 @@ all: baseline
 baseline: baseline.cpp
 	clang++ $(CXXFLAGS_BASELINE) $(LIBS_BASELINE) $^ $(OPTS) -o $@
 
-correctness: baseline.cpp
-	clang++ $(CXXFLAGS_BASELINE) -DTEST_CORRECTNESS $(LIBS_BASELINE) $^ $(OPTS) -o $@
+run_baseline: baseline
+	./baseline
 
 opencilk: opencilk.cpp
 	clang++ $(CXXFLAGS_OPENCILK) $(LIBS_OPENCILK) $^ $(OPTS) -o $@
@@ -27,7 +27,19 @@ opencilk: opencilk.cpp
 openmp: openmp.cpp
 	clang++ $(CXXFLAGS_OPENMP) $(LIBS_OPENMP) $^ $(OPTS) -o $@
 
-clean:
-	rm -f baseline correctness opencilk openmp;
+heartbeat: heartbeat.cpp
+	clang++ $(CXXFLAGS_HEARTBEAT) $(LIBS_HEARTBEAT) $^ $(OPTS) -o $@
 
-.PHONY: clean baseline correctness opencilk openmp
+run_heartbeat: heartbeat
+	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=240000; ./heartbeat
+
+correctness: heartbeat.cpp
+	clang++ $(CXXFLAGS_HEARTBEAT) -DTEST_CORRECTNESS $(LIBS_HEARTBEAT) $^ $(OPTS) -o $@
+
+run_correctness: correctness
+	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=240000; ./correctness
+
+clean:
+	rm -f baseline opencilk openmp heartbeat correctness *.json;
+
+.PHONY: clean

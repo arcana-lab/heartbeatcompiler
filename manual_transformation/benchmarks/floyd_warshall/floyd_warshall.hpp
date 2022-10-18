@@ -47,6 +47,14 @@ auto init_input(int vertices) {
   return dist;
 }
 
+void setup() {
+  dist = init_input(vertices);
+}
+
+void finishup() {
+  free(dist);
+}
+
 #if defined(USE_OPENCILK)
 void floyd_warshall_opencilk(int* dist, int vertices) {
   for (int via = 0; via < vertices; via++) {

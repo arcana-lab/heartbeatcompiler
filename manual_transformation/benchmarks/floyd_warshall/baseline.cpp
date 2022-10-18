@@ -3,11 +3,11 @@
 using namespace floyd_warshall;
 
 int main() {
-  dist = init_input(vertices);
+  setup();
 
   floyd_warshall_serial(dist, vertices);
 
-  free(dist);
+  finishup();
 
   return 0;
 }
