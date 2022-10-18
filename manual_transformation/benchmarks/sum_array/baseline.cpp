@@ -1,28 +1,15 @@
-#include <stdint.h>
-#include <stdio.h>
-#include <algorithm>
+#include "sum_array.hpp"
+#include "stdio.h"
 
-double sum_array(double* a, uint64_t lo, uint64_t hi) {
-  double r = 0.0;
-  for (uint64_t i = lo; i != hi; i++) {
-    r += a[i];
-  }
-  return r;
-}
+using namespace sum_array;
 
 int main() {
-  uint64_t n = 1000 * 1000 * 1000;
-  double result = 0.0;
-  double* a;
 
-  a = new double[n];
-  for (int i = 0; i < n; i++) {
-    a[i] = 1.0;
-  }
+  setup();
 
-  result = sum_array(a, 0, n);
+  result = sum_array_serial(a, 0, n);
 
-  delete [] a;
+  finishup();
   
   printf("result=%f\n",result);
   return 0;
