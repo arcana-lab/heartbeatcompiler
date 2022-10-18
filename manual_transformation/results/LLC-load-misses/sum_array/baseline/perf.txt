@@ -1,0 +1,60 @@
+-----1-----
+
+ Performance counter stats for './baseline':
+
+          13989964      LLC-load-misses                                             
+
+       2.992555920 seconds time elapsed
+
+       1.431481000 seconds user
+       1.552895000 seconds sys
+
+
+-----2-----
+
+ Performance counter stats for './baseline':
+
+          14476064      LLC-load-misses                                             
+
+       2.945339489 seconds time elapsed
+
+       1.475829000 seconds user
+       1.461936000 seconds sys
+
+
+-----3-----
+
+ Performance counter stats for './baseline':
+
+          14458775      LLC-load-misses                                             
+
+       2.980572395 seconds time elapsed
+
+       1.458011000 seconds user
+       1.514272000 seconds sys
+
+
+-----4-----
+
+ Performance counter stats for './baseline':
+
+          13972529      LLC-load-misses                                             
+
+       2.996650858 seconds time elapsed
+
+       1.468473000 seconds user
+       1.520043000 seconds sys
+
+
+-----5-----
+
+ Performance counter stats for './baseline':
+
+          14431895      LLC-load-misses                                             
+
+       2.971271628 seconds time elapsed
+
+       1.447808000 seconds user
+       1.515180000 seconds sys
+
+
