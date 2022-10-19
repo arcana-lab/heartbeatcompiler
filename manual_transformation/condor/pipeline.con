@@ -1,12 +1,33 @@
-# requirements = (machine == "fix.cs.northwestern.edu")
-executable = run_pipeline.sh
+# Set the universe
+Universe = vanilla
 
-output = condor.out
-error  = condor.err
-log    = condor.log
+Getenv = True
 
-+IsWholeMachineJob = true
-# +IsWholeMachineJob = false
-+IsSuspensionJob   = false
+# Describe the target machine
+# Requirements = (Machine == "fix.cs.northwestern.edu")
+Requirements =
 
-queue
+Rank = TARGET.Mips
+Copy_To_Spool = False
+
+# Notification
+Notification = error
+Notify_User = 
+
+# Log files
+Output = condor.out
+Error = condor.err
+Log = condor.log
+
+# Job type
+# +IsWholeMachineJob      = true
++IsWholeMachineJob      = false
++IsSuspensionJob        = false
+
+# Job priority
+priority = 0
+
+# Job
+InitialDir = /home/yso0488/projects/heartbeatcompiler/manual_transformation/condor
+Executable = /home/yso0488/projects/heartbeatcompiler/manual_transformation/condor/run_pipeline.sh
+Queue
