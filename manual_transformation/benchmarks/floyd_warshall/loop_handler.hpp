@@ -18,7 +18,7 @@ int loop_handler(
   void **liveInEnvironments,
   uint64_t myLevel,
   uint64_t &returnLevel,
-  uint64_t (*f[])(uint64_t *, uint64_t *, void **, uint64_t)
+  uint64_t (*f[])(uint64_t *, uint64_t *, void **, uint64_t)/*, taskparts::future *fut */
 ) {
   // urgently getting back to the splitting level
   if (returnLevel < myLevel) {
@@ -79,21 +79,34 @@ int loop_handler(
   maxIterationsFirstHalf[splittingLevel] = med;
   startIterationsSecondHalf[splittingLevel] = med;
 
-  // printf("Loop_handler: Start\n");
-  // printf("Loop_handler:   Promotion\n");
-  // printf("Loop_handler:   Receiving Level = %lu\n", myLevel);
-  // printf("Loop_handler:   Splitting Level = %lu\n", splittingLevel);
-  // printf("Loop_handler:     startIteration = %lu, maxIterations = %lu\n", startIterations[splittingLevel], maxIterations[splittingLevel]);
-  // printf("Loop_handler:     med = %lu\n", med);
-  // printf("Loop_handler:     task1: startIteration = %lu, maxIterations = %lu\n", startIterationsFirstHalf[splittingLevel], maxIterationsFirstHalf[splittingLevel]);
-  // printf("Loop_handler:     task2: startIteration = %lu, maxIterations = %lu\n", startIterationsSecondHalf[splittingLevel], maxIterationsSecondHalf[splittingLevel]);
+#if defined(DEBUG_LOOP_HANDLER)
+  printf("Loop_handler: Start\n");
+  printf("Loop_handler:   Promotion\n");
+  printf("Loop_handler:   Receiving Level = %lu\n", myLevel);
+  printf("Loop_handler:   Splitting Level = %lu\n", splittingLevel);
+  printf("Loop_handler:     startIteration = %lu, maxIterations = %lu\n", startIterations[splittingLevel], maxIterations[splittingLevel]);
+  printf("Loop_handler:     med = %lu\n", med);
+  printf("Loop_handler:     task1: startIteration = %lu, maxIterations = %lu\n", startIterationsFirstHalf[splittingLevel], maxIterationsFirstHalf[splittingLevel]);
+  printf("Loop_handler:     task2: startIteration = %lu, maxIterations = %lu\n", startIterationsSecondHalf[splittingLevel], maxIterationsSecondHalf[splittingLevel]);
+#endif
 
   maxIterations[splittingLevel] = startIterations[splittingLevel] + 1;
 
+  /*
+    assert(fut == nullptr && "Assigning to a future pointer which already bounded\n");
+    fut = new lazy_future([=] {
+      taskparts::tpalrts_promote_via_nativefj([&] {
+        (*f[splittingLevel])(startIterationsFirstHalf, maxIterationsFirstHalf, (void **)liveInEnvironmentsFirstHalf, splittingLevel, nullptr);
+      }, [&] {
+        (*f[splittingLevel])(startIterationsSecondHalf, maxIterationsSecondHalf, (void **)liveInEnvironmentsSecondHalf, splittingLevel, nullptr);
+      }, [] { }, taskparts::bench_scheduler());
+    }
+  */
+
   taskparts::tpalrts_promote_via_nativefj([&] {
-    (*f[splittingLevel])(startIterationsFirstHalf, maxIterationsFirstHalf, (void **)liveInEnvironmentsFirstHalf, splittingLevel);
+    (*f[splittingLevel])(startIterationsFirstHalf, maxIterationsFirstHalf, (void **)liveInEnvironmentsFirstHalf, splittingLevel/*, nullptr */);
   }, [&] {
-    (*f[splittingLevel])(startIterationsSecondHalf, maxIterationsSecondHalf, (void **)liveInEnvironmentsSecondHalf, splittingLevel);
+    (*f[splittingLevel])(startIterationsSecondHalf, maxIterationsSecondHalf, (void **)liveInEnvironmentsSecondHalf, splittingLevel/*, nullptr */);
   }, [] { }, taskparts::bench_scheduler());
 
   return 1;
