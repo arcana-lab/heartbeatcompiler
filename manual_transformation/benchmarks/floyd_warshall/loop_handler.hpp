@@ -86,9 +86,9 @@ int loop_handler(
   /*
     assert(fut == nullptr && "Assigning to a future pointer which already bounded\n");
     fut = new lazy_future([=] {
-      taskparts::tpalrts_promote_via_nativefj([&] {
+      taskparts::tpalrts_promote_via_nativefj([=] {
         (*f[returnLevel])(startIterationsFirstHalf, maxIterationsFirstHalf, (void **)liveInEnvironmentsFirstHalf, returnLevel, nullptr);
-      }, [&] {
+      }, [=] {
         (*f[returnLevel])(startIterationsSecondHalf, maxIterationsSecondHalf, (void **)liveInEnvironmentsSecondHalf, returnLevel, nullptr);
       }, [] { }, taskparts::bench_scheduler());
     }
