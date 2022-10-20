@@ -72,9 +72,8 @@ void floyd_warshall_opencilk(int* dist, int vertices) {
 # elif defined(USE_OPENMP)
 void floyd_warshall_openmp(int* dist, int vertices) {
   for (int via = 0; via < vertices; via++) {
-    #pragma omp parallel for
+    #pragma omp parallel for collapse(2)
     for (int from = 0; from < vertices; from++) {
-      #pragma omp parallel for
       for (int to = 0; to < vertices; to++) {
         if ((from != to) && (from != via) && (to != via)) {
           SUB(dist, vertices, from, to) = 
@@ -92,7 +91,7 @@ void floyd_warshall_serial(int* dist, int vertices) {
       for (int to = 0; to < vertices; to++) {
         if ((from != to) && (from != via) && (to != via)) {
           SUB(dist, vertices, from, to) = 
-            std::min(SUB(dist, vertices, from, to), 
+            std::fmin(SUB(dist, vertices, from, to), 
                      SUB(dist, vertices, from, via) + SUB(dist, vertices, via, to));
         }
       }

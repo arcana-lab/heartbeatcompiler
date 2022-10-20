@@ -3,13 +3,13 @@
 using namespace floyd_warshall;
 
 int main() {
-  dist = init_input(vertices);
+  setup();
 
 #if defined(USE_OPENMP)
   floyd_warshall_openmp(dist, vertices);
 #endif
 
-  free(dist);
+  finishup();
 
   return 0;
 }
