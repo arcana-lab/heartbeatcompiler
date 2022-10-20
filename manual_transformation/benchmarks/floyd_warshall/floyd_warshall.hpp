@@ -2,7 +2,7 @@
 
 #include <cstdlib>
 #include <climits>
-#include <cmath>
+#include <algorithm>
 #if defined(USE_OPENCILK)
 #include <cilk/cilk.h>
 #endif
