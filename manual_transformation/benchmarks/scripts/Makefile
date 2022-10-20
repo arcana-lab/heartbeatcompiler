@@ -1,8 +1,9 @@
 CXXFLAGS_BASELINE=--std=c++17
 LIBS_BASELINE=-lm -lstdc++
 
-CXXFLAGS_OPENCILK=$(CXXFLAGS_BASELINE) -DUSE_OPENCILK -fcilkplus
-LIBS_OPENCILK=$(LIBS_BASELINE) -lcilkrts
+CXXCOMPILER=~/build/bin/clang
+CXXFLAGS_OPENCILK=$(CXXFLAGS_BASELINE) -DUSE_OPENCILK -fopencilk
+LIBS_OPENCILK=$(LIBS_BASELINE)
 
 CXXFLAGS_OPENMP=$(CXXFLAGS_BASELINE) -DUSE_OPENMP -fopenmp
 LIBS_OPENMP=$(LIBS_BASELINE) -fopenmp
@@ -22,10 +23,16 @@ run_baseline: baseline
 	./baseline
 
 opencilk: opencilk.cpp
-	clang++ $(CXXFLAGS_OPENCILK) $(LIBS_OPENCILK) $^ $(OPTS) -o $@
+	$(CXXCOMPILER) $(CXXFLAGS_OPENCILK) $(LIBS_OPENCILK) $^ $(OPTS) -o $@
+
+run_opencilk: opencilk
+	./opencilk
 
 openmp: openmp.cpp
 	clang++ $(CXXFLAGS_OPENMP) $(LIBS_OPENMP) $^ $(OPTS) -o $@
+
+run_openmp: openmp
+	./openmp
 
 heartbeat: heartbeat.cpp
 	clang++ $(CXXFLAGS_HEARTBEAT) $(LIBS_HEARTBEAT) $^ $(OPTS) -o $@

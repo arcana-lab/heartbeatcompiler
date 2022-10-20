@@ -218,9 +218,40 @@ void finishup() {
 }
 
 #if defined(USE_OPENCILK)
-
+void spmv_opencilk(
+  double* val,
+  uint64_t* row_ptr,
+  uint64_t* col_ind,
+  double* x,
+  double* y,
+  int64_t n) {
+  cilk_for (int64_t i = 0; i < n; i++) {  // row loop
+    cilk::reducer_opadd<double> r(0.0);
+    cilk_for (int64_t k = row_ptr[i]; k < row_ptr[i+1]; k++) { // col loop
+      *r += val[k] * x[col_ind[k]];
+    }
+    y[i] = r.get_value();
+  }
+}
 #elif defined(USE_OPENMP)
-
+void spmv_openmp(
+  double* val,
+  uint64_t* row_ptr,
+  uint64_t* col_ind,
+  double* x,
+  double* y,
+  int64_t n) {
+  omp_set_nested(1);
+  #pragma omp parallel for
+  for (int64_t i = 0; i < n; i++) {  // row loop
+    double r = 0.0;
+    #pragma omp parallel for reduction(+:r)
+    for (int64_t k = row_ptr[i]; k < row_ptr[i+1]; k++) { // col loop
+      r += val[k] * x[col_ind[k]];
+    }
+    y[i] = r;
+  }
+}
 #else
 void spmv_serial(
   double *val,

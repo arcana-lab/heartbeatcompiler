@@ -18,9 +18,22 @@ void finishup() {
 }
 
 #if defined(USE_OPENCILK)
-
+double sum_array_opencilk(double* a, uint64_t lo, uint64_t hi) {
+  cilk::reducer_opadd<double> r(0.0);
+  cilk_for (uint64_t i = lo; i != hi; i++) {
+    *r += a[i];
+  }
+  return r.get_value();
+}
 #elif defined(USE_OPENMP)
-
+double sum_array_openmp(double* a, uint64_t lo, uint64_t hi) {
+  double r = 0.0;
+  #pragma omp parallel for reduction(+:r)
+  for (uint64_t i = lo; i != hi; i++) {
+    r += a[i];
+  }
+  return r;
+}
 #else
 double sum_array_serial(double* a, uint64_t lo, uint64_t hi) {
   double r = 0.0;
