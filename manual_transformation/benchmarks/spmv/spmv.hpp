@@ -256,7 +256,7 @@ void spmv_openmp(
   double* x,
   double* y,
   int64_t n) {
-  omp_set_nested(1);
+  omp_set_max_active_levels(2);
   #pragma omp parallel for
   for (int64_t i = 0; i < n; i++) {  // row loop
     double r = 0.0;
