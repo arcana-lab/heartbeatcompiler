@@ -12,6 +12,7 @@ void loop_dispatcher(
   });
 }
 
+#if defined(HEARTBEAT_BRANCHES)
 int loop_handler(
   uint64_t *startIterations,
   uint64_t *maxIterations,
@@ -102,3 +103,8 @@ int loop_handler(
 
   return 1;
 }
+#elif defined(HEARTBEAT_VERSIONING)
+  int loop_handler() { 
+    return 0;
+  }
+#endif

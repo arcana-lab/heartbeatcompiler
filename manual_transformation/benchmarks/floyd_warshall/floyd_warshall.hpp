@@ -91,7 +91,7 @@ void floyd_warshall_serial(int* dist, int vertices) {
       for (int to = 0; to < vertices; to++) {
         if ((from != to) && (from != via) && (to != via)) {
           SUB(dist, vertices, from, to) = 
-            std::fmin(SUB(dist, vertices, from, to), 
+            std::min(SUB(dist, vertices, from, to), 
                      SUB(dist, vertices, from, via) + SUB(dist, vertices, via, to));
         }
       }
