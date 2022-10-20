@@ -3,6 +3,15 @@
 #include <vector>
 #include <functional>
 #include <cassert>
+#if defined(USE_OPENCILK)
+#include <cilk/cilk.h>
+#endif
+#if defined(USE_OPENMP)
+#include <omp.h>
+#endif
+#if defined(TEST_CORRECTNESS)
+#include <cstdio>
+#endif
 
 namespace spmv {
 
@@ -218,6 +227,12 @@ void finishup() {
 }
 
 #if defined(USE_OPENCILK)
+void zero_double(void *view) {
+  *(double *)view = 0.0;
+}
+void add_double(void *left, void *right) {
+  *(double *)left += *(double *)right;
+}
 void spmv_opencilk(
   double* val,
   uint64_t* row_ptr,
@@ -226,11 +241,11 @@ void spmv_opencilk(
   double* y,
   int64_t n) {
   cilk_for (int64_t i = 0; i < n; i++) {  // row loop
-    cilk::reducer_opadd<double> r(0.0);
+    double cilk_reducer(zero_double, add_double) sum;
     cilk_for (int64_t k = row_ptr[i]; k < row_ptr[i+1]; k++) { // col loop
-      *r += val[k] * x[col_ind[k]];
+      sum += val[k] * x[col_ind[k]];
     }
-    y[i] = r.get_value();
+    y[i] = sum;
   }
 }
 #elif defined(USE_OPENMP)

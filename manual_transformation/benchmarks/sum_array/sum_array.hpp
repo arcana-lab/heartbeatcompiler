@@ -1,4 +1,13 @@
 #include <cstdint>
+#if defined(USE_OPENCILK)
+#include <cilk/cilk.h>
+#endif
+#if defined(USE_OPENMP)
+#include <omp.h>
+#endif
+#if defined(TEST_CORRECTNESS)
+#include <cstdio>
+#endif
 
 namespace sum_array {
 
@@ -18,12 +27,18 @@ void finishup() {
 }
 
 #if defined(USE_OPENCILK)
+void zero_double(void *view) {
+  *(double *)view = 0.0;
+}
+void add_double(void *left, void *right) {
+  *(double *)left += *(double *)right;
+}
 double sum_array_opencilk(double* a, uint64_t lo, uint64_t hi) {
-  cilk::reducer_opadd<double> r(0.0);
+  double cilk_reducer(zero_double, add_double) sum;
   cilk_for (uint64_t i = lo; i != hi; i++) {
-    *r += a[i];
+    sum += a[i];
   }
-  return r.get_value();
+  return sum;
 }
 #elif defined(USE_OPENMP)
 double sum_array_openmp(double* a, uint64_t lo, uint64_t hi) {

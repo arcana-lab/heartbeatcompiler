@@ -1,6 +1,15 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cmath>
+#if defined(USE_OPENCILK)
+#include <cilk/cilk.h>
+#endif
+#if defined(USE_OPENMP)
+#include <omp.h>
+#endif
+#if defined(TEST_CORRECTNESS)
+#include <cstdio>
+#endif
 
 namespace srad {
 
