@@ -12,7 +12,7 @@ echo "### Pipeline Starts ###" >> ${PROGRESS_FILE} 2>&1 ;
 
 # Setup environment for the heartbeat evaluation pipeline
 echo "### Setup Stage ###" >> ${PROGRESS_FILE} 2>&1 ;
-./bin/setup >> ${PROGRESS_FILE} 2>&1 ;
+source ./bin/setup >> ${PROGRESS_FILE} 2>&1 ;
 
 # Compile and collect metrics for the baseline
 echo "### Baseline Stage ###" >> ${PROGRESS_FILE} 2>&1 ;

@@ -66,10 +66,19 @@ for bench in `ls` ; do
   cp "${BINARY_FOLDER}/${bench}/baseline/baseline" . ;
   mkdir -p "${TIME_FOLDER}/${bench}/baseline" ;
 
+  # kill any running BurnP6 processors & run BurnP6 on at least 4 cores
+  killall burnP6 &> /dev/null ;
+  for coreID in `seq -s' ' 2 2 8` ; do
+    taskset -c ${coreID} burnP6 &
+  done
+
   echo "running ${bench} ${numRuns} times to collect baseline time results" ;
   for i in `seq 1 ${numRuns}` ; do
     /usr/bin/time -p taskset -c 0 ./baseline 2>&1 | grep "real" | awk '{ print $2 }' >> "${TIME_FOLDER}/${bench}/baseline/time.txt" ;
   done
+
+  # kill any running BurnP6 processors
+  killall burnP6 &> /dev/null ;
 
   cd ../ ;
 done ;
@@ -102,10 +111,19 @@ for bench in `ls` ; do
   cp "${BINARY_FOLDER}/${bench}/baseline/baseline" . ;
   mkdir -p "${PERF_FOLDER}/${bench}/baseline" ;
 
+  # kill any running BurnP6 processors & run BurnP6 on at least 4 cores
+  killall burnP6 &> /dev/null ;
+  for coreID in `seq -s' ' 2 2 8` ; do
+    taskset -c ${coreID} burnP6 &
+  done
+
   echo "running ${bench} ${numRuns} times to collect baseline perf results" ;
   for i in `seq 1 ${numRuns}` ; do
     taskset -c 0 perf stat -e ${EVENTS} ./baseline >> "${PERF_FOLDER}/${bench}/baseline/perf.txt" 2>&1 ;
   done
+
+  # kill any running BurnP6 processors
+  killall burnP6 &> /dev/null ;
 
   cd ../ ;
 done ;

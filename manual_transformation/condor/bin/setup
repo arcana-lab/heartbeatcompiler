@@ -16,5 +16,3 @@ pushd ./ ;
 cd ../ ;
 make ;
 pushd ;
-
-exit 0 ;
