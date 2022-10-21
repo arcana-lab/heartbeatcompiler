@@ -1,47 +1,35 @@
 #!/bin/bash
 
-source /project/extra/llvm/9.0.0/enable
-export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=240000
+# Change this to your path or pass in as an environment variable
+ROOT_FOLDER="/home/yso0488/projects/heartbeatcompiler/manual_transformation/condor"
+cd ${ROOT_FOLDER} ;
 
-ROOT=/nfs-scratch/bhp1038/heart/manual_transformation
-TXT=$ROOT/condor/progress.txt
+PROGRESS_FILE="progress.log"
+rm ${PROGRESS_FILE} ;
+touch ${PROGRESS_FILE} ;
 
-cd $ROOT/benchmarks
-make > $TXT 2>&1
+echo "### Pipeline Starts ###" >> ${PROGRESS_FILE} 2>&1 ;
 
-for d in */ ; do
-	if [ $d = "scripts/" ] ; then
-		continue
-	fi
+# Setup environment for the heartbeat evaluation pipeline
+echo "### Setup Stage ###" >> ${PROGRESS_FILE} 2>&1 ;
+./bin/setup >> ${PROGRESS_FILE} 2>&1 ;
 
-	echo "-----COMPILATION-----" >> $TXT
-	make -C $d >> $TXT
-	
-	FOLDER=$ROOT/results/current_machine
-	BINARY=$FOLDER/binary/$d/baseline
-	mkdir -p $BINARY && cp $d/baseline "$_"
-	
-	(
-		TIME=$FOLDER/time/$d/baseline
-		PERF=$FOLDER/LLC-load-misses/$d/baseline
-		
-		mkdir -p $TIME && rm -f $TIME/time.txt
-		mkdir -p $PERF && rm -f $PERF/perf.txt
-		cd $BINARY
+# Compile and collect metrics for the baseline
+echo "### Baseline Stage ###" >> ${PROGRESS_FILE} 2>&1 ;
+./bin/run_baseline >> ${PROGRESS_FILE} 2>&1 ;
 
-		for n in {1..5} ; do
-			echo "ITERATION $n" >> $TXT
+# # Compile and collect metrics for the OpenCilk
+# echo "### OpenCilk Stage ###" >> ${PROGRESS_FILE} 2>&1 ;
+# ./bin/run_opencilk >> ${PROGRESS_FILE} 2>&1 ;
 
-			{
-				time -p taskset -c 0 ./baseline >> $TXT;
-			} 2>&1 | grep -Po "real \K\d+\.\d+" >> $TIME/time.txt
+# # Compile and collect metrics for the OpenMP
+# echo "### OpenMP Stage ###" >> ${PROGRESS_FILE} 2>&1 ;
+# ./bin/run_openmp >> ${PROGRESS_FILE} 2>&1 ;
 
-			{
-				perf stat -e LLC-load-misses ./baseline >> $TXT;
-			} 2>> $PERF/perf.txt
-		done
-	)
-done
+# # Compile and collect metrics for the Heartbeat
+# echo "### Heartbeat Stage ###" >> ${PROGRESS_FILE} 2>&1 ;
+# ./bin/run_heartbeat >> ${PROGRESS_FILE} 2>&1 ;
 
-echo "-----EXIT-----" >> $TXT
-exit 0
+echo "### Pipeline Ends ###" >> ${PROGRESS_FILE} 2>&1 ;
+
+exit 0 ;

@@ -1,4 +1,4 @@
-# requirements = (machine == "fix.cs.northwestern.edu")
+requirements = (machine == "fix.cs.northwestern.edu")
 executable = run_pipeline.sh
 
 output = condor.out
@@ -6,7 +6,6 @@ error  = condor.err
 log    = condor.log
 
 +IsWholeMachineJob = true
-# +IsWholeMachineJob = false
 +IsSuspensionJob   = false
 
 queue
