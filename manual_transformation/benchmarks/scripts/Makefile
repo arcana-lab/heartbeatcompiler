@@ -1,7 +1,7 @@
 CXXFLAGS_BASELINE=--std=c++17
 LIBS_BASELINE=-lm -lstdc++
 
-OPENCILK_COMPILER?=/nfs-scratch/yso0488/opencilk/build/bin/clang++
+OPENCILK_COMPILER?=/nfs-scratch/yso0488/opencilk/build/bin/bin/opencilk++
 CXXFLAGS_OPENCILK=$(CXXFLAGS_BASELINE) -DUSE_OPENCILK -fopencilk
 LIBS_OPENCILK=$(LIBS_BASELINE)
 
