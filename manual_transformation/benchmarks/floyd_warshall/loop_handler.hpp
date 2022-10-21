@@ -13,6 +13,7 @@ void loop_dispatcher(
 }
 
 #if defined(HEARTBEAT_BRANCHES)
+
 int loop_handler(
   uint64_t *startIterations,
   uint64_t *maxIterations,
@@ -66,7 +67,9 @@ int loop_handler(
   uint64_t maxIterationsSecondHalf[2] =   { maxIterations[0],   maxIterations[1]    };
 
   // set startIterations and maxIterations for both tasks
-  startIterationsFirstHalf[returnLevel]++;
+  if (returnLevel != myLevel) {
+    startIterationsFirstHalf[returnLevel]++;
+  }
   maxIterationsFirstHalf[returnLevel] = med;
   startIterationsSecondHalf[returnLevel] = med;
 
@@ -103,7 +106,9 @@ int loop_handler(
 
   return 1;
 }
+
 #elif defined(HEARTBEAT_VERSIONING)
+
 int loop_handler(
   uint64_t *startIterations,
   uint64_t *maxIterations,
@@ -245,4 +250,5 @@ int loop_handler(
 
   return 1;
 }
+
 #endif
