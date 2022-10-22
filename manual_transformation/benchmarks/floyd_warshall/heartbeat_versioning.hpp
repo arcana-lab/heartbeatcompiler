@@ -2,6 +2,14 @@
 
 #include "loop_handler.hpp"
 
+#ifdef CHUNK_LOOP_ITERATIONS
+  #ifndef CHUNKSIZE_0
+    #define CHUNKSIZE_0 32
+  #endif
+  #ifndef CHUNKSIZE_1
+    #define CHUNKSIZE_1 32
+  #endif
+#endif
 #define SUB(array, row_sz, i, j) (array[i * row_sz + j])
 
 namespace floyd_warshall {
@@ -96,6 +104,29 @@ void HEARTBEAT_loop0_cloned(uint64_t *startIterations, uint64_t *maxIterations, 
   liveInEnvironmentForLoop1[1] = (uint64_t)vertices;
   liveInEnvironmentForLoop1[2] = (uint64_t)via;
 
+#if defined(CHUNK_LOOP_ITERATIONS)
+  for (; ;) {
+    loop_handler(startIterations, maxIterations, (void **)liveInEnvironments, myLevel, splittingTasks, leftoverTasks);
+    uint64_t low = startIterations[myLevel];
+    uint64_t high = std::min(maxIterations[myLevel], startIterations[myLevel] + CHUNKSIZE_0);
+
+    for (uint64_t from = low; from < high; from++) {
+      // store into loop1's live-in environment
+      liveInEnvironmentForLoop1[3] = (uint64_t)from;  // from
+      
+      // set the start and max iteation for loop1
+      startIterations[myLevel + 1] = 0;
+      maxIterations[myLevel + 1] = vertices;
+
+      HEARTBEAT_loop1_cloned(startIterations, maxIterations, liveInEnvironments, myLevel + 1);
+    }
+
+    startIterations[myLevel] = high;
+    if (!(startIterations[myLevel] < maxIterations[myLevel])) {
+      break;
+    }
+  }
+#else
   for (; startIterations[myLevel] < maxIterations[myLevel]; startIterations[myLevel]++) {
     loop_handler(startIterations, maxIterations, (void **)liveInEnvironments, myLevel, splittingTasks, leftoverTasks);
 
@@ -108,6 +139,7 @@ void HEARTBEAT_loop0_cloned(uint64_t *startIterations, uint64_t *maxIterations, 
 
     HEARTBEAT_loop1_cloned(startIterations, maxIterations, liveInEnvironments, myLevel + 1);
   }
+#endif
 
   return;
 }
@@ -120,6 +152,26 @@ void HEARTBEAT_loop1_cloned(uint64_t *startIterations, uint64_t *maxIterations, 
   int via = (int)liveInEnvironment[2];
   int from = (int)liveInEnvironment[3];
 
+#if defined(CHUNK_LOOP_ITERATIONS)
+  for (; ;) {
+    loop_handler(startIterations, maxIterations, (void **)liveInEnvironments, myLevel, splittingTasks, leftoverTasks);
+    uint64_t low = startIterations[myLevel];
+    uint64_t high = std::min(maxIterations[myLevel], startIterations[myLevel] + CHUNKSIZE_1);
+    
+    for (uint64_t to = low; to < high; to++) {
+      if ((from != to) && (from != via) && (to != via)) {
+        SUB(dist, vertices, from, to) =
+          std::min(SUB(dist, vertices, from, to),
+                  SUB(dist, vertices, from, via) + SUB(dist, vertices, via, to));
+      }
+    }
+
+    startIterations[myLevel] = high;
+    if (!(startIterations[myLevel] < maxIterations[myLevel])) {
+      break;
+    }
+  }
+#else
   for (; startIterations[myLevel] < maxIterations[myLevel]; startIterations[myLevel]++) {
     loop_handler(startIterations, maxIterations, (void **)liveInEnvironments, myLevel, splittingTasks, leftoverTasks);
 
@@ -129,6 +181,7 @@ void HEARTBEAT_loop1_cloned(uint64_t *startIterations, uint64_t *maxIterations, 
                 SUB(dist, vertices, from, via) + SUB(dist, vertices, via, startIterations[myLevel]));
     }
   }
+#endif
 
   return;
 }
@@ -141,13 +194,14 @@ void HEARTBEAT_loop1_leftover(uint64_t *startIterations, uint64_t *maxIterations
   int via = (int)liveInEnvironment[2];
   int from = (int)liveInEnvironment[3];
 
-  for (; startIterations[myLevel] < maxIterations[myLevel]; startIterations[myLevel]++) {
-    if ((from != startIterations[myLevel]) && (from != via) && (startIterations[myLevel] != via)) {
-      SUB(dist, vertices, from, startIterations[myLevel]) =
-        std::min(SUB(dist, vertices, from, startIterations[myLevel]),
-                SUB(dist, vertices, from, via) + SUB(dist, vertices, via, startIterations[myLevel]));
+  for (uint64_t to = startIterations[myLevel]; to < maxIterations[myLevel]; to++) {
+    if ((from != to) && (from != via) && (to != via)) {
+      SUB(dist, vertices, from, to) =
+        std::min(SUB(dist, vertices, from, to),
+                SUB(dist, vertices, from, via) + SUB(dist, vertices, via, to));
     }
   }
+  startIterations[myLevel] = maxIterations[myLevel];
 
   return;
 }
