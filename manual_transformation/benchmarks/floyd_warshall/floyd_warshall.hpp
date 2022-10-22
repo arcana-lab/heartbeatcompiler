@@ -18,7 +18,7 @@
 
 namespace floyd_warshall {
 
-int vertices = 1048;
+int vertices = 2048;
 int *dist = nullptr;
 
 auto init_input(int vertices) {
