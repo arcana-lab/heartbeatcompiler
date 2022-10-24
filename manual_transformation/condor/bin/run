@@ -45,9 +45,8 @@ collect() {
 		BINARY=$BINARYF/$dir/$2/$2
 		SUB_DR=$FOLDER/$dir/$2
 		
-		NUMBER=`echo $3 | grep -Po ",?\K\d+$"`
-		DIVIDE=$((($NUMBER + 1) / 2 + 1))
-		OUTPUT=$SUB_DR/$1$DIVIDE.txt
+		NUMBER=`echo "$3," | grep -c ,`
+		OUTPUT=$SUB_DR/$1$NUMBER.txt
 
 		if [ $dir = "scripts/" ] ; then
 			continue
