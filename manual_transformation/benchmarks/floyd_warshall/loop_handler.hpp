@@ -130,7 +130,7 @@ int loop_handler(
   // decide the splitting level
   uint64_t splittingLevel = 1 + 1;
   for (uint64_t level = 0; level <= myLevel; level++) {
-    if (maxIterations[level] - startIterations[level] >= 3) {
+    if (maxIterations[level * 8] - startIterations[level * 8] >= 3) {
       splittingLevel = level;
       break;
     }
@@ -141,26 +141,26 @@ int loop_handler(
   }
 
   // allocate the new liveInEnvironments for both tasks
-  uint64_t *liveInEnvironmentsFirstHalf[2];
-  uint64_t *liveInEnvironmentsSecondHalf[2];
+  uint64_t *liveInEnvironmentsFirstHalf[2 * 8];
+  uint64_t *liveInEnvironmentsSecondHalf[2 * 8];
   for (uint64_t level = 0; level <= splittingLevel; level++) {
-    liveInEnvironmentsFirstHalf[level] = ((uint64_t **)liveInEnvironments)[level];
-    liveInEnvironmentsSecondHalf[level] = ((uint64_t **)liveInEnvironments)[level];
+    liveInEnvironmentsFirstHalf[level * 8] = ((uint64_t **)liveInEnvironments)[level * 8];
+    liveInEnvironmentsSecondHalf[level * 8] = ((uint64_t **)liveInEnvironments)[level * 8];
   }
 
   // determine the splitting point of the remaining iterations
-  uint64_t med = (startIterations[splittingLevel] + 1 + maxIterations[splittingLevel]) / 2;
+  uint64_t med = (startIterations[splittingLevel * 8] + 1 + maxIterations[splittingLevel * 8]) / 2;
 
   // allocate startIterations and maxIterations for both tasks
-  uint64_t startIterationsFirstHalf[2] =  { startIterations[0], startIterations[1]  };
-  uint64_t maxIterationsFirstHalf[2] =    { maxIterations[0],   maxIterations[1]    };
-  uint64_t startIterationsSecondHalf[2] = { startIterations[0], startIterations[1]  };
-  uint64_t maxIterationsSecondHalf[2] =   { maxIterations[0],   maxIterations[1]    };
+  uint64_t startIterationsFirstHalf[2 * 8] =  { startIterations[0 * 8], 0,0,0,0,0,0,0, startIterations[1 * 8], 0,0,0,0,0,0,0 };
+  uint64_t maxIterationsFirstHalf[2 * 8] =    { maxIterations[0 * 8],   0,0,0,0,0,0,0, maxIterations[1 * 8]  , 0,0,0,0,0,0,0 };
+  uint64_t startIterationsSecondHalf[2 * 8] = { startIterations[0 * 8], 0,0,0,0,0,0,0, startIterations[1 * 8], 0,0,0,0,0,0,0 };
+  uint64_t maxIterationsSecondHalf[2 * 8] =   { maxIterations[0 * 8],   0,0,0,0,0,0,0, maxIterations[1 * 8]  , 0,0,0,0,0,0,0 };
 
   // set startIterations and maxIterations for both tasks
-  startIterationsFirstHalf[splittingLevel]++;
-  maxIterationsFirstHalf[splittingLevel] = med;
-  startIterationsSecondHalf[splittingLevel] = med;
+  startIterationsFirstHalf[splittingLevel * 8]++;
+  maxIterationsFirstHalf[splittingLevel * 8] = med;
+  startIterationsSecondHalf[splittingLevel * 8] = med;
 
   // when splittingLevel == myLevel, this eases things and won't be any leftover task
   if (splittingLevel == myLevel) {
@@ -171,17 +171,17 @@ int loop_handler(
     printf("Loop_handler:   Splitting Level = %lu\n", splittingLevel);
     printf("Loop_handler:   Current iteration state:\n");
     for (uint64_t level = 0; level <= myLevel; level++) {
-      printf("Loop_handler:     level = %lu, startIteration = %lu, maxIteration = %lu\n", level, startIterations[level], maxIterations[level]);
+      printf("Loop_handler:     level = %lu, startIteration = %lu, maxIteration = %lu\n", level, startIterations[level * 8], maxIterations[level * 8]);
     }
     printf("Loop_handler:     med = %lu\n", med);
-    printf("Loop_handler:     task1:      startIteration = %lu, maxIterations = %lu\n", startIterationsFirstHalf[myLevel], maxIterationsFirstHalf[myLevel]);
-    printf("Loop_handler:     task2:      startIteration = %lu, maxIterations = %lu\n", startIterationsSecondHalf[myLevel], maxIterationsSecondHalf[myLevel]);
+    printf("Loop_handler:     task1:      startIteration = %lu, maxIterations = %lu\n", startIterationsFirstHalf[myLevel * 8], maxIterationsFirstHalf[myLevel * 8]);
+    printf("Loop_handler:     task2:      startIteration = %lu, maxIterations = %lu\n", startIterationsSecondHalf[myLevel * 8], maxIterationsSecondHalf[myLevel * 8]);
     printf("Loop_handler:     tail:\n");
 #endif
     // reset maxIterations for the tail task
-    maxIterations[myLevel] = startIterations[myLevel] + 1;
+    maxIterations[myLevel * 8] = startIterations[myLevel * 8] + 1;
 #if defined(DEBUG_LOOP_HANDLER)
-    printf("Loop_handler:       level = %lu, startIteration = %lu, maxIterations = %lu\n", level, startIterations[level], maxIterations[level]);
+    printf("Loop_handler:       level = %lu, startIteration = %lu, maxIterations = %lu\n", level, startIterations[level * 8], maxIterations[level * 8]);
 #endif
 
     taskparts::tpalrts_promote_via_nativefj([&] {
@@ -191,18 +191,18 @@ int loop_handler(
     }, [] { }, taskparts::bench_scheduler());
   } else { // splittingLevel is higher than myLevel, build up the leftover task
     // allocate the new liveInEnvironments for leftover task
-    uint64_t *liveInEnvironmentsLeftover[3];
+    uint64_t *liveInEnvironmentsLeftover[3 * 8];
     for (uint64_t level = 0; level <= myLevel; level++) {
-      liveInEnvironmentsLeftover[level] = ((uint64_t **)liveInEnvironments)[level];
+      liveInEnvironmentsLeftover[level * 8] = ((uint64_t **)liveInEnvironments)[level * 8];
     }
 
     // allocate startIterations and maxIterations for leftover task
-    uint64_t startIterationsLeftover[2] =  { startIterations[0], startIterations[1]  };
-    uint64_t maxIterationsLeftover[2] =    { maxIterations[0],   maxIterations[1]    };
+    uint64_t startIterationsLeftover[2 * 8] =  { startIterations[0 * 8], 0,0,0,0,0,0,0, startIterations[1 * 8], 0,0,0,0,0,0,0 };
+    uint64_t maxIterationsLeftover[2 * 8] =    { maxIterations[0 * 8],   0,0,0,0,0,0,0, maxIterations[1 * 8]  , 0,0,0,0,0,0,0 };
 
     // set the startIterations for the leftover task
     for (uint64_t level = splittingLevel + 1; level <= myLevel; level++) {
-      startIterationsLeftover[level] += 1;
+      startIterationsLeftover[level * 8] += 1;
     }
 
 #if defined(DEBUG_LOOP_HANDLER)
@@ -212,22 +212,22 @@ int loop_handler(
     printf("Loop_handler:   Splitting Level = %lu\n", splittingLevel);
     printf("Loop_handler:   Current iteration state:\n");
     for (uint64_t level = 0; level <= myLevel; level++) {
-      printf("Loop_handler:     level = %lu, startIteration = %lu, maxIteration = %lu\n", level, startIterations[level], maxIterations[level]);
+      printf("Loop_handler:     level = %lu, startIteration = %lu, maxIteration = %lu\n", level, startIterations[level * 8], maxIterations[level * 8]);
     }
     printf("Loop_handler:     med = %lu\n", med);
-    printf("Loop_handler:     task1:      startIteration = %lu, maxIterations = %lu\n", startIterationsFirstHalf[splittingLevel], maxIterationsFirstHalf[splittingLevel]);
-    printf("Loop_handler:     task2:      startIteration = %lu, maxIterations = %lu\n", startIterationsSecondHalf[splittingLevel], maxIterationsSecondHalf[splittingLevel]);
+    printf("Loop_handler:     task1:      startIteration = %lu, maxIterations = %lu\n", startIterationsFirstHalf[splittingLevel * 8], maxIterationsFirstHalf[splittingLevel * 8]);
+    printf("Loop_handler:     task2:      startIteration = %lu, maxIterations = %lu\n", startIterationsSecondHalf[splittingLevel * 8], maxIterationsSecondHalf[splittingLevel * 8]);
     printf("Loop_handler:     leftover:\n");
     for (uint64_t level = splittingLevel + 1; level <= myLevel; level++) {
-      printf("Loop_handler:       level = %lu, startIteration = %lu, maxIterations = %lu\n", level, startIterationsLeftover[level], maxIterationsLeftover[level]);
+      printf("Loop_handler:       level = %lu, startIteration = %lu, maxIterations = %lu\n", level, startIterationsLeftover[level * 8], maxIterationsLeftover[level * 8]);
     }
     printf("Loop_handler:     tail:\n");
 #endif
     // reset maxIterations for the tail task
     for (uint64_t level = splittingLevel; level <= myLevel; level++) {
-      maxIterations[level] = startIterations[level] + 1;
+      maxIterations[level * 8] = startIterations[level * 8] + 1;
 #if defined(DEBUG_LOOP_HANDLER)
-      printf("Loop_handler:       level = %lu, startIteration = %lu, maxIterations = %lu\n", level, startIterations[level], maxIterations[level]);
+      printf("Loop_handler:       level = %lu, startIteration = %lu, maxIterations = %lu\n", level, startIterations[level * 8], maxIterations[level * 8]);
 #endif
     }
 

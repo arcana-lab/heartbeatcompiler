@@ -3,9 +3,6 @@
 #include "loop_handler.hpp"
 
 #ifdef CHUNK_LOOP_ITERATIONS
-  #ifndef CHUNKSIZE_0
-    #define CHUNKSIZE_0 32
-  #endif
   #ifndef CHUNKSIZE_1
     #define CHUNKSIZE_1 32
   #endif
@@ -45,22 +42,22 @@ void HEARTBEAT_loop0(int *dist, int vertices, int via) {
     run_heartbeat = false;
 
     // allocate live-in environment for loop0
-    uint64_t *liveInEnvironments[2];
-    uint64_t liveInEnvironmentForLoop0[3];
-    liveInEnvironments[0] = (uint64_t *)liveInEnvironmentForLoop0;
+    uint64_t *liveInEnvironments[2 * 8];
+    uint64_t liveInEnvironmentForLoop0[3 * 8];
+    liveInEnvironments[0 * 8] = (uint64_t *)liveInEnvironmentForLoop0;
 
     // store into live-in environment
-    liveInEnvironmentForLoop0[0] = (uint64_t)dist;
-    liveInEnvironmentForLoop0[1] = (uint64_t)vertices;
-    liveInEnvironmentForLoop0[2] = (uint64_t)via;
+    liveInEnvironmentForLoop0[0 * 8] = (uint64_t)dist;
+    liveInEnvironmentForLoop0[1 * 8] = (uint64_t)vertices;
+    liveInEnvironmentForLoop0[2 * 8] = (uint64_t)via;
 
     // allocate the startIterations and maxIterations array
-    uint64_t startIterations[2];
-    uint64_t maxIterations[2];
+    uint64_t startIterations[2 * 8];
+    uint64_t maxIterations[2 * 8];
     
     // set the start and max iteration for loop0
-    startIterations[0] = 0;
-    maxIterations[0] = vertices;
+    startIterations[0 * 8] = 0;
+    maxIterations[0 * 8] = vertices;
 
     // invoke loop0 in heartbeat form
     HEARTBEAT_loop0_cloned(startIterations, maxIterations, (void **)liveInEnvironments, 0);
@@ -90,29 +87,29 @@ void HEARTBEAT_loop1(int *dist, int vertices, int via, int from) {
 // Cloned loops
 void HEARTBEAT_loop0_cloned(uint64_t *startIterations, uint64_t *maxIterations, void **liveInEnvironments, uint64_t myLevel) {
   // load live-in environment
-  uint64_t *liveInEnvironment = ((uint64_t **)liveInEnvironments)[myLevel];
-  int *dist = (int *)liveInEnvironment[0];
-  int vertices = (int)liveInEnvironment[1];
-  int via = (int)liveInEnvironment[2];
+  uint64_t *liveInEnvironment = ((uint64_t **)liveInEnvironments)[myLevel * 8];
+  int *dist = (int *)liveInEnvironment[0 * 8];
+  int vertices = (int)liveInEnvironment[1 * 8];
+  int via = (int)liveInEnvironment[2 * 8];
 
   // allocate live-in environment for loop1
-  uint64_t liveInEnvironmentForLoop1[4];
-  ((uint64_t **)liveInEnvironments)[myLevel + 1] = (uint64_t *)liveInEnvironmentForLoop1;
+  uint64_t liveInEnvironmentForLoop1[4 * 8];
+  ((uint64_t **)liveInEnvironments)[(myLevel + 1) * 8] = (uint64_t *)liveInEnvironmentForLoop1;
 
   // store into loop1's live-in environment
-  liveInEnvironmentForLoop1[0] = (uint64_t)dist;
-  liveInEnvironmentForLoop1[1] = (uint64_t)vertices;
-  liveInEnvironmentForLoop1[2] = (uint64_t)via;
+  liveInEnvironmentForLoop1[0 * 8] = (uint64_t)dist;
+  liveInEnvironmentForLoop1[1 * 8] = (uint64_t)vertices;
+  liveInEnvironmentForLoop1[2 * 8] = (uint64_t)via;
 
-  for (; startIterations[myLevel] < maxIterations[myLevel]; startIterations[myLevel]++) {
+  for (; startIterations[myLevel * 8] < maxIterations[myLevel * 8]; startIterations[myLevel * 8]++) {
     loop_handler(startIterations, maxIterations, (void **)liveInEnvironments, myLevel, splittingTasks, leftoverTasks);
 
     // store into loop1's live-in environment
-    liveInEnvironmentForLoop1[3] = (uint64_t)startIterations[myLevel];  // from
+    liveInEnvironmentForLoop1[3 * 8] = (uint64_t)startIterations[myLevel * 8];  // from
     
     // set the start and max iteation for loop1
-    startIterations[myLevel + 1] = 0;
-    maxIterations[myLevel + 1] = vertices;
+    startIterations[(myLevel + 1) * 8] = 0;
+    maxIterations[(myLevel + 1) * 8] = vertices;
 
     HEARTBEAT_loop1_cloned(startIterations, maxIterations, liveInEnvironments, myLevel + 1);
   }
@@ -122,17 +119,17 @@ void HEARTBEAT_loop0_cloned(uint64_t *startIterations, uint64_t *maxIterations, 
 
 void HEARTBEAT_loop1_cloned(uint64_t *startIterations, uint64_t *maxIterations, void **liveInEnvironments, uint64_t myLevel) {
   // load live-in environment
-  uint64_t *liveInEnvironment = ((uint64_t **)liveInEnvironments)[myLevel];
-  int *dist = (int *)liveInEnvironment[0];
-  int vertices = (int)liveInEnvironment[1];
-  int via = (int)liveInEnvironment[2];
-  int from = (int)liveInEnvironment[3];
+  uint64_t *liveInEnvironment = ((uint64_t **)liveInEnvironments)[myLevel * 8];
+  int *dist = (int *)liveInEnvironment[0 * 8];
+  int vertices = (int)liveInEnvironment[1 * 8];
+  int via = (int)liveInEnvironment[2 * 8];
+  int from = (int)liveInEnvironment[3 * 8];
 
 #if defined(CHUNK_LOOP_ITERATIONS)
   for (; ;) {
     loop_handler(startIterations, maxIterations, (void **)liveInEnvironments, myLevel, splittingTasks, leftoverTasks);
-    uint64_t low = startIterations[myLevel];
-    uint64_t high = std::min(maxIterations[myLevel], startIterations[myLevel] + CHUNKSIZE_1);
+    uint64_t low = startIterations[myLevel * 8];
+    uint64_t high = std::min(maxIterations[myLevel * 8], startIterations[myLevel * 8] + CHUNKSIZE_1);
     
     for (uint64_t to = low; to < high; to++) {
       if ((from != to) && (from != via) && (to != via)) {
@@ -142,19 +139,19 @@ void HEARTBEAT_loop1_cloned(uint64_t *startIterations, uint64_t *maxIterations, 
       }
     }
 
-    startIterations[myLevel] = high;
-    if (!(startIterations[myLevel] < maxIterations[myLevel])) {
+    startIterations[myLevel * 8] = high;
+    if (!(startIterations[myLevel * 8] < maxIterations[myLevel * 8])) {
       break;
     }
   }
 #else
-  for (; startIterations[myLevel] < maxIterations[myLevel]; startIterations[myLevel]++) {
+  for (; startIterations[myLevel * 8] < maxIterations[myLevel * 8]; startIterations[myLevel * 8]++) {
     loop_handler(startIterations, maxIterations, (void **)liveInEnvironments, myLevel, splittingTasks, leftoverTasks);
 
-    if ((from != startIterations[myLevel]) && (from != via) && (startIterations[myLevel] != via)) {
-      SUB(dist, vertices, from, startIterations[myLevel]) =
-        std::min(SUB(dist, vertices, from, startIterations[myLevel]),
-                SUB(dist, vertices, from, via) + SUB(dist, vertices, via, startIterations[myLevel]));
+    if ((from != startIterations[myLevel * 8]) && (from != via) && (startIterations[myLevel * 8] != via)) {
+      SUB(dist, vertices, from, startIterations[myLevel * 8]) =
+        std::min(SUB(dist, vertices, from, startIterations[myLevel * 8]),
+                SUB(dist, vertices, from, via) + SUB(dist, vertices, via, startIterations[myLevel * 8]));
     }
   }
 #endif
@@ -164,20 +161,20 @@ void HEARTBEAT_loop1_cloned(uint64_t *startIterations, uint64_t *maxIterations, 
 
 void HEARTBEAT_loop1_leftover(uint64_t *startIterations, uint64_t *maxIterations, void **liveInEnvironments, uint64_t myLevel) {
   // load live-in environment
-  uint64_t *liveInEnvironment = ((uint64_t **)liveInEnvironments)[myLevel];
-  int *dist = (int *)liveInEnvironment[0];
-  int vertices = (int)liveInEnvironment[1];
-  int via = (int)liveInEnvironment[2];
-  int from = (int)liveInEnvironment[3];
+  uint64_t *liveInEnvironment = ((uint64_t **)liveInEnvironments)[myLevel * 8];
+  int *dist = (int *)liveInEnvironment[0 * 8];
+  int vertices = (int)liveInEnvironment[1 * 8];
+  int via = (int)liveInEnvironment[2 * 8];
+  int from = (int)liveInEnvironment[3 * 8];
 
-  for (uint64_t to = startIterations[myLevel]; to < maxIterations[myLevel]; to++) {
+  for (uint64_t to = startIterations[myLevel * 8]; to < maxIterations[myLevel * 8]; to++) {
     if ((from != to) && (from != via) && (to != via)) {
       SUB(dist, vertices, from, to) =
         std::min(SUB(dist, vertices, from, to),
                 SUB(dist, vertices, from, via) + SUB(dist, vertices, via, to));
     }
   }
-  startIterations[myLevel] = maxIterations[myLevel];
+  startIterations[myLevel * 8] = maxIterations[myLevel * 8];
 
   return;
 }
