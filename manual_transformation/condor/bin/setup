@@ -1,18 +1,12 @@
 #!/bin/bash
 
-# Compiler used for baseline, heartbeat & OpenMP programs
+source /nfs-scratch/yso0488/opencilk/enable 
 source /project/extra/llvm/14.0.6/enable
-
-# Compiler used for OpenCilk programs
-source /nfs-scratch/yso0488/opencilk/enable
+source /project/extra/burnCPU/enable
+source bin/run
 
 # Make the results folder
-CURRENT_PATH="`pwd`"
-RESULTS_FOLDER="${CURRENT_PATH}/../results/current_machine"
-mkdir -p ${RESULTS_FOLDER} ;
+mkdir -p ../results/current_machine
 
 # Clone the taskparts runtime
-pushd ./ ;
-cd ../ ;
-make ;
-pushd ;
+make -C ..
