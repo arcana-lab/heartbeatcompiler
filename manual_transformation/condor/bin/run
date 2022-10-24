@@ -69,9 +69,11 @@ collect() {
 		echo "Collecting '$1' Results: $dir"
 		killall burnP6 > /dev/null
 
-		for id in `seq -s' ' 2 2 8` ; do
-			taskset -c $id burnP6 & > /dev/null
-		done
+		if [ $dir = "baseline" ] ; then
+			for id in `seq -s' ' 2 2 8` ; do
+				taskset -c $id burnP6 & > /dev/null
+			done
+		fi
 
 		for _ in `seq 1 $NUM_RUN` ; do
 			if [ $1 = "time" ] ; then
