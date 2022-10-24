@@ -45,8 +45,9 @@ collect() {
 		BINARY=$BINARYF/$dir/$2/$2
 		SUB_DR=$FOLDER/$dir/$2
 		
-		NUMBER=`echo "$3," | grep -c ,`
+		NUMBER=`echo "$3," | grep -o , | wc -l`
 		OUTPUT=$SUB_DR/$1$NUMBER.txt
+		echo "### $NUMBER Cores ###"
 
 		if [ $dir = "scripts/" ] ; then
 			continue
