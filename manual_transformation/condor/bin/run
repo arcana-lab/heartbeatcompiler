@@ -47,7 +47,6 @@ collect() {
 		
 		NUMBER=`echo "$3," | grep -o , | wc -l`
 		OUTPUT=$SUB_DR/$1$NUMBER.txt
-		echo "### $NUMBER Cores ###"
 
 		if [ $dir = "scripts/" ] ; then
 			continue
@@ -104,7 +103,9 @@ all() {
 	fi
 
 	for max in $SKIP; do
-		CORE=`seq -s',' 0 $((2 - $max / 111)) $max`
+		LIST=`seq -s',' 0 $((2 - $max / 111)) $max`
+		CORE=`echo "$CORE," | grep -o , | wc -l`
+		echo "### $CORE Cores ###"
 
 		collect "time" $1 $CORE
 		collect "perf" $1 $CORE
