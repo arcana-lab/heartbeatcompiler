@@ -1,5 +1,6 @@
 #!/bin/bash
 
+cd /nfs-scratch/bhp1038/heart/manual_transformation/condor
 PROGRESS_FILE="progress.log"
 rm -f ${PROGRESS_FILE}
 
