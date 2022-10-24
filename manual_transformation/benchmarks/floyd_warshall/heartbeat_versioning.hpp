@@ -106,7 +106,7 @@ void HEARTBEAT_loop0_cloned(uint64_t *startIterations, uint64_t *maxIterations, 
 
     // store into loop1's live-in environment
     liveInEnvironmentForLoop1[3 * 8] = (uint64_t)startIterations[myLevel * 8];  // from
-    
+
     // set the start and max iteation for loop1
     startIterations[(myLevel + 1) * 8] = 0;
     maxIterations[(myLevel + 1) * 8] = vertices;
@@ -130,7 +130,7 @@ void HEARTBEAT_loop1_cloned(uint64_t *startIterations, uint64_t *maxIterations, 
     loop_handler(startIterations, maxIterations, (void **)liveInEnvironments, myLevel, splittingTasks, leftoverTasks);
     uint64_t low = startIterations[myLevel * 8];
     uint64_t high = std::min(maxIterations[myLevel * 8], startIterations[myLevel * 8] + CHUNKSIZE_1);
-    
+
     for (uint64_t to = low; to < high; to++) {
       if ((from != to) && (from != via) && (to != via)) {
         SUB(dist, vertices, from, to) =

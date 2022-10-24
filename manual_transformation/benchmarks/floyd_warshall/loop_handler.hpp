@@ -117,15 +117,13 @@ int loop_handler(
   void (*splittingTasks[])(uint64_t *, uint64_t *, void **, uint64_t),
   void (*leftoverTasks[])(uint64_t *, uint64_t *, void **, uint64_t)
 ) {
-  static std::atomic_bool *me = taskparts::hardware_alarm_polling_interrupt::my_heartbeat_flag();
-
-  // heartbeat doesn't happen
-  if (!(*me)) { 
+  // determine whether to promote since last promotion
+  auto& p = taskparts::prev.mine();
+  auto n = taskparts::cycles::now();
+  if ((p + taskparts::kappa_cycles) > n) {
     return 0;
   }
-
-  // heartbeat happens
-  (*me) = false;
+  p = n;
 
   // decide the splitting level
   uint64_t splittingLevel = 1 + 1;
@@ -189,7 +187,9 @@ int loop_handler(
     }, [&] {
       (*splittingTasks[myLevel])(startIterationsSecondHalf, maxIterationsSecondHalf, (void **)liveInEnvironmentsSecondHalf, myLevel);
     }, [] { }, taskparts::bench_scheduler());
+
   } else { // splittingLevel is higher than myLevel, build up the leftover task
+
     // allocate the new liveInEnvironments for leftover task
     uint64_t *liveInEnvironmentsLeftover[3 * 8];
     for (uint64_t level = 0; level <= myLevel; level++) {
