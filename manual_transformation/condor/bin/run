@@ -69,7 +69,7 @@ collect() {
 		echo "Collecting '$1' Results: $dir"
 		killall burnP6 > /dev/null
 
-		if [ $dir = "baseline" ] ; then
+		if [ $2 = "baseline" ] ; then
 			for id in `seq -s' ' 2 2 8` ; do
 				taskset -c $id burnP6 & > /dev/null
 			done
