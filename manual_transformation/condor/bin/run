@@ -1,0 +1,113 @@
+#!/bin/bash
+
+CURRENT=`pwd`
+PERF_OP=branch-misses,LLC-load-misses,instructions
+RESULTS=$CURRENT/../results/current_machine
+BNCHMRK=$CURRENT/../benchmarks
+BINARYF=$RESULTS/binary
+NUM_RUN=5
+
+{
+	make clean -C $BNCHMRK;
+	make -C $BNCHMRK;
+} &> /dev/null
+
+compile() {
+	pushd .; cd $BNCHMRK
+	mkdir -p $BINARYF
+
+	for dir in */ ; do
+		if [ $dir = "scripts/" ] ; then
+			continue
+		fi
+
+		if test -e $BINARYF/$dir/$1/$1 ; then
+			echo "Pre-existing Binary: $dir"
+			continue
+		fi
+
+		mkdir -p $BINARYF/$dir/$1
+
+		echo "Compiling: $dir"
+		make $1 -C $BNCHMRK/$dir
+		cp $BNCHMRK/$dir/$1 $BINARYF/$dir/$1
+	done
+
+	popd
+}
+
+collect() {
+	pushd .; cd $BNCHMRK
+	FOLDER=$RESULTS/$1
+	mkdir -p $FOLDER
+
+	for dir in */ ; do
+		BINARY=$BINARYF/$dir/$2/$2
+		SUB_DR=$FOLDER/$dir/$2
+		
+		NUMBER=`echo "$3," | grep -o , | wc -l`
+		OUTPUT=$SUB_DR/$1$NUMBER.txt
+
+		if [ $dir = "scripts/" ] ; then
+			continue
+		fi
+
+		if ! test -e $BINARY ; then
+			echo "Missing Binary: $dir"
+			continue
+		fi
+
+		if test -e $OUTPUT ; then
+			echo "Pre-existing '$1' Results: $dir"
+			continue
+		fi
+
+		cp $BINARY $BNCHMRK/$dir
+		mkdir -p $SUB_DR
+		cd $dir
+
+		echo "Collecting '$1' Results: $dir"
+		killall burnP6 > /dev/null
+
+		if [ $2 = "baseline" ] ; then
+			for id in `seq -s' ' 2 2 8` ; do
+				taskset -c $id burnP6 & > /dev/null
+			done
+		fi
+
+		for _ in `seq 1 $NUM_RUN` ; do
+			if [ $1 = "time" ] ; then
+				{
+					time -p taskset -c $3 ./$2 > /dev/null
+				} 2>&1 | grep -Po "real \K\d+\.\d+" >> $OUTPUT
+			else
+				{
+					perf stat -e $PERF_OP taskset -c $3 ./$2 > /dev/null
+				} 2>> $OUTPUT
+			fi
+		done
+
+		killall burnP6 > /dev/null
+		cd ..
+	done
+
+	popd
+}
+
+all() {
+	SKIP="0 2 6 14 30 62 110 111"
+	compile $1
+
+	if [ $1 = "baseline" ] ; then
+		SKIP="0"
+	fi
+
+	for max in $SKIP; do
+		LIST=`seq -s',' 0 $((2 - $max / 111)) $max`
+		CORE=`echo "$CORE," | grep -o , | wc -l`
+		echo "### $CORE Cores ###"
+
+		collect "time" $1 $CORE
+		collect "perf" $1 $CORE
+	done
+}

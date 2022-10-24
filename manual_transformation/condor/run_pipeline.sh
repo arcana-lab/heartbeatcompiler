@@ -1,35 +1,31 @@
 #!/bin/bash
 
-# Change this to your path or pass in as an environment variable
-ROOT_FOLDER="/home/yso0488/projects/heartbeatcompiler/manual_transformation/condor"
-cd ${ROOT_FOLDER} ;
-
+cd /nfs-scratch/bhp1038/heart/manual_transformation/condor
 PROGRESS_FILE="progress.log"
-rm ${PROGRESS_FILE} ;
-touch ${PROGRESS_FILE} ;
+rm -f ${PROGRESS_FILE}
 
-echo "### Pipeline Starts ###" >> ${PROGRESS_FILE} 2>&1 ;
+echo "### Pipeline Starts ###" > ${PROGRESS_FILE}
 
 # Setup environment for the heartbeat evaluation pipeline
-echo "### Setup Stage ###" >> ${PROGRESS_FILE} 2>&1 ;
-source ./bin/setup >> ${PROGRESS_FILE} 2>&1 ;
+echo "### Setup Stage ###" >> ${PROGRESS_FILE}
+source ./bin/setup >> ${PROGRESS_FILE}
 
 # Compile and collect metrics for the baseline
-echo "### Baseline Stage ###" >> ${PROGRESS_FILE} 2>&1 ;
-./bin/run_baseline >> ${PROGRESS_FILE} 2>&1 ;
+echo "### Baseline Stage ###" >> ${PROGRESS_FILE}
+all "baseline" >> ${PROGRESS_FILE}
 
 # # Compile and collect metrics for the OpenCilk
-# echo "### OpenCilk Stage ###" >> ${PROGRESS_FILE} 2>&1 ;
-# ./bin/run_opencilk >> ${PROGRESS_FILE} 2>&1 ;
+echo "### OpenCilk Stage ###" >> ${PROGRESS_FILE}
+all "opencilk" >> ${PROGRESS_FILE}
 
 # # Compile and collect metrics for the OpenMP
-# echo "### OpenMP Stage ###" >> ${PROGRESS_FILE} 2>&1 ;
-# ./bin/run_openmp >> ${PROGRESS_FILE} 2>&1 ;
+echo "### OpenMP Stage ###" >> ${PROGRESS_FILE}
+all "openmp" >> ${PROGRESS_FILE}
 
 # # Compile and collect metrics for the Heartbeat
-# echo "### Heartbeat Stage ###" >> ${PROGRESS_FILE} 2>&1 ;
-# ./bin/run_heartbeat >> ${PROGRESS_FILE} 2>&1 ;
+# echo "### Heartbeat Stage ###" >> ${PROGRESS_FILE}
+# ./bin/run_heartbeat >> ${PROGRESS_FILE}
 
-echo "### Pipeline Ends ###" >> ${PROGRESS_FILE} 2>&1 ;
+echo "### Pipeline Ends ###" >> ${PROGRESS_FILE}
 
-exit 0 ;
+exit 0
