@@ -46,7 +46,8 @@ collect() {
 		SUB_DR=$FOLDER/$dir/$2
 		
 		NUMBER=`echo $3 | grep -Po ",?\K\d+$"`
-		OUTPUT=$SUB_DR/$1$NUMBER.txt
+		MULTIP=$(($NUMBER / 2 + 1))
+		OUTPUT=$SUB_DR/$1$MULTIP.txt
 
 		if [ $dir = "scripts/" ] ; then
 			continue
