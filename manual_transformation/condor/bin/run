@@ -69,8 +69,8 @@ collect() {
 		echo "Collecting '$1' Results: $dir"
 		killall burnP6 > /dev/null
 
-		if [ $2 = "baseline" ] ; then
-			for id in `seq -s' ' 2 2 8` ; do
+		if test $NUMBER -lt 4 ; then
+			for id in `seq -s' ' 2 2 6` ; do
 				taskset -c $id burnP6 & > /dev/null
 			done
 		fi
@@ -95,7 +95,7 @@ collect() {
 }
 
 all() {
-	SKIP="0 2 6 14 30 62 110 111"
+	SKIP="0 2 6 14 30 54 55"
 	compile $1
 
 	if [ $1 = "baseline" ] ; then
@@ -103,9 +103,9 @@ all() {
 	fi
 
 	for max in $SKIP; do
-		LIST=`seq -s',' 0 $((2 - $max / 111)) $max`
+		LIST=`seq -s',' 0 $((2 - $max / 55)) $max`
 		CORE=`echo "$CORE," | grep -o , | wc -l`
-		echo "### $CORE Cores ###"
+		echo "### $CORE Core(s) ###"
 
 		collect "time" $1 $CORE
 		collect "perf" $1 $CORE
