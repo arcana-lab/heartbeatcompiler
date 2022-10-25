@@ -45,7 +45,7 @@ collect() {
 		BINARY=$BINARYF/$dir/$2/$2
 		SUB_DR=$FOLDER/$dir/$2
 		
-		NUMBER=`echo "$3," | grep -o , | wc -l`
+		NUMBER=`echo $3, | grep -o , | wc -l`
 		OUTPUT=$SUB_DR/$1$NUMBER.txt
 
 		if [ $dir = "scripts/" ] ; then
@@ -70,7 +70,7 @@ collect() {
 		killall burnP6 > /dev/null
 
 		if test $NUMBER -lt 4 ; then
-			for id in `seq -s' ' 2 2 6` ; do
+			for id in `seq -s' ' $((2 * $NUMBER)) 2 6` ; do
 				taskset -c $id burnP6 & > /dev/null
 			done
 		fi
@@ -104,10 +104,10 @@ all() {
 
 	for max in $SKIP; do
 		LIST=`seq -s',' 0 $((2 - $max / 55)) $max`
-		CORE=`echo "$CORE," | grep -o , | wc -l`
+		CORE=`echo $LIST, | grep -o , | wc -l`
 		echo "### $CORE Core(s) ###"
 
-		collect "time" $1 $CORE
-		collect "perf" $1 $CORE
+		collect "time" $1 $LIST
+		collect "perf" $1 $LIST
 	done
 }
