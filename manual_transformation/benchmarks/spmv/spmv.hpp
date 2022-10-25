@@ -257,7 +257,13 @@ void spmv_openmp(
   double* y,
   int64_t n) {
   omp_set_max_active_levels(2);
+#if defined(OMP_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic)
+#elif defined(OMP_GUIDED) 
+  #pragma omp parallel for schedule(guided)
+#else  
   #pragma omp parallel for
+#endif
   for (int64_t i = 0; i < n; i++) {  // row loop
     double r = 0.0;
     #pragma omp parallel for reduction(+:r)

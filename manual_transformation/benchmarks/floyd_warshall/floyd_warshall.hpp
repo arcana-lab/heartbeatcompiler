@@ -69,10 +69,16 @@ void floyd_warshall_opencilk(int* dist, int vertices) {
     }
   }
 }
-# elif defined(USE_OPENMP)
+#elif defined(USE_OPENMP)
 void floyd_warshall_openmp(int* dist, int vertices) {
   for (int via = 0; via < vertices; via++) {
-    #pragma omp parallel for collapse(2)
+  #if defined(OMP_DYNAMIC)
+    #pragma omp parallel for schedule(dynamic)
+  #elif defined(OMP_GUIDED) 
+    #pragma omp parallel for schedule(guided)
+  #else  
+    #pragma omp parallel for
+  #endif
     for (int from = 0; from < vertices; from++) {
       for (int to = 0; to < vertices; to++) {
         if ((from != to) && (from != via) && (to != via)) {

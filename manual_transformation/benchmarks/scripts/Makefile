@@ -42,6 +42,18 @@ openmp: openmp.cpp
 run_openmp: openmp
 	./$<
 
+openmp_dynamic: openmp.cpp
+	$(CXX) $(CXXFLAGS_OPENMP) -DOMP_DYNAMIC $(OPTS) $^ -o $@ $(LIBS_OPENMP)
+
+run_openmp_dynamic: openmp_dynamic
+	./$<
+
+openmp_guided: openmp.cpp
+	$(CXX) $(CXXFLAGS_OPENMP) -DOMP_GUIDED $(OPTS) $^ -o $@ $(LIBS_OPENMP)
+
+run_openmp_guided: openmp_guided
+	./$<
+
 # ======================
 # Heartbeat
 # ======================
@@ -96,7 +108,7 @@ include ${benchmark}.makefile
 # Other
 # ======================
 clean:
-	rm -f baseline opencilk openmp ;
+	rm -f baseline opencilk openmp openmp_dynamic openmp_guided;
 	make ${benchmark}_clean ;
 
 .PHONY: clean

@@ -71,7 +71,13 @@ unsigned char* mandelbrot_openmp(double x0, double y0, double x1, double y1,
   double ystep = (y1 - y0) / height;
   //unsigned char* output = static_cast<unsigned char*>(_mm_malloc(width * height * sizeof(unsigned char), 64));
   unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
-  #pragma omp parallel for collapse(2)
+#if defined(OMP_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic)
+#elif defined(OMP_GUIDED) 
+  #pragma omp parallel for schedule(guided)
+#else  
+  #pragma omp parallel for
+#endif
   for(int j = 0; j < height; ++j) {
     for(int i = 0; i < width; ++i) {
       double z_real = x0 + i*xstep;
