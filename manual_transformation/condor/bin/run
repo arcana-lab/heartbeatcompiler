@@ -17,7 +17,7 @@ compile() {
 	mkdir -p $BINARYF
 
 	for dir in */ ; do
-		if [ $dir = "scripts/" ] ; then
+		if [ $dir = scripts/ ] ; then
 			continue
 		fi
 
@@ -48,7 +48,7 @@ collect() {
 		NUMBER=`echo $3, | grep -o , | wc -l`
 		OUTPUT=$SUB_DR/$1$NUMBER.txt
 
-		if [ $dir = "scripts/" ] ; then
+		if [ $dir = scripts/ ] ; then
 			continue
 		fi
 
@@ -76,13 +76,13 @@ collect() {
 		fi
 
 		for _ in `seq 1 $NUM_RUN` ; do
-			if [ $1 = "time" ] ; then
+			if [ $1 = time ] ; then
 				{
-					time -p taskset -c $3 ./$2 > /dev/null
+					time -p taskset -c $3 make run_$2 > /dev/null
 				} 2>&1 | grep -Po "real \K\d+\.\d+" >> $OUTPUT
 			else
 				{
-					perf stat -e $PERF_OP taskset -c $3 ./$2 > /dev/null
+					perf stat -e $PERF_OP taskset -c $3 make run_$2 > /dev/null
 				} 2>> $OUTPUT
 			fi
 		done
@@ -98,16 +98,16 @@ all() {
 	SKIP="0 2 6 14 30 54 55"
 	compile $1
 
-	if [ $1 = "baseline" ] ; then
-		SKIP="0"
+	if [ $1 = baseline ] ; then
+		SKIP=0
 	fi
 
-	for max in $SKIP; do
+	for max in $SKIP ; do
 		LIST=`seq -s',' 0 $((2 - $max / 55)) $max`
 		CORE=`echo $LIST, | grep -o , | wc -l`
 		echo "### $CORE Core(s) ###"
 
-		collect "time" $1 $LIST
-		collect "perf" $1 $LIST
+		collect time $1 $LIST
+		collect perf $1 $LIST
 	done
 }

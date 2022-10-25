@@ -14,18 +14,25 @@ source ./bin/setup >> ${PROGRESS_FILE}
 echo "### Baseline Stage ###" >> ${PROGRESS_FILE}
 all "baseline" >> ${PROGRESS_FILE}
 
-# # Compile and collect metrics for the OpenCilk
+# OpenCilk
 echo "### OpenCilk Stage ###" >> ${PROGRESS_FILE}
 all "opencilk" >> ${PROGRESS_FILE}
 
-# # Compile and collect metrics for the OpenMP
-echo "### OpenMP Stage ###" >> ${PROGRESS_FILE}
+# OpenMP Static Scheduler
+echo "### OpenMP Static Stage ###" >> ${PROGRESS_FILE}
 all "openmp" >> ${PROGRESS_FILE}
 
-# # Compile and collect metrics for the Heartbeat
+# OpenMP Dynamic Scheduler
+echo "### OpenMP Dynamic Stage ###" >> ${PROGRESS_FILE}
+all "openmp_dynamic" >> ${PROGRESS_FILE}
+
+# OpenMP Guided Scheduler
+echo "### OpenMP Guided Stage ###" >> ${PROGRESS_FILE}
+all "openmp_guided" >> ${PROGRESS_FILE}
+
+# Compile and collect metrics for Heartbeat
 # echo "### Heartbeat Stage ###" >> ${PROGRESS_FILE}
 # ./bin/run_heartbeat >> ${PROGRESS_FILE}
 
 echo "### Pipeline Ends ###" >> ${PROGRESS_FILE}
-
 exit 0
