@@ -13,8 +13,8 @@
 
 namespace srad {
 
-int rows=4000;
-int cols=4000, size_I, size_R;
+int rows=16000;
+int cols=16000, size_I, size_R;
 float *I, *J, q0sqr, sum, sum2, tmp, meanROI,varROI ;
 int *iN, *iS, *jE, *jW;
 float *dN, *dS, *dW, *dE;
