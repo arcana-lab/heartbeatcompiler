@@ -43,7 +43,13 @@ double sum_array_opencilk(double* a, uint64_t lo, uint64_t hi) {
 #elif defined(USE_OPENMP)
 double sum_array_openmp(double* a, uint64_t lo, uint64_t hi) {
   double r = 0.0;
+#if defined(OMP_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic) reduction(+:r)
+#elif defined(OMP_GUIDED) 
+  #pragma omp parallel for schedule(guided) reduction(+:r)
+#else  
   #pragma omp parallel for reduction(+:r)
+#endif
   for (uint64_t i = lo; i != hi; i++) {
     r += a[i];
   }

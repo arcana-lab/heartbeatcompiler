@@ -163,7 +163,13 @@ void srad_opencilk(int rows, int cols, int size_I, int size_R, float *I, float *
 }
 #elif defined(USE_OPENMP)
 void srad_openmp(int rows, int cols, int size_I, int size_R, float *I, float *J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float *c, int *iN, int *iS, int *jE, int *jW, float lambda) {
-  #pragma omp parallel for collapse(2)
+#if defined(OMP_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic)
+#elif defined(OMP_GUIDED) 
+  #pragma omp parallel for schedule(guided)
+#else  
+  #pragma omp parallel for
+#endif
   for (int i = 0 ; i < rows ; i++) {
     for (int j = 0; j < cols; j++) { 
 		
@@ -195,7 +201,7 @@ void srad_openmp(int rows, int cols, int size_I, int size_R, float *I, float *J,
    
     }
   }
-  #pragma omp parallel for collapse(2)
+  #pragma omp parallel for
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++) {        
 
