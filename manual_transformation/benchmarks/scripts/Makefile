@@ -74,6 +74,14 @@ TASKPARTS_FLAGS=\
 	-DTASKPARTS_STATS \
 	-DTASKPARTS_LOG
 
+ifeq (, $(shell which jemalloc-config))
+CUSTOM_MALLOC =
+else
+JEMALLOCLD = $(shell jemalloc-config --libdir)
+JEMALLOCLS = $(shell jemalloc-config --libs)
+CUSTOM_MALLOC = -L$(JEMALLOCLD) -Wl,-rpath,$(JEMALLOCLD) $(JEMALLOCLS) -ljemalloc
+endif
+
 LINKER_FLAGS=\
 	-pthread \
 	$(HWLOC_LIBRARY_PATH) \
