@@ -20,26 +20,24 @@ int loop_handler(
   void **liveInEnvironments,
   uint64_t myLevel,
   uint64_t &returnLevel,
-  uint64_t (*f[])(uint64_t *, uint64_t *, void **, uint64_t)/*, taskparts::future *fut */
+  uint64_t (*splittingTasks[])(uint64_t *, uint64_t *, void **, uint64_t)/*, taskparts::future *fut */
 ) {
   // urgently getting back to the splitting level
   if (returnLevel < myLevel) {
     return 1;
   }
 
-  static std::atomic_bool *me = taskparts::hardware_alarm_polling_interrupt::my_heartbeat_flag();
-
-  // heartbeat doesn't happen
-  if (!(*me)) { 
+  // determine whether to promote since last promotion
+  auto& p = taskparts::prev.mine();
+  auto n = taskparts::cycles::now();
+  if ((p + taskparts::kappa_cycles) > n) {
     return 0;
   }
-
-  // heartbeat happens
-  (*me) = false;
+  p = n;
 
   // decide the splitting level
   for (uint64_t level = 0; level <= myLevel; level++) {
-    if (maxIterations[level] - startIterations[level] >= 3) {
+    if (maxIterations[level * 8] - startIterations[level * 8] >= 3) {
       returnLevel = level;
       break;
     }
@@ -50,42 +48,42 @@ int loop_handler(
   }
 
   // allocate the new liveInEnvironments for both tasks
-  uint64_t *liveInEnvironmentsFirstHalf[2];
-  uint64_t *liveInEnvironmentsSecondHalf[2];
+  uint64_t *liveInEnvironmentsFirstHalf[2 * 8];
+  uint64_t *liveInEnvironmentsSecondHalf[2 * 8];
   for (uint64_t level = 0; level <= returnLevel; level++) {
-    liveInEnvironmentsFirstHalf[level] = ((uint64_t **)liveInEnvironments)[level];
-    liveInEnvironmentsSecondHalf[level] = ((uint64_t **)liveInEnvironments)[level];
+    liveInEnvironmentsFirstHalf[level * 8] = ((uint64_t **)liveInEnvironments)[level * 8];
+    liveInEnvironmentsSecondHalf[level * 8] = ((uint64_t **)liveInEnvironments)[level * 8];
   }
 
   // determine the splitting point of the remaining iterations
-  uint64_t med = (startIterations[returnLevel] + 1 + maxIterations[returnLevel]) / 2;
+  uint64_t med = (startIterations[returnLevel * 8] + 1 + maxIterations[returnLevel * 8]) / 2;
 
   // allocate startIterations and maxIterations for both tasks
-  uint64_t startIterationsFirstHalf[2] =  { startIterations[0], startIterations[1]  };
-  uint64_t maxIterationsFirstHalf[2] =    { maxIterations[0],   maxIterations[1]    };
-  uint64_t startIterationsSecondHalf[2] = { startIterations[0], startIterations[1]  };
-  uint64_t maxIterationsSecondHalf[2] =   { maxIterations[0],   maxIterations[1]    };
+  uint64_t startIterationsFirstHalf[2 * 8] =  { startIterations[0 * 8], 0,0,0,0,0,0,0, startIterations[1 * 8], 0,0,0,0,0,0,0  };
+  uint64_t maxIterationsFirstHalf[2 * 8] =    { maxIterations[0 * 8],   0,0,0,0,0,0,0,   maxIterations[1 * 8], 0,0,0,0,0,0,0  };
+  uint64_t startIterationsSecondHalf[2 * 8] = { startIterations[0 * 8], 0,0,0,0,0,0,0, startIterations[1 * 8], 0,0,0,0,0,0,0  };
+  uint64_t maxIterationsSecondHalf[2 * 8] =   { maxIterations[0 * 8],   0,0,0,0,0,0,0,   maxIterations[1 * 8], 0,0,0,0,0,0,0  };
 
   // set startIterations and maxIterations for both tasks
   if (returnLevel != myLevel) {
-    startIterationsFirstHalf[returnLevel]++;
+    startIterationsFirstHalf[returnLevel * 8]++;
   }
-  maxIterationsFirstHalf[returnLevel] = med;
-  startIterationsSecondHalf[returnLevel] = med;
+  maxIterationsFirstHalf[returnLevel * 8] = med;
+  startIterationsSecondHalf[returnLevel * 8] = med;
 
 #if defined(DEBUG_LOOP_HANDLER)
   printf("Loop_handler: Start\n");
   printf("Loop_handler:   Promotion\n");
   printf("Loop_handler:   Receiving Level = %lu\n", myLevel);
   printf("Loop_handler:   Splitting Level = %lu\n", returnLevel);
-  printf("Loop_handler:     startIteration = %lu, maxIterations = %lu\n", startIterations[returnLevel], maxIterations[returnLevel]);
+  printf("Loop_handler:     startIteration = %lu, maxIterations = %lu\n", startIterations[returnLevel * 8], maxIterations[returnLevel * 8]);
   printf("Loop_handler:     med = %lu\n", med);
-  printf("Loop_handler:     task1: startIteration = %lu, maxIterations = %lu\n", startIterationsFirstHalf[returnLevel], maxIterationsFirstHalf[returnLevel]);
-  printf("Loop_handler:     task2: startIteration = %lu, maxIterations = %lu\n", startIterationsSecondHalf[returnLevel], maxIterationsSecondHalf[returnLevel]);
+  printf("Loop_handler:     task1: startIteration = %lu, maxIterations = %lu\n", startIterationsFirstHalf[returnLevel * 8], maxIterationsFirstHalf[returnLevel * 8]);
+  printf("Loop_handler:     task2: startIteration = %lu, maxIterations = %lu\n", startIterationsSecondHalf[returnLevel * 8], maxIterationsSecondHalf[returnLevel * 8]);
 #endif
 
   // reset maxIterations for the leftover task
-  maxIterations[returnLevel] = startIterations[returnLevel] + 1;
+  maxIterations[returnLevel * 8] = startIterations[returnLevel * 8] + 1;
 
   /*
     assert(fut == nullptr && "Assigning to a future pointer which already bounded\n");
@@ -99,9 +97,9 @@ int loop_handler(
   */
 
   taskparts::tpalrts_promote_via_nativefj([&] {
-    (*f[returnLevel])(startIterationsFirstHalf, maxIterationsFirstHalf, (void **)liveInEnvironmentsFirstHalf, returnLevel/*, nullptr */);
+    (*splittingTasks[returnLevel])(startIterationsFirstHalf, maxIterationsFirstHalf, (void **)liveInEnvironmentsFirstHalf, returnLevel/*, nullptr */);
   }, [&] {
-    (*f[returnLevel])(startIterationsSecondHalf, maxIterationsSecondHalf, (void **)liveInEnvironmentsSecondHalf, returnLevel/*, nullptr */);
+    (*splittingTasks[returnLevel])(startIterationsSecondHalf, maxIterationsSecondHalf, (void **)liveInEnvironmentsSecondHalf, returnLevel/*, nullptr */);
   }, [] { }, taskparts::bench_scheduler());
 
   return 1;
