@@ -1,32 +1,35 @@
-DEFAULT_OPTIONS?=-DCHUNK_LOOP_ITERATIONS
-CORRECTNESS_VERSION?=-DHEARTBEAT_VERSIONING
+HEARTBEAT_DEFAULT_OPTIONS?=-DCHUNK_LOOP_ITERATIONS
+CORRECTNESS_VERSION?=-DHEARTBEAT_BRANCHES
 
 # ======================
 # Branches
 # ======================
 heartbeat_branches: heartbeat.cpp
-	clang++ $(CXXFLAGS_HEARTBEAT) -DHEARTBEAT_BRANCHES $(DEFAULT_OPTIONS) $(LIBS_HEARTBEAT) $^ $(OPTS) -o $@
+	$(CXX) -DHEARTBEAT_BRANCHES $(HEARTBEAT_DEFAULT_OPTIONS) $(OPT_FLAGS) $(TASKPARTS_FLAGS) $^ -o $@ $(LINKER_FLAGS)
 
 run_heartbeat_branches: heartbeat_branches
-	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_FREQUENCY); ./$^
+	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY); ./$<
 
 # ======================
 # Versioning
 # ======================
 heartbeat_versioning: heartbeat.cpp
-	clang++ $(CXXFLAGS_HEARTBEAT) -DHEARTBEAT_VERSIONING $(DEFAULT_OPTIONS) $(LIBS_HEARTBEAT) $^ $(OPTS) -o $@
+	$(CXX) -DHEARTBEAT_VERSIONING $(HEARTBEAT_DEFAULT_OPTIONS) $(OPT_FLAGS) $(TASKPARTS_FLAGS) $^ -o $@ $(LINKER_FLAGS)
 
 run_heartbeat_versioning: heartbeat_versioning
-	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_FREQUENCY); ./$^
+	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY); ./$<
 
 # ======================
 # Correctness
 # ======================
 correctness: heartbeat.cpp
-	clang++ $(CXXFLAGS_HEARTBEAT) -DTEST_CORRECTNESS $(CORRECTNESS_VERSION) $(DEFAULT_OPTIONS) $(LIBS_HEARTBEAT) $^ $(OPTS) -o $@
+	$(CXX) -DTEST_CORRECTNESS $(CORRECTNESS_VERSION) $(HEARTBEAT_DEFAULT_OPTIONS) $(OPT_FLAGS) $(TASKPARTS_FLAGS) $^ -o $@ $(LINKER_FLAGS)
 
 run_correctness: correctness
-	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_FREQUENCY); ./$^
+	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY); ./$<
+
+test_correctness: test_correctness.sh
+	./$<
 
 # ======================
 # Other
