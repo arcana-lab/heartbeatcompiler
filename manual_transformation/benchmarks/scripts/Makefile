@@ -90,13 +90,16 @@ LINKER_FLAGS=\
 CPU_BASE_FREQUENCY?=3300000
 
 benchmark = $(notdir $(shell pwd))
-include ${benchmark}.makefile
+${benchmark}_clean:
+
+-include ${benchmark}.makefile
 
 # ======================
 # Other
 # ======================
 clean:
 	rm -f baseline opencilk openmp ;
-	make ${benchmark}_clean ;
+	make ${benchmark}_clean
 
 .PHONY: clean
+
