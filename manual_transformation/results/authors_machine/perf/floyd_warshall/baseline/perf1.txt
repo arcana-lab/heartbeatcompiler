@@ -1,0 +1,65 @@
+
+ Performance counter stats for 'taskset -c 0 ./baseline':
+
+          12247350      branch-misses:u                                             
+              4283      LLC-load-misses:u                                           
+      111726492046      instructions:u                                              
+
+      10.419452373 seconds time elapsed
+
+      10.393488000 seconds user
+       0.003989000 seconds sys
+
+
+
+ Performance counter stats for 'taskset -c 0 ./baseline':
+
+          12258884      branch-misses:u                                             
+              4988      LLC-load-misses:u                                           
+      111726492017      instructions:u                                              
+
+      10.393680546 seconds time elapsed
+
+      10.368167000 seconds user
+       0.003988000 seconds sys
+
+
+
+ Performance counter stats for 'taskset -c 0 ./baseline':
+
+          12257391      branch-misses:u                                             
+              3355      LLC-load-misses:u                                           
+      111726492041      instructions:u                                              
+
+      10.412674231 seconds time elapsed
+
+      10.387003000 seconds user
+       0.004985000 seconds sys
+
+
+
+ Performance counter stats for 'taskset -c 0 ./baseline':
+
+          12265225      branch-misses:u                                             
+              4818      LLC-load-misses:u                                           
+      111726492027      instructions:u                                              
+
+      10.400521926 seconds time elapsed
+
+      10.379485000 seconds user
+       0.000000000 seconds sys
+
+
+
+ Performance counter stats for 'taskset -c 0 ./baseline':
+
+          12246555      branch-misses:u                                             
+              5514      LLC-load-misses:u                                           
+      111726492036      instructions:u                                              
+
+      10.403638773 seconds time elapsed
+
+      10.380731000 seconds user
+       0.001996000 seconds sys
+
+
