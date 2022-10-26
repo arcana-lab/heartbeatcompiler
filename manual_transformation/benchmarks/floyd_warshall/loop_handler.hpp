@@ -20,7 +20,8 @@ int loop_handler(
   void **liveInEnvironments,
   uint64_t myLevel,
   uint64_t &returnLevel,
-  uint64_t (*splittingTasks[])(uint64_t *, uint64_t *, void **, uint64_t)/*, taskparts::future *fut */
+  uint64_t (*splittingTasks[])(uint64_t *, uint64_t *, void **, uint64_t, taskparts::future *&),
+  taskparts::future *&fut
 ) {
   // urgently getting back to the splitting level
   if (returnLevel < myLevel) {
@@ -59,10 +60,16 @@ int loop_handler(
   uint64_t med = (startIterations[returnLevel * 8] + 1 + maxIterations[returnLevel * 8]) / 2;
 
   // allocate startIterations and maxIterations for both tasks
-  uint64_t startIterationsFirstHalf[2 * 8] =  { startIterations[0 * 8], 0,0,0,0,0,0,0, startIterations[1 * 8], 0,0,0,0,0,0,0  };
-  uint64_t maxIterationsFirstHalf[2 * 8] =    { maxIterations[0 * 8],   0,0,0,0,0,0,0,   maxIterations[1 * 8], 0,0,0,0,0,0,0  };
-  uint64_t startIterationsSecondHalf[2 * 8] = { startIterations[0 * 8], 0,0,0,0,0,0,0, startIterations[1 * 8], 0,0,0,0,0,0,0  };
-  uint64_t maxIterationsSecondHalf[2 * 8] =   { maxIterations[0 * 8],   0,0,0,0,0,0,0,   maxIterations[1 * 8], 0,0,0,0,0,0,0  };
+  uint64_t startIterationsFirstHalf[2 * 8];
+  uint64_t maxIterationsFirstHalf[2 * 8];
+  uint64_t startIterationsSecondHalf[2 * 8];
+  uint64_t maxIterationsSecondHalf[2 * 8];
+  for (uint64_t i = 0; i < 2; i++) {
+    startIterationsFirstHalf[i * 8]  = startIterations[i * 8];
+    maxIterationsFirstHalf[i * 8]    = maxIterations[i * 8];
+    startIterationsSecondHalf[i * 8] = startIterations[i * 8];
+    maxIterationsSecondHalf[i * 8]   = maxIterations[i * 8];
+  }
 
   // set startIterations and maxIterations for both tasks
   if (returnLevel != myLevel) {
@@ -71,36 +78,37 @@ int loop_handler(
   maxIterationsFirstHalf[returnLevel * 8] = med;
   startIterationsSecondHalf[returnLevel * 8] = med;
 
-#if defined(DEBUG_LOOP_HANDLER)
-  printf("Loop_handler: Start\n");
-  printf("Loop_handler:   Promotion\n");
-  printf("Loop_handler:   Receiving Level = %lu\n", myLevel);
-  printf("Loop_handler:   Splitting Level = %lu\n", returnLevel);
-  printf("Loop_handler:     startIteration = %lu, maxIterations = %lu\n", startIterations[returnLevel * 8], maxIterations[returnLevel * 8]);
-  printf("Loop_handler:     med = %lu\n", med);
-  printf("Loop_handler:     task1: startIteration = %lu, maxIterations = %lu\n", startIterationsFirstHalf[returnLevel * 8], maxIterationsFirstHalf[returnLevel * 8]);
-  printf("Loop_handler:     task2: startIteration = %lu, maxIterations = %lu\n", startIterationsSecondHalf[returnLevel * 8], maxIterationsSecondHalf[returnLevel * 8]);
-#endif
+  // copy returnLevel
+  uint64_t splittingLevel = returnLevel;
+
+  fut = taskparts::spawn_lazy_future([=] {
+    taskparts::future *futSplitting = taskparts::spawn_lazy_future([=] {
+      // copy environmnents
+      uint64_t *liveInEnvironmentsSecondHalfCopy[2 * 8];
+      std::copy(std::begin(liveInEnvironmentsSecondHalf), std::end(liveInEnvironmentsSecondHalf), std::begin(liveInEnvironmentsSecondHalfCopy));
+      uint64_t startIterationsSecondHalfCopy[2 * 8];
+      std::copy(std::begin(startIterationsSecondHalf), std::end(startIterationsSecondHalf), std::begin(startIterationsSecondHalfCopy));
+      uint64_t maxIterationsSecondHalfCopy[2 * 8];
+      std::copy(std::begin(maxIterationsSecondHalf), std::end(maxIterationsSecondHalf), std::begin(maxIterationsSecondHalfCopy));
+
+      taskparts::future *futSecondHalf= nullptr;
+      (*splittingTasks[splittingLevel])(startIterationsSecondHalfCopy, maxIterationsSecondHalfCopy, (void **)liveInEnvironmentsSecondHalfCopy, splittingLevel, futSecondHalf);
+    }, taskparts::bench_scheduler());
+    // copy environmnents
+    uint64_t *liveInEnvironmentsFirstHalfCopy[2 * 8];
+    std::copy(std::begin(liveInEnvironmentsFirstHalf), std::end(liveInEnvironmentsFirstHalf), std::begin(liveInEnvironmentsFirstHalfCopy));
+    uint64_t startIterationsFirstHalfCopy[2 * 8];
+    std::copy(std::begin(startIterationsFirstHalf), std::end(startIterationsFirstHalf), std::begin(startIterationsFirstHalfCopy));
+    uint64_t maxIterationsFirstHalfCopy[2 * 8];
+    std::copy(std::begin(maxIterationsFirstHalf), std::end(maxIterationsFirstHalf), std::begin(maxIterationsFirstHalfCopy));
+
+    taskparts::future *futFirstHalf = nullptr;
+    (*splittingTasks[splittingLevel])(startIterationsFirstHalfCopy, maxIterationsFirstHalfCopy, (void **)liveInEnvironmentsFirstHalfCopy, splittingLevel, futFirstHalf);
+    futSplitting->force();
+  }, taskparts::bench_scheduler());
 
   // reset maxIterations for the leftover task
   maxIterations[returnLevel * 8] = startIterations[returnLevel * 8] + 1;
-
-  /*
-    assert(fut == nullptr && "Assigning to a future pointer which already bounded\n");
-    fut = new lazy_future([=] {
-      taskparts::tpalrts_promote_via_nativefj([=] {
-        (*f[returnLevel])(startIterationsFirstHalf, maxIterationsFirstHalf, (void **)liveInEnvironmentsFirstHalf, returnLevel, nullptr);
-      }, [=] {
-        (*f[returnLevel])(startIterationsSecondHalf, maxIterationsSecondHalf, (void **)liveInEnvironmentsSecondHalf, returnLevel, nullptr);
-      }, [] { }, taskparts::bench_scheduler());
-    }
-  */
-
-  taskparts::tpalrts_promote_via_nativefj([&] {
-    (*splittingTasks[returnLevel])(startIterationsFirstHalf, maxIterationsFirstHalf, (void **)liveInEnvironmentsFirstHalf, returnLevel/*, nullptr */);
-  }, [&] {
-    (*splittingTasks[returnLevel])(startIterationsSecondHalf, maxIterationsSecondHalf, (void **)liveInEnvironmentsSecondHalf, returnLevel/*, nullptr */);
-  }, [] { }, taskparts::bench_scheduler());
 
   return 1;
 }
@@ -189,7 +197,7 @@ int loop_handler(
   } else { // splittingLevel is higher than myLevel, build up the leftover task
 
     // allocate the new liveInEnvironments for leftover task
-    uint64_t *liveInEnvironmentsLeftover[3 * 8];
+    uint64_t *liveInEnvironmentsLeftover[2 * 8];
     for (uint64_t level = 0; level <= myLevel; level++) {
       liveInEnvironmentsLeftover[level * 8] = ((uint64_t **)liveInEnvironments)[level * 8];
     }
