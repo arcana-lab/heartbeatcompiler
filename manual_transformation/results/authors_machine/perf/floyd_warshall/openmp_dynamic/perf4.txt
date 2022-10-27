@@ -1,0 +1,70 @@
+which: no jemalloc-config in (/usr/libexec/perf-core:/project/extra/llvm/14.0.6/release/bin:/nfs-scratch/yso0488/opencilk/build/bin/bin:/usr/local/bin:/usr/bin:/project/extra/burnCPU/bin)
+
+ Performance counter stats for 'taskset -c 0,2,4,6 make run_openmp_dynamic':
+
+          13147017      branch-misses:u                                             
+              3573      LLC-load-misses:u                                           
+      232688482834      instructions:u                                              
+
+       3.559440895 seconds time elapsed
+
+      14.133186000 seconds user
+       0.007040000 seconds sys
+
+
+which: no jemalloc-config in (/usr/libexec/perf-core:/project/extra/llvm/14.0.6/release/bin:/nfs-scratch/yso0488/opencilk/build/bin/bin:/usr/local/bin:/usr/bin:/project/extra/burnCPU/bin)
+
+ Performance counter stats for 'taskset -c 0,2,4,6 make run_openmp_dynamic':
+
+          13149287      branch-misses:u                                             
+              2681      LLC-load-misses:u                                           
+      232688095942      instructions:u                                              
+
+       3.556011060 seconds time elapsed
+
+      14.127772000 seconds user
+       0.005266000 seconds sys
+
+
+which: no jemalloc-config in (/usr/libexec/perf-core:/project/extra/llvm/14.0.6/release/bin:/nfs-scratch/yso0488/opencilk/build/bin/bin:/usr/local/bin:/usr/bin:/project/extra/burnCPU/bin)
+
+ Performance counter stats for 'taskset -c 0,2,4,6 make run_openmp_dynamic':
+
+          13147821      branch-misses:u                                             
+              2513      LLC-load-misses:u                                           
+      232689772466      instructions:u                                              
+
+       3.555618081 seconds time elapsed
+
+      14.126414000 seconds user
+       0.002878000 seconds sys
+
+
+which: no jemalloc-config in (/usr/libexec/perf-core:/project/extra/llvm/14.0.6/release/bin:/nfs-scratch/yso0488/opencilk/build/bin/bin:/usr/local/bin:/usr/bin:/project/extra/burnCPU/bin)
+
+ Performance counter stats for 'taskset -c 0,2,4,6 make run_openmp_dynamic':
+
+          13161512      branch-misses:u                                             
+              2498      LLC-load-misses:u                                           
+      232690020452      instructions:u                                              
+
+       3.560588881 seconds time elapsed
+
+      14.139255000 seconds user
+       0.011354000 seconds sys
+
+
+which: no jemalloc-config in (/usr/libexec/perf-core:/project/extra/llvm/14.0.6/release/bin:/nfs-scratch/yso0488/opencilk/build/bin/bin:/usr/local/bin:/usr/bin:/project/extra/burnCPU/bin)
+
+ Performance counter stats for 'taskset -c 0,2,4,6 make run_openmp_dynamic':
+
+          13138160      branch-misses:u                                             
+              3926      LLC-load-misses:u                                           
+      232691944755      instructions:u                                              
+
+       3.581186426 seconds time elapsed
+
+      14.221557000 seconds user
+       0.008927000 seconds sys
+
+

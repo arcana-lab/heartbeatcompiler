@@ -1,0 +1,70 @@
+which: no jemalloc-config in (/usr/libexec/perf-core:/project/extra/llvm/14.0.6/release/bin:/nfs-scratch/yso0488/opencilk/build/bin/bin:/usr/local/bin:/usr/bin:/project/extra/burnCPU/bin)
+
+ Performance counter stats for 'taskset -c 0,2,4,6 make run_opencilk':
+
+        1336181259      branch-misses:u                                             
+         443973009      LLC-load-misses:u                                           
+      130492592677      instructions:u                                              
+
+      34.735743099 seconds time elapsed
+
+      31.557211000 seconds user
+       8.649835000 seconds sys
+
+
+which: no jemalloc-config in (/usr/libexec/perf-core:/project/extra/llvm/14.0.6/release/bin:/nfs-scratch/yso0488/opencilk/build/bin/bin:/usr/local/bin:/usr/bin:/project/extra/burnCPU/bin)
+
+ Performance counter stats for 'taskset -c 0,2,4,6 make run_opencilk':
+
+        1337063352      branch-misses:u                                             
+         442327858      LLC-load-misses:u                                           
+      130509875450      instructions:u                                              
+
+      34.690329276 seconds time elapsed
+
+      31.478300000 seconds user
+       8.609303000 seconds sys
+
+
+which: no jemalloc-config in (/usr/libexec/perf-core:/project/extra/llvm/14.0.6/release/bin:/nfs-scratch/yso0488/opencilk/build/bin/bin:/usr/local/bin:/usr/bin:/project/extra/burnCPU/bin)
+
+ Performance counter stats for 'taskset -c 0,2,4,6 make run_opencilk':
+
+        1336387141      branch-misses:u                                             
+         439792840      LLC-load-misses:u                                           
+      130459065536      instructions:u                                              
+
+      34.553188903 seconds time elapsed
+
+      31.300986000 seconds user
+       8.755717000 seconds sys
+
+
+which: no jemalloc-config in (/usr/libexec/perf-core:/project/extra/llvm/14.0.6/release/bin:/nfs-scratch/yso0488/opencilk/build/bin/bin:/usr/local/bin:/usr/bin:/project/extra/burnCPU/bin)
+
+ Performance counter stats for 'taskset -c 0,2,4,6 make run_opencilk':
+
+        1334459923      branch-misses:u                                             
+         436112412      LLC-load-misses:u                                           
+      130420609682      instructions:u                                              
+
+      34.362631387 seconds time elapsed
+
+      31.376894000 seconds user
+       8.206753000 seconds sys
+
+
+which: no jemalloc-config in (/usr/libexec/perf-core:/project/extra/llvm/14.0.6/release/bin:/nfs-scratch/yso0488/opencilk/build/bin/bin:/usr/local/bin:/usr/bin:/project/extra/burnCPU/bin)
+
+ Performance counter stats for 'taskset -c 0,2,4,6 make run_opencilk':
+
+        1335907193      branch-misses:u                                             
+         433134360      LLC-load-misses:u                                           
+      130446014589      instructions:u                                              
+
+      34.470507981 seconds time elapsed
+
+      31.285518000 seconds user
+       8.535344000 seconds sys
+
+
