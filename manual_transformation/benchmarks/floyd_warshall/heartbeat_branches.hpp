@@ -14,10 +14,10 @@ namespace floyd_warshall {
 void floyd_warshall_heartbeat_branches(int *, int);
 void HEARTBEAT_loop0(int *, int, int);
 void HEARTBEAT_loop1(int *, int, int, int);
-uint64_t HEARTBEAT_loop0_cloned(uint64_t *, uint64_t *, void **, uint64_t);
-uint64_t HEARTBEAT_loop1_cloned(uint64_t *, uint64_t *, void **, uint64_t);
+uint64_t HEARTBEAT_loop0_cloned(uint64_t *, uint64_t *, void **, uint64_t, taskparts::future *&);
+uint64_t HEARTBEAT_loop1_cloned(uint64_t *, uint64_t *, void **, uint64_t, taskparts::future *&);
 
-typedef uint64_t(*functionPointer)(uint64_t *, uint64_t *, void **, uint64_t);
+typedef uint64_t(*functionPointer)(uint64_t *, uint64_t *, void **, uint64_t, taskparts::future *&);
 functionPointer splittingTasks[2] = {
   &HEARTBEAT_loop0_cloned,
   &HEARTBEAT_loop1_cloned
@@ -55,10 +55,11 @@ void HEARTBEAT_loop0(int *dist, int vertices, int via) {
     startIterations[0 * 8] = 0;
     maxIterations[0 * 8] = vertices;
 
-    /* taskparts::future *fut = nullptr; */
+    // allocate future pointer
+    taskparts::future *fut = nullptr;
 
     // invoke loop0 in heartbeat form
-    HEARTBEAT_loop0_cloned(startIterations, maxIterations, (void **)liveInEnvironments, 0/*, fut */);
+    HEARTBEAT_loop0_cloned(startIterations, maxIterations, (void **)liveInEnvironments, 0, fut);
 
     run_heartbeat = true;
   } else {
@@ -83,7 +84,7 @@ void HEARTBEAT_loop1(int *dist, int vertices, int via, int from) {
 }
 
 // Cloned loops
-uint64_t HEARTBEAT_loop0_cloned(uint64_t *startIterations, uint64_t *maxIterations, void **liveInEnvironments, uint64_t myLevel/*, taskparts::future *fut */) {
+uint64_t HEARTBEAT_loop0_cloned(uint64_t *startIterations, uint64_t *maxIterations, void **liveInEnvironments, uint64_t myLevel, taskparts::future *&fut) {
   // load live-in environment
   uint64_t *liveInEnvironment = ((uint64_t **)liveInEnvironments)[myLevel * 8];
   int *dist = (int *)liveInEnvironment[0 * 8];
@@ -103,7 +104,7 @@ uint64_t HEARTBEAT_loop0_cloned(uint64_t *startIterations, uint64_t *maxIteratio
   uint64_t returnLevel = 1 + 1;
 
   for (; startIterations[myLevel * 8] < maxIterations[myLevel * 8]; startIterations[myLevel * 8]++) {
-    int rc = loop_handler(startIterations, maxIterations, (void **)liveInEnvironments, myLevel, returnLevel, splittingTasks/*, fut */);
+    int rc = loop_handler(startIterations, maxIterations, (void **)liveInEnvironments, myLevel, returnLevel, splittingTasks, fut);
     if (rc == 1) {
       goto reduction;
     }
@@ -115,25 +116,19 @@ uint64_t HEARTBEAT_loop0_cloned(uint64_t *startIterations, uint64_t *maxIteratio
     startIterations[(myLevel + 1) * 8] = 0;
     maxIterations[(myLevel + 1) * 8] = vertices;
 
-    returnLevel = HEARTBEAT_loop1_cloned(startIterations, maxIterations, liveInEnvironments, myLevel + 1);
+    returnLevel = HEARTBEAT_loop1_cloned(startIterations, maxIterations, liveInEnvironments, myLevel + 1, fut);
   }
 
   if (returnLevel == myLevel) {
 reduction:
-    // synchronization point for the leftover task (either splitting at the same level and return from a higher nesting level)
-    /* 
-      assert(fut != nullptr);
-      fut->force();
-    */
-    // DELETE LATER
-    return returnLevel;
+    fut->force();
   }
 
   // synchronization point for the splitting task
   return returnLevel;
 }
 
-uint64_t HEARTBEAT_loop1_cloned(uint64_t *startIterations, uint64_t *maxIterations, void **liveInEnvironments, uint64_t myLevel/*, taskparts::future *fut */) {
+uint64_t HEARTBEAT_loop1_cloned(uint64_t *startIterations, uint64_t *maxIterations, void **liveInEnvironments, uint64_t myLevel, taskparts::future *&fut) {
   // load live-in environment
   uint64_t *liveInEnvironment = ((uint64_t **)liveInEnvironments)[myLevel * 8];
   int *dist = (int *)liveInEnvironment[0 * 8];
@@ -146,7 +141,7 @@ uint64_t HEARTBEAT_loop1_cloned(uint64_t *startIterations, uint64_t *maxIteratio
 
 #if defined(CHUNK_LOOP_ITERATIONS)
   for (; ;) {
-    int rc = loop_handler(startIterations, maxIterations, (void **)liveInEnvironments, myLevel, returnLevel, splittingTasks/*, fut */);
+    int rc = loop_handler(startIterations, maxIterations, (void **)liveInEnvironments, myLevel, returnLevel, splittingTasks, fut);
     if (rc == 1) {
       if (returnLevel < myLevel) {
         goto leftover;
@@ -171,7 +166,7 @@ uint64_t HEARTBEAT_loop1_cloned(uint64_t *startIterations, uint64_t *maxIteratio
   }
 #else
   for (; startIterations[myLevel * 8] < maxIterations[myLevel * 8]; startIterations[myLevel * 8]++) {
-    int rc = loop_handler(startIterations, maxIterations, (void **)liveInEnvironments, myLevel, returnLevel, splittingTasks/*, fut */);
+    int rc = loop_handler(startIterations, maxIterations, (void **)liveInEnvironments, myLevel, returnLevel, splittingTasks, fut);
     if (rc == 1) {
       if (returnLevel < myLevel) {
         goto leftover;
@@ -189,12 +184,7 @@ uint64_t HEARTBEAT_loop1_cloned(uint64_t *startIterations, uint64_t *maxIteratio
   if (returnLevel == myLevel) {
 reduction:
     // synchronization point for the leftover task (either splitting at the same level and return from a higher nesting level)
-    /* 
-      assert(fut != nullptr);
-      fut->force();
-    */
-    // DELETE LATER
-    return returnLevel;
+    fut->force();
   }
 
   // synchronization point for the splitting task

@@ -201,7 +201,13 @@ void srad_openmp(int rows, int cols, int size_I, int size_R, float *I, float *J,
    
     }
   }
+#if defined(OMP_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic)
+#elif defined(OMP_GUIDED) 
+  #pragma omp parallel for schedule(guided)
+#else  
   #pragma omp parallel for
+#endif
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++) {        
 
