@@ -3,7 +3,7 @@ CXX=clang++
 
 OPTS=-O3 -march=native -fno-vectorize -fno-slp-vectorize
 
-CXXFLAGS_BASELINE=--std=c++17
+CXXFLAGS_BASELINE=--std=c++17 -DCOLLECT_WALL_TIME
 LIBS_BASELINE=-lm -lstdc++
 
 OPENCILK_COMPILER?=/nfs-scratch/yso0488/opencilk/build/bin/bin/opencilk++
