@@ -8,3 +8,5 @@ manual_transformation/runtime/
 manual_transformation/tests/*/Makefile
 manual_transformation/benchmarks/*/Makefile
 manual_transformation/benchmarks/*/test_correctness.sh
+
+manual_transformation/pythonVirtualEnv
