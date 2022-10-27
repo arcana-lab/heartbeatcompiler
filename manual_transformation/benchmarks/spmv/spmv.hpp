@@ -405,7 +405,7 @@ void test_correctness(double* y) {
   for (uint64_t i = 0; i != nb_rows; i++) {
     auto diff = std::abs(y[i] - yref[i]);
     if (diff > epsilon) {
-      //printf("diff=%f y[i]=%f yref[i]=%f at i=%ld\n", diff, y[i], yref[i], i);
+      printf("diff=%f y[i]=%f yref[i]=%f at i=%ld\n", diff, y[i], yref[i], i);
       num_diffs++;
     }
   }
