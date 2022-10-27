@@ -107,6 +107,7 @@ all() {
 		CORE=`echo $LIST, | grep -o , | wc -l`
 		echo "### $CORE Core(s) ###"
 
+		[ $2 ] && eval "$2=$CORE"
 		collect time $1 $LIST
 		collect perf $1 $LIST
 	done
