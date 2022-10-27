@@ -276,63 +276,63 @@ void finishup() {
 
 #if defined(USE_OPENCILK)
 
-// spmv reducer implementation
-void zero_double(void *view) {
-  *(double *)view = 0.0;
-}
-void add_double(void *left, void *right) {
-  *(double *)left += *(double *)right;
-}
-void spmv_opencilk(
-  double* val,
-  uint64_t* row_ptr,
-  uint64_t* col_ind,
-  double* x,
-  double* y,
-  int64_t n) {
-  cilk_for (int64_t i = 0; i < n; i++) {  // row loop
-    double cilk_reducer(zero_double, add_double) sum;
-    cilk_for (int64_t k = row_ptr[i]; k < row_ptr[i+1]; k++) { // col loop
-      sum += val[k] * x[col_ind[k]];
-    }
-    y[i] = sum;
-  }
-}
-
-// // spmv map-reduce implementation
-// static constexpr
-// uint64_t threshold = 1024;
-// template <typename F>
-// void map_reduce_cilk(const F& f, uint64_t lo, uint64_t hi, double* dst) {
-//   double r = 0.0;
-//   if ((hi - lo) < threshold) {
-//     for (auto i = lo; i < hi; i++) {
-//       r += f(i);
-//     }
-//   } else {
-//     double r1, r2;
-//     auto mid = (lo + hi) / 2;
-//     cilk_spawn map_reduce_cilk(f, lo, mid, &r1);
-//     map_reduce_cilk(f, mid, hi, &r2);
-//     cilk_sync;
-//     r = r1 + r2;
-//   }
-//   *dst = r;
+// // spmv reducer implementation
+// void zero_double(void *view) {
+//   *(double *)view = 0.0;
 // }
-
+// void add_double(void *left, void *right) {
+//   *(double *)left += *(double *)right;
+// }
 // void spmv_opencilk(
 //   double* val,
-// 	uint64_t* row_ptr,
-// 	uint64_t* col_ind,
-// 	double* x,
-// 	double* y,
-// 	int64_t n) {
+//   uint64_t* row_ptr,
+//   uint64_t* col_ind,
+//   double* x,
+//   double* y,
+//   int64_t n) {
 //   cilk_for (int64_t i = 0; i < n; i++) {  // row loop
-//     map_reduce_cilk([=] (uint64_t k) {
-//       return val[k] * x[col_ind[k]];
-//     }, row_ptr[i], row_ptr[i+1], &y[i]);
+//     double cilk_reducer(zero_double, add_double) sum;
+//     cilk_for (int64_t k = row_ptr[i]; k < row_ptr[i+1]; k++) { // col loop
+//       sum += val[k] * x[col_ind[k]];
+//     }
+//     y[i] = sum;
 //   }
 // }
+
+// spmv map-reduce implementation
+static constexpr
+uint64_t threshold = 1024;
+template <typename F>
+void map_reduce_cilk(const F& f, uint64_t lo, uint64_t hi, double* dst) {
+  double r = 0.0;
+  if ((hi - lo) < threshold) {
+    for (auto i = lo; i < hi; i++) {
+      r += f(i);
+    }
+  } else {
+    double r1, r2;
+    auto mid = (lo + hi) / 2;
+    cilk_spawn map_reduce_cilk(f, lo, mid, &r1);
+    map_reduce_cilk(f, mid, hi, &r2);
+    cilk_sync;
+    r = r1 + r2;
+  }
+  *dst = r;
+}
+
+void spmv_opencilk(
+  double* val,
+	uint64_t* row_ptr,
+	uint64_t* col_ind,
+	double* x,
+	double* y,
+	int64_t n) {
+  cilk_for (int64_t i = 0; i < n; i++) {  // row loop
+    map_reduce_cilk([=] (uint64_t k) {
+      return val[k] * x[col_ind[k]];
+    }, row_ptr[i], row_ptr[i+1], &y[i]);
+  }
+}
 
 // // spmv sequential inner loop implementation
 // void spmv_opencilk(

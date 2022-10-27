@@ -100,7 +100,7 @@ def plot(benchmark, speedups, techniques, configs, maxSpeedUp):
 
   ax.tick_params(axis = 'x', direction = 'out', top = False)
 
-  ax.legend(fontsize = fontSize - 1.5, fancybox = False, framealpha = 1, ncol = int(math.ceil(len(techniques)/3)), loc = 'upper right', borderpad = 0.2)
+  ax.legend(fontsize = fontSize - 1.5, fancybox = False, framealpha = 1, ncol = int(math.ceil(len(techniques)/3)), bbox_to_anchor=(1, 1.02), loc = 'lower right', borderpad = 0.2)
 
   matplotlib.rcParams['pdf.fonttype'] = 42
   matplotlib.rcParams['ps.fonttype'] = 42
