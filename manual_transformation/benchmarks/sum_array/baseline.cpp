@@ -7,7 +7,6 @@
 using namespace sum_array;
 
 int main() {
-
   setup();
 
 #if defined(COLLECT_KERNEL_TIME)
