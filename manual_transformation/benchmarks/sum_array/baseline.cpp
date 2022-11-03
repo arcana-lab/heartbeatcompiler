@@ -24,6 +24,6 @@ int main() {
 
   finishup();
   
-  printf("result=%f\n",result);
+  printf("result=%lu\n", result);
   return 0;
 }

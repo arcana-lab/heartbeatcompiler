@@ -11,14 +11,15 @@
 
 namespace sum_array {
 
-uint64_t n = 1000 * 1000 * 1000;
-double result = 0.0;
-double* a;
+uint64_t n = 250000000000; // input size for benchmarking
+// uint64_t n = 10000000000;     // input size for testing
+uint64_t result = 0;
+char *a;
 
 void setup() {
-  a = new double[n];
-  for (int i = 0; i < n; i++) {
-    a[i] = 1.0;
+  a = new char[n];
+  for (uint64_t i = 0; i < n; i++) {
+    a[i] = 1;
   }
 }
 
@@ -27,22 +28,22 @@ void finishup() {
 }
 
 #if defined(USE_OPENCILK)
-void zero_double(void *view) {
-  *(double *)view = 0.0;
+void zero_uint64_t(void *view) {
+  *(uint64_t *)view = 0;
 }
-void add_double(void *left, void *right) {
-  *(double *)left += *(double *)right;
+void add_uint64_t(void *left, void *right) {
+  *(uint64_t *)left += *(uint64_t *)right;
 }
-double sum_array_opencilk(double* a, uint64_t lo, uint64_t hi) {
-  double cilk_reducer(zero_double, add_double) sum;
+uint64_t sum_array_opencilk(char *a, uint64_t lo, uint64_t hi) {
+  uint64_t cilk_reducer(zero_uint64_t, add_uint64_t) sum;
   cilk_for (uint64_t i = lo; i != hi; i++) {
     sum += a[i];
   }
   return sum;
 }
 #elif defined(USE_OPENMP)
-double sum_array_openmp(double* a, uint64_t lo, uint64_t hi) {
-  double r = 0.0;
+uint64_t sum_array_openmp(char* a, uint64_t lo, uint64_t hi) {
+  uint64_t r = 0;
 #if defined(OMP_DYNAMIC)
   #pragma omp parallel for schedule(dynamic) reduction(+:r)
 #elif defined(OMP_GUIDED) 
@@ -56,8 +57,8 @@ double sum_array_openmp(double* a, uint64_t lo, uint64_t hi) {
   return r;
 }
 #else
-double sum_array_serial(double* a, uint64_t lo, uint64_t hi) {
-  double r = 0.0;
+uint64_t sum_array_serial(char *a, uint64_t lo, uint64_t hi) {
+  uint64_t r = 0;
   for (uint64_t i = lo; i != hi; i++) {
     r += a[i];
   }
