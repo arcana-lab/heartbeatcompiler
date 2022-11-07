@@ -25,8 +25,10 @@ int main() {
 
 #if defined(HEARTBEAT_BRANCHES)
   loop_dispatcher(&sum_array_heartbeat_branches, a, 0, n, result);
-#elif defined(HEARTBEAT_VERSIONING) || defined(HEARTBEAT_VERSIONING_OPTIMIZED)
+#elif defined(HEARTBEAT_VERSIONING)
   loop_dispatcher(&sum_array_heartbeat_versioning, a, 0, n, result);
+#elif defined(HEARTBEAT_VERSIONING_OPTIMIZED)
+  loop_dispatcher(&sum_array_heartbeat_versioning_optimized, a, 0, n, result);
 #else
   #error "Need to specific the version of heartbeat, e.g., HEARTBEAT_BRANCHES, HEARTBEAT_VERSIONING
 #endif

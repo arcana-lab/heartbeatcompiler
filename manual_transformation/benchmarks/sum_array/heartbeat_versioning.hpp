@@ -112,7 +112,7 @@ void HEARTBEAT_loop0_cloned(uint64_t *startIterations, uint64_t *maxIterations, 
     }
   }
 #else
-  for (; startIterations[myLevel] < maxIterations[myLevel]; startIterations[myLevel]++) {
+  for (; startIterations[myLevel * 8] < maxIterations[myLevel * 8]; startIterations[myLevel * 8]++) {
     rc = loop_handler(startIterations, maxIterations, liveInEnvironments, liveOutEnvironments, (void *)liveOutEnvironmentNextLevel, myLevel, myIndex, splittingTasks, nullptr);
     r_private += a[startIterations[myLevel]];
   }
@@ -130,21 +130,22 @@ void HEARTBEAT_loop0_cloned(uint64_t *startIterations, uint64_t *maxIterations, 
 
 #elif defined(HEARTBEAT_VERSIONING_OPTIMIZED)
 
-void sum_array_heartbeat_versioning(char *, uint64_t, uint64_t, uint64_t &);
+void sum_array_heartbeat_versioning_optimized(char *, uint64_t, uint64_t, uint64_t &);
 void HEARTBEAT_loop0(char *, uint64_t, uint64_t, uint64_t &);
-void HEARTBEAT_loop0_cloned(uint64_t, uint64_t, void *, void *, uint64_t);
+void HEARTBEAT_loop0_cloned(uint64_t *, uint64_t *, void *, void *, uint64_t);
 
 // optimization: cloned version of loop itself is the splittingTask
 
 static bool run_heartbeat = true;
 
 // Entry function for the benchmark
-void sum_array_heartbeat_versioning(char *a, uint64_t low, uint64_t high, uint64_t &result) {
+void sum_array_heartbeat_versioning_optimized(char *a, uint64_t low, uint64_t high, uint64_t &result) {
   if (run_heartbeat) {
     run_heartbeat = false;
 
-    // allocate the startIterations and maxIterations array
-    // optimization: with only level 0, iteration numbers will be pass around through registers
+    // allocate the startIteration and maxIteration array
+    uint64_t startIteration[1 * 8];
+    uint64_t maxIteration[1 * 8];
 
     // allocate live-in and live-out environments
     // optimization: with only level 0, there's only one live-in/out environment
@@ -163,8 +164,8 @@ void sum_array_heartbeat_versioning(char *a, uint64_t low, uint64_t high, uint64
     liveInEnvironment[0] = (uint64_t)a;
 
     // set the start and max iteration for loop0
-    uint64_t startIteration = low;
-    uint64_t maxIteration = high;
+    startIteration[0 * 8] = low;
+    maxIteration[0 * 8] = high;
 
     // invoke loop0 in heartbeat form
     // optimization, no need to pass myLevel information, it's 0 by default
@@ -189,7 +190,7 @@ void HEARTBEAT_loop0(char *a, uint64_t low, uint64_t high, uint64_t &r) {
 }
 
 // Cloned loops
-void HEARTBEAT_loop0_cloned(uint64_t startIteration, uint64_t maxIteration, void *liveInEnvironment, void *liveOutEnvironment, uint64_t myIndex) {
+void HEARTBEAT_loop0_cloned(uint64_t *startIteration, uint64_t *maxIteration, void *liveInEnvironment, void *liveOutEnvironment, uint64_t myIndex) {
   // allocate live-out environment for next level
   uint64_t liveOutEnvironmentNextLevel[1];
 
@@ -209,20 +210,20 @@ void HEARTBEAT_loop0_cloned(uint64_t startIteration, uint64_t maxIteration, void
 #if defined(CHUNK_LOOP_ITERATIONS)
   for (; ;) {
     rc = loop_handler(startIteration, maxIteration, liveInEnvironment, (void *)liveOutEnvironmentNextLevel, &HEARTBEAT_loop0_cloned);
-    uint64_t low = startIteration;
-    uint64_t high = std::min(maxIteration, startIteration + CHUNKSIZE_0);
+    uint64_t low = startIteration[0 * 8];
+    uint64_t high = std::min(maxIteration[0 * 8], startIteration[0 * 8] + CHUNKSIZE_0);
 
     for (; low < high; low++) {
       r_private += a[low];
     }
 
-    startIteration = high;
-    if (!(startIteration < maxIteration)) {
+    startIteration[0 * 8] = high;
+    if (!(startIteration[0 * 8] < maxIteration[0 * 8])) {
       break;
     }
   }
 #else
-  for (; startIteration < maxIteration; startIteration++) {
+  for (; startIteration[0 * 8] < maxIteration[0 * 8]; startIteration[0 * 8]++) {
     rc = loop_handler(startIteration, maxIteration, liveInEnvironment, (void *)liveOutEnvironmentNextLevel, &HEARTBEAT_loop0_cloned);
     r_private += a[startIteration];
   }

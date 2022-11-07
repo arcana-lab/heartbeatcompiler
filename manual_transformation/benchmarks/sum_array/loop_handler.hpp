@@ -70,7 +70,7 @@ int loop_handler(
   uint64_t startIterationsFirstHalf[1 * 8];
   uint64_t maxIterationsFirstHalf[1 * 8];
   uint64_t startIterationsSecondHalf[1 * 8];
-  uint64_t maxIterationsSecondHalf[1* 8];
+  uint64_t maxIterationsSecondHalf[1 * 8];
   for (uint64_t i = 0; i < 1; i++) {
     startIterationsFirstHalf[i * 8]  = startIterations[i * 8];
     maxIterationsFirstHalf[i * 8]    = maxIterations[i * 8];
@@ -203,11 +203,11 @@ int loop_handler(
 #elif defined(HEARTBEAT_VERSIONING_OPTIMIZED)
 
 int loop_handler(
-  uint64_t startIteration,
-  uint64_t &maxIteration,
+  uint64_t *startIteration,
+  uint64_t *maxIteration,
   void *liveInEnvironment,
   void *liveOutEnvironmentNextLevel,
-  void (*splittingTask)(uint64_t, uint64_t, void *, void *, uint64_t)
+  void (*splittingTask)(uint64_t *, uint64_t *, void *, void *, uint64_t)
 ) {
   // determine whether to promote since last promotion
   auto& p = taskparts::prev.mine();
@@ -219,7 +219,7 @@ int loop_handler(
 
   // decide the splitting level
   // optimization: splitting level is always 0
-  if ((maxIteration - startIteration) <= 2) {
+  if ((maxIteration[0 * 8] - startIteration[0 * 8]) <= 2) {
     return 0;
   }
 
@@ -229,16 +229,20 @@ int loop_handler(
   // allocate the new liveOutEnvironments for both tasks
   // optimization: two splitting tasks use the same live-out environment for next level
 
-  // allocate startIterations and maxIterations for both tasks
-  // optimization: no need to allocate this
-  uint64_t med = (startIteration + maxIteration + 1) / 2;
-  uint64_t startIterationFirstHalf = startIteration + 1;
-  uint64_t maxIterationFirstHalf = med;
-  uint64_t startIterationSecondHalf = med;
-  uint64_t maxIterationSecondHalf = maxIteration;
+  // allocate startIteration and maxIteration for both tasks
+  uint64_t startIterationFirstHalf[1 * 8];
+  uint64_t maxIterationFirstHalf[1 * 8];
+  uint64_t startIterationSecondHalf[1 * 8];
+  uint64_t maxIterationSecondHalf[1 * 8];
+
+  uint64_t med = (startIteration[0 * 8] + maxIteration[0 * 8] + 1) / 2;
+  startIterationFirstHalf[0 * 8] = startIteration[0 * 8] + 1;
+  maxIterationFirstHalf[0 * 8] = med;
+  startIterationSecondHalf[0 * 8] = med;
+  maxIterationSecondHalf[0 * 8] = maxIteration[0 * 8];
 
   // reset maxIterations for the tail task
-  maxIteration = startIteration + 1;
+  maxIteration[0 * 8] = startIteration[0 * 8] + 1;
 
   // when splittingLevel == myLevel, this eases things and won't be any leftover task
   // optimization: there won't be a second case
