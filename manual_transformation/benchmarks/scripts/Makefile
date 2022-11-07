@@ -99,7 +99,7 @@ LINKER_FLAGS=\
 	$(HWLOC_LIBRARY_PATH) \
 	$(CUSTOM_MALLOC) # needs to go last, or else it won't be used
 
-CPU_BASE_FREQUENCY?=3300000
+CPU_BASE_FREQUENCY?=2800000
 
 benchmark = $(notdir $(shell pwd))
 ${benchmark}_clean:
