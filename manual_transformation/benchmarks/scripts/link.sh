@@ -1,18 +1,22 @@
 #!/bin/bash
 
-for tst in `ls` ; do
-  if ! test -d $tst ; then
+for bench in `ls` ; do
+  if ! test -d $bench ; then
     continue ;
   fi
 
-  if [ $tst == "scripts" ] ; then
+  if [ $bench == "scripts" ] ; then
     continue ;
   fi
 
-  cd $tst ;
+  if [ $bench == "commons" ] ; then
+    continue ;
+  fi
+
+  cd $bench ;
   
-  ln -s ../scripts/Makefile Makefile ;
-  ln -s ../scripts/test_correctness.sh test_correctness.sh ;
+  ln -s ../commons/Makefile Makefile ;
+  ln -s ../commons/test_correctness.sh test_correctness.sh ;
 
   cd ../ ;
 
