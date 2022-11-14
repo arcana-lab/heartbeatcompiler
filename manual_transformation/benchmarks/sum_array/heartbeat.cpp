@@ -14,6 +14,18 @@
 
 using namespace sum_array;
 
+void loop_dispatcher(
+  void (*f)(char *, uint64_t, uint64_t, uint64_t &),
+  char *a,
+  uint64_t low,
+  uint64_t high,
+  uint64_t &result
+) {
+  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
+    (*f)(a, low, high, result);
+  });
+}
+
 int main() {
   setup();
 
