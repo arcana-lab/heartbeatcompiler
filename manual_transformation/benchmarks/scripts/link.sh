@@ -17,6 +17,7 @@ for bench in `ls` ; do
   
   ln -s ../commons/Makefile Makefile ;
   ln -s ../commons/test_correctness.sh test_correctness.sh ;
+  ln -s ../commons/loop_handler.hpp loop_handler.hpp ;
 
   cd ../ ;
 
