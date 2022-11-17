@@ -13,6 +13,16 @@
 
 using namespace floyd_warshall;
 
+void loop_dispatcher(
+  void (*f)(int *, int),
+  int *dist,
+  int vertices
+) {
+  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
+    (*f)(dist, vertices);
+  });
+}
+
 int main() {
   setup();
 
