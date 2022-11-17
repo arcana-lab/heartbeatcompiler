@@ -43,7 +43,7 @@ test_correctness: test_correctness.sh
 # Evaluation
 # ======================
 condor:
-	cd eval ; condor_submit pipeline.con ;
+	cd eval ; condor_submit job.con ;
 
 # ======================
 # Other

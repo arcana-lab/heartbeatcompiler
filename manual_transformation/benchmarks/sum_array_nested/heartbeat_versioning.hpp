@@ -8,7 +8,6 @@
   #endif
 #endif
 
-#if defined(HEARTBEAT_VERSIONING)
 /*
  * User defined function to determine the index of the leftover task
  * needs to be defined outside the namespace
@@ -16,11 +15,8 @@
 uint64_t getLeftoverTaskIndex(uint64_t splittingLevel, uint64_t myLevel) {
   return 0;
 }
-#endif
 
 namespace sum_array_nested {
-
-#if defined(HEARTBEAT_VERSIONING)
 
 void sum_array_nested_heartbeat_versioning(char **, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t &);
 void HEARTBEAT_loop0(char **, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t &);
@@ -261,11 +257,5 @@ uint64_t HEARTBEAT_loop1_leftover(uint64_t *startIters, uint64_t *maxIters, uint
 
 #endif
 }
-
-#else
-
-  #error "Need to specific the version of heartbeat, e.g., HEARTBEAT_BRANCHES, HEARTBEAT_VERSIONING
-
-#endif
 
 }
