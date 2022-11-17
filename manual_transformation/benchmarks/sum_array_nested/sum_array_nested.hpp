@@ -8,8 +8,8 @@
 
 namespace sum_array_nested {
 
-uint64_t n1 = 500000;     // input size for benchmarking
-uint64_t n2 = 500000;     // input size for benchmarking
+uint64_t n1 = 400000;     // input size for benchmarking
+uint64_t n2 = 400000;     // input size for benchmarking
 // uint64_t n1 = 100000;     // input size for testing
 // uint64_t n2 = 100000;     // input size for testing
 uint64_t result = 0;

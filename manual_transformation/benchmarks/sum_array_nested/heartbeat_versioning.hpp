@@ -232,6 +232,8 @@ uint64_t HEARTBEAT_loop1_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
 }
 
 uint64_t HEARTBEAT_loop1_leftover(uint64_t *startIters, uint64_t *maxIters, uint64_t **liveInEnvs, uint64_t **liveOutEnvs, uint64_t myLevel, uint64_t myIndex) {
+#ifndef LEFTOVER_SPLITTABLE
+
   // load live-in environment
   uint64_t *liveInEnv = liveInEnvs[myLevel * 8];
   char **a = (char **)liveInEnv[0 * 8];
@@ -252,6 +254,12 @@ uint64_t HEARTBEAT_loop1_leftover(uint64_t *startIters, uint64_t *maxIters, uint
   redArrLiveOut0[myIndex * 8] += r1_private;
 
   return 0;
+
+#else
+
+  return HEARTBEAT_loop1_cloned(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex);
+
+#endif
 }
 
 #else

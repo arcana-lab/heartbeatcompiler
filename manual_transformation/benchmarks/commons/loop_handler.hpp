@@ -90,7 +90,7 @@ uint64_t loop_handler(
   maxItersSecond[splittingLevel * 8] = maxIters[splittingLevel * 8];
 
   /*
-   * Reset the startIters and maxIters for both tasks
+   * Reset the startIters and maxIters on previous levels for both tasks
    */
   for (uint64_t level = 0; level < splittingLevel; level++) {
     uint64_t index = level * 8;
@@ -125,10 +125,22 @@ uint64_t loop_handler(
     uint64_t *liveInEnvsLeftover[HIGHEST_NESTED_LEVEL * 8];
 
     /*
-    * Allocate startIters and maxIters for leftover task
-    */
+     * Allocate startIters and maxIters for leftover task
+     */
     uint64_t startItersLeftover[HIGHEST_NESTED_LEVEL * 8];
     uint64_t maxItersLeftover[HIGHEST_NESTED_LEVEL * 8];
+
+#ifdef LEFTOVER_SPLITTABLE
+    /*
+     * Reset the startIters and maxIters on previous levels for leftover task
+     * This is necessary if want the leftover task to be further splittable
+     */
+    for (uint64_t level = 0; level <= splittingLevel; level++) {
+      uint64_t index = level * 8;
+      startItersLeftover[index] = 0;
+      maxItersLeftover[index] = 0;
+    }
+#endif
 
     /*
      * Reconstruct the environment up to myLevel for leftover task
@@ -242,7 +254,7 @@ uint64_t loop_handler(
   maxItersSecond[splittingLevel * 8] = maxIters[splittingLevel * 8];
 
   /*
-   * Reset the startIters and maxIters for both tasks
+   * Reset the startIters and maxIters on previous levels for both tasks
    */
   for (uint64_t level = 0; level < splittingLevel; level++) {
     uint64_t index = level * 8;
@@ -280,10 +292,22 @@ uint64_t loop_handler(
     uint64_t *liveOutEnvsLeftover[HIGHEST_NESTED_LEVEL * 8];
 
     /*
-    * Allocate startIters and maxIters for leftover task
-    */
+     * Allocate startIters and maxIters for leftover task
+     */
     uint64_t startItersLeftover[HIGHEST_NESTED_LEVEL * 8];
     uint64_t maxItersLeftover[HIGHEST_NESTED_LEVEL * 8];
+
+#ifdef LEFTOVER_SPLITTABLE
+    /*
+     * Reset the startIters and maxIters on previous levels for leftover task
+     * This is necessary if want the leftover task to be further splittable
+     */
+    for (uint64_t level = 0; level <= splittingLevel; level++) {
+      uint64_t index = level * 8;
+      startItersLeftover[index] = 0;
+      maxItersLeftover[index] = 0;
+    }
+#endif
 
     /*
      * Reconstruct the environment up to myLevel for leftover task
