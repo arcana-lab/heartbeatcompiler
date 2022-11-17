@@ -15,11 +15,18 @@
 
 namespace spmv {
 
-uint64_t n_bigrows = 3000000;
-uint64_t degree_bigrows = 100;
-uint64_t n_bigcols = 23;
-uint64_t n_arrowhead = 100000000;
-  
+#if defined(SPMV_RANDOM)
+  uint64_t n_bigrows = 3000000;       // input size for testing
+  uint64_t degree_bigrows = 100;      // input size for testing
+#elif defined(SPMV_POWERLAW)
+  uint64_t n_bigcols = 23;            // input size for testing
+#elif defined(SPMV_ARROWHEAD)
+  uint64_t n_arrowhead = 100000000;   // input size for testing
+#else
+  uint64_t n_bigrows = 3000000;       // input size for testing
+  uint64_t degree_bigrows = 100;      // input size for testing
+#endif
+
 uint64_t row_len = 1000;
 uint64_t degree = 4;
 uint64_t dim = 5;

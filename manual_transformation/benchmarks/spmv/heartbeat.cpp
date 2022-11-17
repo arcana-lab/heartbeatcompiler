@@ -13,6 +13,20 @@
 
 using namespace spmv;
 
+void loop_dispatcher(
+  void (*f)(double *, uint64_t *, uint64_t *, double *, double *, uint64_t),
+  double *val,
+  uint64_t *row_ptr,
+  uint64_t *col_ind,
+  double *x,
+  double *y,
+  uint64_t n
+) {
+  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
+    (*f)(val, row_ptr, col_ind, x, y, n);
+  });
+}
+
 int main() {
   setup();
 
