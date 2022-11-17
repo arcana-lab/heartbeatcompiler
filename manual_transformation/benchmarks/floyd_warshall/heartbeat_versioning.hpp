@@ -22,11 +22,11 @@ namespace floyd_warshall {
 void floyd_warshall_heartbeat_versioning(int *, int);
 void HEARTBEAT_loop0(int *, int, int);
 void HEARTBEAT_loop1(int *, int, int, int);
-uint64_t HEARTBEAT_loop0_cloned(uint64_t *, uint64_t *, uint64_t **, uint64_t);
-uint64_t HEARTBEAT_loop1_cloned(uint64_t *, uint64_t *, uint64_t **, uint64_t);
-uint64_t HEARTBEAT_loop1_leftover(uint64_t *, uint64_t *, uint64_t **, uint64_t);
+void HEARTBEAT_loop0_cloned(uint64_t *, uint64_t *, uint64_t **, uint64_t);
+void HEARTBEAT_loop1_cloned(uint64_t *, uint64_t *, uint64_t **, uint64_t);
+void HEARTBEAT_loop1_leftover(uint64_t *, uint64_t *, uint64_t **, uint64_t);
 
-typedef uint64_t(*functionPointer)(uint64_t *, uint64_t *, uint64_t **, uint64_t);
+typedef void(*functionPointer)(uint64_t *, uint64_t *, uint64_t **, uint64_t);
 functionPointer splittingTasks[2] = {
   &HEARTBEAT_loop0_cloned,
   &HEARTBEAT_loop1_cloned
@@ -95,16 +95,15 @@ void HEARTBEAT_loop1(int *dist, int vertices, int via, int from) {
 }
 
 // Cloned loops
-uint64_t HEARTBEAT_loop0_cloned(uint64_t *startIters, uint64_t *maxIters, uint64_t **liveInEnvs, uint64_t myLevel) {
+void HEARTBEAT_loop0_cloned(uint64_t *startIters, uint64_t *maxIters, uint64_t **liveInEnvs, uint64_t myLevel) {
   // load live-in environment
   uint64_t *liveInEnv = liveInEnvs[myLevel * 8];
   int *dist = (int *)liveInEnv[0 * 8];
   int vertices = (int)liveInEnv[1 * 8];
   int via = (int)liveInEnv[2 * 8];
 
-  uint64_t rc = LLONG_MAX;
   for (; startIters[myLevel * 8] < maxIters[myLevel * 8]; startIters[myLevel * 8]++) {
-    rc = loop_handler(startIters, maxIters, liveInEnvs, myLevel, splittingTasks, leftoverTasks);
+    loop_handler(startIters, maxIters, liveInEnvs, myLevel, splittingTasks, leftoverTasks);
 
     // allocate live-in environment for loop1
     uint64_t liveInEnvLoop1[4 * 8];
@@ -120,13 +119,13 @@ uint64_t HEARTBEAT_loop0_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
     startIters[(myLevel + 1) * 8] = 0;
     maxIters[(myLevel + 1) * 8] = vertices;
 
-    rc = std::min(rc, HEARTBEAT_loop1_cloned(startIters, maxIters, liveInEnvs, myLevel + 1));
+    HEARTBEAT_loop1_cloned(startIters, maxIters, liveInEnvs, myLevel + 1);
   }
 
-  return rc;
+  return;
 }
 
-uint64_t HEARTBEAT_loop1_cloned(uint64_t *startIters, uint64_t *maxIters, uint64_t **liveInEnvs, uint64_t myLevel) {
+void HEARTBEAT_loop1_cloned(uint64_t *startIters, uint64_t *maxIters, uint64_t **liveInEnvs, uint64_t myLevel) {
   // load live-in environment
   uint64_t *liveInEnv = liveInEnvs[myLevel * 8];
   int *dist = (int *)liveInEnv[0 * 8];
@@ -134,10 +133,9 @@ uint64_t HEARTBEAT_loop1_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
   int via = (int)liveInEnv[2 * 8];
   int from = (int)liveInEnv[3 * 8];
 
-  uint64_t rc = LLONG_MAX;
 #if defined(CHUNK_LOOP_ITERATIONS)
   for (; ;) {
-    rc =loop_handler(startIters, maxIters, liveInEnvs, myLevel, splittingTasks, leftoverTasks);
+    loop_handler(startIters, maxIters, liveInEnvs, myLevel, splittingTasks, leftoverTasks);
     uint64_t low = startIters[myLevel * 8];
     uint64_t high = std::min(maxIters[myLevel * 8], startIters[myLevel * 8] + CHUNKSIZE_1);
 
@@ -156,7 +154,7 @@ uint64_t HEARTBEAT_loop1_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
   }
 #else
   for (; startIters[myLevel * 8] < maxIters[myLevel * 8]; startIters[myLevel * 8]++) {
-    rc = loop_handler(startIters, maxIters, liveInEnvs, myLevel, splittingTasks, leftoverTasks);
+    loop_handler(startIters, maxIters, liveInEnvs, myLevel, splittingTasks, leftoverTasks);
 
     if ((from != startIters[myLevel * 8]) && (from != via) && (startIters[myLevel * 8] != via)) {
       SUB(dist, vertices, from, startIters[myLevel * 8]) =
@@ -166,10 +164,10 @@ uint64_t HEARTBEAT_loop1_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
   }
 #endif
 
-  return rc;
+  return;
 }
 
-uint64_t HEARTBEAT_loop1_leftover(uint64_t *startIters, uint64_t *maxIters, uint64_t **liveInEnvs, uint64_t myLevel) {
+void HEARTBEAT_loop1_leftover(uint64_t *startIters, uint64_t *maxIters, uint64_t **liveInEnvs, uint64_t myLevel) {
 #ifndef LEFTOVER_SPLITTABLE
 
   // load live-in environment
@@ -188,11 +186,13 @@ uint64_t HEARTBEAT_loop1_leftover(uint64_t *startIters, uint64_t *maxIters, uint
   }
   startIters[myLevel * 8] = maxIters[myLevel * 8];
 
-  return 0;
+  return;
 
 #else
 
-  return HEARTBEAT_loop1_cloned(startIters, maxIters, liveInEnvs, myLevel);
+  HEARTBEAT_loop1_cloned(startIters, maxIters, liveInEnvs, myLevel);
+
+  return;
 
 #endif
 }

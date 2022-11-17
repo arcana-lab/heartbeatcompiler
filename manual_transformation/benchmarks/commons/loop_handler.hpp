@@ -13,8 +13,6 @@
 
 #elif defined(HEARTBEAT_VERSIONING)
 
-#include "limits.h"
-
 /*
  * The benchmark-specific function to determine the leftover task to use
  * giving the splittingLevel and receivingLevel
@@ -24,16 +22,16 @@ uint64_t getLeftoverTaskIndex(uint64_t splittingLevel, uint64_t myLevel);
 
 /*
  * Generic loop_handler function for the versioning version WITHOUT live-out environment
- * 1. if no heartbeat promotion happens, return LLONG_MAX
- *    if heartbeat promotion happens, return splittingLevel
+ * 1. since there's no live-out environment, caller doesn't need the
+ *    return value to determine how to do reduction
  */
-uint64_t loop_handler(
+void loop_handler(
   uint64_t *startIters,
   uint64_t *maxIters,
   uint64_t **liveInEnvs,
   uint64_t myLevel,
-  uint64_t (*splittingTasks[])(uint64_t *, uint64_t *, uint64_t **, uint64_t),
-  uint64_t (*leftoverTasks[])(uint64_t *, uint64_t *, uint64_t **, uint64_t)
+  void (*splittingTasks[])(uint64_t *, uint64_t *, uint64_t **, uint64_t),
+  void (*leftoverTasks[])(uint64_t *, uint64_t *, uint64_t **, uint64_t)
 ) {
   /*
    * Determine whether to promote since last promotion
@@ -41,7 +39,7 @@ uint64_t loop_handler(
   auto &p = taskparts::prev.mine();
   auto n = taskparts::cycles::now();
   if ((p + taskparts::kappa_cycles) > n) {
-    return LLONG_MAX;
+    return;
   }
   p = n;
 
@@ -59,7 +57,7 @@ uint64_t loop_handler(
    * No more work to split at any level
    */
   if (splittingLevel > myLevel) {
-    return LLONG_MAX;
+    return;
   }
 
   /*
@@ -176,8 +174,10 @@ uint64_t loop_handler(
     }, [&] { }, taskparts::bench_scheduler());
   }
 
-  return splittingLevel;
+  return;
 }
+
+#include "limits.h"
 
 /*
  * Generic loop_handler function for the versioning version WITH live-out environment

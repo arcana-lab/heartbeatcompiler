@@ -49,6 +49,6 @@ condor:
 # Other
 # ======================
 $(BENCHMARK)_clean:
-	rm -f heartbeat_branches heartbeat_versioning correctness *.json ;
+	rm -f heartbeat_branches heartbeat_versioning heartbeat_versioning_leftover_splittable correctness *.json ;
 
 .PHONY: $(BENCHMARK)_clean heartbeat_versioning heartbeat_versioning_leftover_splittable
