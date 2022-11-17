@@ -18,7 +18,8 @@
 
 namespace floyd_warshall {
 
-int vertices = 2048;
+int vertices = 5000;     // input size for benchmarking
+// int vertices = 2048;      // input size for testing
 int *dist = nullptr;
 
 auto init_input(int vertices) {
