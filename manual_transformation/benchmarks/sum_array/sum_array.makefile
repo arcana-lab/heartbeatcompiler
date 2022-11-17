@@ -52,4 +52,4 @@ $(BENCHMARK)_clean:
 	rm -f heartbeat_branches heartbeat_versioning heartbeat_versioning_optimized correctness *.json ;
 	rm -f eval/condor.* eval/tmp* ;
 
-.PHONY: $(BENCHMARK)_clean
+.PHONY: $(BENCHMARK)_clean heartbeat_versioning heartbeat_versioning_optimized
