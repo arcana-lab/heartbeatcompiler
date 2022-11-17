@@ -161,13 +161,13 @@ uint64_t HEARTBEAT_loop0_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
   }
 
   // reduction
-  if (rc == LLONG_MAX) {
+  if (rc == LLONG_MAX) {      // either no heartbeat promotion happens or promotion happens at a higher nested level
     redArrLiveOut0[myIndex * 8] += r0_private;
-  } else if (rc == myLevel) {
+  } else if (rc == myLevel) { // heartbeat promotion happens at my level
     redArrLiveOut0[myIndex * 8] += r0_private + redArrLiveOut0Kids[0 * 8] + redArrLiveOut0Kids[1 * 8];
     return LLONG_MAX;
-  } else {
-    redArrLiveOut0[myIndex * 8] += r0_private + redArrLiveOut0Kids[0 * 8] + redArrLiveOut0Kids[1 * 8];
+  } else {                    // heartbeat promotion happens and splitting happens at a lower nested level
+    redArrLiveOut0[myIndex * 8] += r0_private + redArrLiveOut0Kids[0 * 8];
   }
 
   return rc;
@@ -219,13 +219,13 @@ uint64_t HEARTBEAT_loop1_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
 #endif
 
   // reduction
-  if (rc == LLONG_MAX) {
+  if (rc == LLONG_MAX) {      // either no heartbeat promotion happens or promotion happens at a higher nested level
     redArrLiveOut0[myIndex * 8] += r1_private;
-  } else if (rc == myLevel) {
+  } else if (rc == myLevel) { // heartbeat promotion happens at my level
     redArrLiveOut0[myIndex * 8] += r1_private + redArrLiveOut0Kids[0 * 8] + redArrLiveOut0Kids[1 * 8];
     return LLONG_MAX;
-  } else {
-    redArrLiveOut0[myIndex * 8] += r1_private + redArrLiveOut0Kids[0 * 8] + redArrLiveOut0Kids[1 * 8];
+  } else {                    // heartbeat promotion happens and splitting happens at a lower nested level
+    redArrLiveOut0[myIndex * 8] += r1_private + redArrLiveOut0Kids[0 * 8];
   }
 
   return rc;
@@ -241,7 +241,6 @@ uint64_t HEARTBEAT_loop1_leftover(uint64_t *startIters, uint64_t *maxIters, uint
   uint64_t *liveOutEnv = liveOutEnvs[myLevel * 8];
   uint64_t *redArrLiveOut0 = (uint64_t *)liveOutEnv[0 * 8];
   redArrLiveOut0[0 * 8] = 0;
-  redArrLiveOut0[1 * 8] = 0;
 
   uint64_t r1_private = 0;
   for (uint64_t j = startIters[myLevel * 8]; j < maxIters[myLevel * 8]; j++) {
