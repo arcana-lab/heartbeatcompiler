@@ -8,10 +8,15 @@
 
 namespace sum_array_nested {
 
-uint64_t n1 = 400000;     // input size for benchmarking
-uint64_t n2 = 400000;     // input size for benchmarking
-// uint64_t n1 = 100000;     // input size for testing
-// uint64_t n2 = 100000;     // input size for testing
+#if defined(INPUT_BENCHMARKING)
+  uint64_t n1 = 400000;
+  uint64_t n2 = 400000;
+#elif defined(INPUT_TESTING)
+  uint64_t n1 = 100000;
+  uint64_t n2 = 100000;
+#else
+  #error "Need to select input size, e.g., INPUT_BENCHMARKING, INPUT_TESTING
+#endif
 uint64_t result = 0;
 char **a;
 

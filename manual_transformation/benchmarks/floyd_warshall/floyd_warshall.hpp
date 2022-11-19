@@ -18,8 +18,13 @@
 
 namespace floyd_warshall {
 
-int vertices = 5000;     // input size for benchmarking
-// int vertices = 2048;      // input size for testing
+#if defined(INPUT_BENCHMARKING)
+  int vertices = 5000;
+#elif defined(INPUT_TESTING)
+  int vertices = 2048;
+#else
+  #error "Need to select input size, e.g., INPUT_BENCHMARKING, INPUT_TESTING
+#endif
 int *dist = nullptr;
 
 auto init_input(int vertices) {

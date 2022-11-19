@@ -11,8 +11,13 @@
 
 namespace sum_array {
 
-uint64_t n = 250000000000; // input size for benchmarking
-// uint64_t n = 10000000000;     // input size for testing
+#if defined(INPUT_BENCHMARKING)
+  uint64_t n = 250000000000;
+#elif defined(INPUT_TESTING)
+  uint64_t n = 10000000000;
+#else
+  #error "Need to select input size, e.g., INPUT_BENCHMARKING, INPUT_TESTING
+#endif
 uint64_t result = 0;
 char *a;
 
