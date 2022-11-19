@@ -25,8 +25,8 @@ echo "### OpenMP Static Stage ###" >> ${FILE}
 all "openmp" $OPENMP >> ${FILE}
 
 # OpenMP Dynamic Scheduler
-echo "### OpenMP Dynamic Stage ###" >> ${FILE}
-all "openmp_dynamic" $OPENMP >> ${FILE}
+# echo "### OpenMP Dynamic Stage ###" >> ${FILE}
+# all "openmp_dynamic" $OPENMP >> ${FILE}
 
 # OpenMP Guided Scheduler
 echo "### OpenMP Guided Stage ###" >> ${FILE}

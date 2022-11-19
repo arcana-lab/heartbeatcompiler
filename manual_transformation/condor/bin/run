@@ -17,7 +17,7 @@ compile() {
 	mkdir -p $BINARYF
 
 	for dir in */ ; do
-		if [ $dir = scripts/ ] ; then
+		if [ $dir = scripts/ ] || [ $dir = commons/ ] ; then
 			continue
 		fi
 
@@ -48,7 +48,7 @@ collect() {
 		NUMBER=`echo $3, | grep -o , | wc -l`
 		OUTPUT=$SUB_DR/$1$NUMBER.txt
 
-		if [ $dir = scripts/ ] ; then
+		if [ $dir = scripts/ ] || [ $dir = commons/ ] ; then
 			continue
 		fi
 
@@ -78,8 +78,8 @@ collect() {
 		for _ in `seq 1 $NUM_RUN` ; do
 			if [ $1 = time ] ; then
 				{
-					time -p taskset -c $3 make run_$2 > /dev/null
-				} 2>&1 | grep -Po "real \K\d+\.\d+" >> $OUTPUT
+					taskset -c $3 make run_$2
+				} 2>&1 | grep -Po "time\":  \K\d+\.\d+" >> $OUTPUT
 			else
 				{
 					perf stat -e $PERF_OP taskset -c $3 make run_$2 > /dev/null
