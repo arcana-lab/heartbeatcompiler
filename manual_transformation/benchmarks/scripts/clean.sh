@@ -1,15 +1,19 @@
 #!/bin/bash
 
-for tst in `ls` ; do
-  if ! test -d $tst ; then
+for bench in `ls` ; do
+  if ! test -d $bench ; then
     continue ;
   fi
 
-  if [ $tst == "scripts" ] ; then
+  if [ $bench == "scripts" ] ; then
     continue ;
   fi
 
-  cd $tst ;
+  if [ $bench == "commons" ] ; then
+    continue ;
+  fi
+
+  cd $bench ;
   
   if test -e Makefile ; then
     make clean ; 
