@@ -1,4 +1,5 @@
-#include "spmv.hpp"
+#include "sum_array_nested.hpp"
+#include "stdio.h"
 #if defined(HEARTBEAT_BRANCHES)
 #include "heartbeat_branches.hpp"
 #elif defined(HEARTBEAT_VERSIONING)
@@ -11,19 +12,19 @@
 #include <chrono>
 #endif
 
-using namespace spmv;
+using namespace sum_array_nested;
 
 void loop_dispatcher(
-  void (*f)(double *, uint64_t *, uint64_t *, double *, double *, uint64_t),
-  double *val,
-  uint64_t *row_ptr,
-  uint64_t *col_ind,
-  double *x,
-  double *y,
-  uint64_t n
+  void (*f)(char **, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t &),
+  char **a,
+  uint64_t low1,
+  uint64_t high1,
+  uint64_t low2,
+  uint64_t high2,
+  uint64_t &result
 ) {
   taskparts::benchmark_nativeforkjoin([&] (auto sched) {
-    (*f)(val, row_ptr, col_ind, x, y, n);
+    (*f)(a, low1, high1, low2, high2, result);
   });
 }
 
@@ -37,9 +38,9 @@ int main() {
 #endif
 
 #if defined(HEARTBEAT_BRANCHES)
-  loop_dispatcher(&spmv_heartbeat_branches, val, row_ptr, col_ind, x, y, nb_rows);
+  loop_dispatcher(&sum_array_nested_heartbeat_branches, a, 0, n1, 0, n2, result);
 #elif defined(HEARTBEAT_VERSIONING)
-  loop_dispatcher(&spmv_heartbeat_versioning, val, row_ptr, col_ind, x, y, nb_rows);
+  loop_dispatcher(&sum_array_nested_heartbeat_versioning, a, 0, n1, 0, n2, result);
 #else
   #error "Need to specific the version of heartbeat, e.g., HEARTBEAT_BRANCHES, HEARTBEAT_VERSIONING
 #endif
@@ -48,12 +49,8 @@ int main() {
   const sec duration = clock::now() - before;
   printf("\"kernel_exectime\":  %.2f\n", duration.count());
 #endif
-
-#if defined(TEST_CORRECTNESS)
-  test_correctness(y);
-#endif
-
   finishup();
 
+  printf("result=%lu\n", result);
   return 0;
 }

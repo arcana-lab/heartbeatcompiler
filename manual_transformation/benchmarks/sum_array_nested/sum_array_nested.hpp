@@ -8,9 +8,10 @@
 
 namespace sum_array_nested {
 
-// uint64_t n = 250000000000;    // input size for benchmarking
-uint64_t n1 = 100000;
-uint64_t n2 = 100000;
+uint64_t n1 = 400000;     // input size for benchmarking
+uint64_t n2 = 400000;     // input size for benchmarking
+// uint64_t n1 = 100000;     // input size for testing
+// uint64_t n2 = 100000;     // input size for testing
 uint64_t result = 0;
 char **a;
 
@@ -41,7 +42,7 @@ void add_uint64_t(void *left, void *right) {
 uint64_t sum_array_nested_opencilk(char **a, uint64_t lo1, uint64_t hi1, uint64_t lo2, uint64_t hi2) {
   uint64_t cilk_reducer(zero_uint64_t, add_uint64_t) sum;
   cilk_for (uint64_t i = lo1; i != hi1; i++) {
-    cilk_for (uint64_t j = lo2; j != hi2; j++) {
+    for (uint64_t j = lo2; j != hi2; j++) {
       sum += a[i][j];
     }
   }

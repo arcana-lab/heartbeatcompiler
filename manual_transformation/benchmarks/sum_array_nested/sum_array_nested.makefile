@@ -1,6 +1,6 @@
 BENCHMARK=$(notdir $(shell pwd))
 
-HEARTBEAT_DEFAULT_OPTIONS?=-DCHUNK_LOOP_ITERATIONS -DCOLLECT_KERNEL_TIME -DHIGHEST_NESTED_LEVEL=1 -DSMALLEST_GRANULARITY=2
+HEARTBEAT_DEFAULT_OPTIONS?=-DCHUNK_LOOP_ITERATIONS -DCOLLECT_KERNEL_TIME -DHIGHEST_NESTED_LEVEL=2 -DSMALLEST_GRANULARITY=2
 CORRECTNESS_VERSION?=-DHEARTBEAT_VERSIONING
 
 # ======================
@@ -21,10 +21,10 @@ heartbeat_versioning: heartbeat.cpp
 run_heartbeat_versioning: heartbeat_versioning
 	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY); ./$<
 
-heartbeat_versioning_optimized: heartbeat.cpp
-	$(CXX) -DHEARTBEAT_VERSIONING_OPTIMIZED $(HEARTBEAT_DEFAULT_OPTIONS) $(OPT_FLAGS) $(TASKPARTS_FLAGS) $^ -o $@ $(LINKER_FLAGS)
+heartbeat_versioning_leftover_splittable: heartbeat.cpp
+	$(CXX) -DHEARTBEAT_VERSIONING -DLEFTOVER_SPLITTABLE $(HEARTBEAT_DEFAULT_OPTIONS) $(OPT_FLAGS) $(TASKPARTS_FLAGS) $^ -o $@ $(LINKER_FLAGS)
 
-run_heartbeat_versioning_optimized: heartbeat_versioning_optimized
+run_heartbeat_versioning_leftover_splittable: heartbeat_versioning_leftover_splittable
 	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY); ./$<
 
 # ======================
@@ -49,7 +49,7 @@ condor:
 # Other
 # ======================
 $(BENCHMARK)_clean:
-	rm -f heartbeat_branches heartbeat_versioning heartbeat_versioning_optimized correctness *.json ;
+	rm -f heartbeat_branches heartbeat_versioning heartbeat_versioning_leftover_splittable correctness *.json ;
 	rm -f eval/condor.* eval/tmp* ;
 
-.PHONY: $(BENCHMARK)_clean heartbeat_versioning heartbeat_versioning_optimized
+.PHONY: $(BENCHMARK)_clean heartbeat_versioning heartbeat_versioning_leftover_splittable

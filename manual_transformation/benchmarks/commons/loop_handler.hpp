@@ -21,9 +21,11 @@
 uint64_t getLeftoverTaskIndex(uint64_t splittingLevel, uint64_t myLevel);
 
 /*
- * Generic loop_handler function for the versioning version without live-out environment
+ * Generic loop_handler function for the versioning version WITHOUT live-out environment
+ * 1. since there's no live-out environment, caller doesn't need the
+ *    return value to determine how to do reduction
  */
-int loop_handler(
+void loop_handler(
   uint64_t *startIters,
   uint64_t *maxIters,
   uint64_t **liveInEnvs,
@@ -37,7 +39,7 @@ int loop_handler(
   auto &p = taskparts::prev.mine();
   auto n = taskparts::cycles::now();
   if ((p + taskparts::kappa_cycles) > n) {
-    return 0;
+    return;
   }
   p = n;
 
@@ -55,7 +57,7 @@ int loop_handler(
    * No more work to split at any level
    */
   if (splittingLevel > myLevel) {
-    return 0;
+    return;
   }
 
   /*
@@ -73,20 +75,6 @@ int loop_handler(
   uint64_t maxItersSecond[HIGHEST_NESTED_LEVEL * 8];
 
   /*
-   * Reconstruct the environment up to the splittingLevel for both tasks
-   */
-  for (uint64_t level = 0; level <= splittingLevel; level++) {
-    uint64_t index = level * 8;
-    liveInEnvsFirst[index] = liveInEnvs[index];
-    liveInEnvsSecond[index] = liveInEnvs[index];
-
-    startItersFirst[index]  = startIters[index];
-    maxItersFirst[index]    = maxIters[index];
-    startItersSecond[index] = startIters[index];
-    maxItersSecond[index]   = maxIters[index];
-  }
-
-  /*
    * Determine the splitting point of the remaining iterations
    */
   uint64_t med = (startIters[splittingLevel * 8] + 1 + maxIters[splittingLevel * 8]) / 2;
@@ -94,9 +82,27 @@ int loop_handler(
   /*
    * Set startIters and maxIters for both tasks
    */
-  startItersFirst[splittingLevel * 8]++;
+  startItersFirst[splittingLevel * 8] = startIters[splittingLevel * 8] + 1;
   maxItersFirst[splittingLevel * 8] = med;
   startItersSecond[splittingLevel * 8] = med;
+  maxItersSecond[splittingLevel * 8] = maxIters[splittingLevel * 8];
+
+  /*
+   * Reset the startIters and maxIters on previous levels for both tasks
+   */
+  for (uint64_t level = 0; level < splittingLevel; level++) {
+    uint64_t index = level * 8;
+    startItersFirst[index]  = 0;
+    maxItersFirst[index]    = 0;
+    startItersSecond[index] = 0;
+    maxItersSecond[index]   = 0;
+  }
+
+  /*
+   * Reconstruct the environment at the splittingLevel for both tasks
+   */
+  liveInEnvsFirst[splittingLevel * 8] = liveInEnvs[splittingLevel * 8];
+  liveInEnvsSecond[splittingLevel * 8] = liveInEnvs[splittingLevel * 8];
 
   if (splittingLevel == myLevel) { // no leftover task needed
     /*
@@ -110,7 +116,6 @@ int loop_handler(
       (*splittingTasks[myLevel])(startItersSecond, maxItersSecond, liveInEnvsSecond, myLevel);
     }, [] { }, taskparts::bench_scheduler());
 
-    return 1;
   } else { // build up the leftover task
     /*
      * Allocate the new liveInEnvs for leftover task
@@ -118,28 +123,34 @@ int loop_handler(
     uint64_t *liveInEnvsLeftover[HIGHEST_NESTED_LEVEL * 8];
 
     /*
-    * Allocate startIters and maxIters for leftover task
-    */
+     * Allocate startIters and maxIters for leftover task
+     */
     uint64_t startItersLeftover[HIGHEST_NESTED_LEVEL * 8];
     uint64_t maxItersLeftover[HIGHEST_NESTED_LEVEL * 8];
+
+#ifdef LEFTOVER_SPLITTABLE
+    /*
+     * Reset the startIters and maxIters on previous levels for leftover task
+     * This is necessary if want the leftover task to be further splittable
+     */
+    for (uint64_t level = 0; level <= splittingLevel; level++) {
+      uint64_t index = level * 8;
+      startItersLeftover[index] = 0;
+      maxItersLeftover[index] = 0;
+    }
+#endif
 
     /*
      * Reconstruct the environment up to myLevel for leftover task
      */
-    for (uint64_t level = 0; level <= myLevel; level++) {
+    for (uint64_t level = splittingLevel + 1; level <= myLevel; level++) {
       uint64_t index = level * 8;
       liveInEnvsLeftover[index] = liveInEnvs[index];
 
-      startItersLeftover[index]  = startIters[index];
-      maxItersLeftover[index]    = maxIters[index];
-    }
+      startItersLeftover[index]  = startIters[index] + 1;
+      maxItersLeftover[index] = maxIters[index];
 
-    /*
-     * Set the startIters for the leftover task
-     */
-    for (uint64_t level = splittingLevel + 1; level <= myLevel; level++) {
-      startItersLeftover[level * 8]++;
-      maxIters[level * 8] = startIters[level * 8] + 1;
+      maxIters[index] = startIters[index] + 1; 
     }
 
     /*
@@ -161,29 +172,30 @@ int loop_handler(
         (*splittingTasks[splittingLevel])(startItersSecond, maxItersSecond, liveInEnvsSecond, splittingLevel);
       }, [&] { }, taskparts::bench_scheduler());
     }, [&] { }, taskparts::bench_scheduler());
-
-    return 2;
   }
 
-  /*
-   * Unreachable
-   */
-  exit(1);
+  return;
 }
 
+#include "limits.h"
+
 /*
- * Generic loop_handler function for the versioning version with live-out environment
+ * Generic loop_handler function for the versioning version WITH live-out environment
+ * 1. caller side should prepare the live-out environment for kids,
+ *    loop_handler does simply copy the existing live-out environments
+ * 2. if no heartbeat promotion happens, return LLONG_MAX
+ *    if heartbeat promotion happens, return splittingLevel
+ * 3. caller should perform the correct reduction depends on the return value
  */
-int loop_handler(
+uint64_t loop_handler(
   uint64_t *startIters,
   uint64_t *maxIters,
   uint64_t **liveInEnvs,
   uint64_t **liveOutEnvs,
-  uint64_t *liveOutEnvKids,
   uint64_t myLevel,
   uint64_t myIndex,
-  void (*splittingTasks[])(uint64_t *, uint64_t *, uint64_t **, uint64_t **, uint64_t, uint64_t),
-  void (*leftoverTasks[])(uint64_t *, uint64_t *, uint64_t **, uint64_t **, uint64_t, uint64_t)
+  uint64_t (*splittingTasks[])(uint64_t *, uint64_t *, uint64_t **, uint64_t **, uint64_t, uint64_t),
+  uint64_t (*leftoverTasks[])(uint64_t *, uint64_t *, uint64_t **, uint64_t **, uint64_t, uint64_t)
 ) {
   /*
    * Determine whether to promote since last promotion
@@ -191,7 +203,7 @@ int loop_handler(
   auto &p = taskparts::prev.mine();
   auto n = taskparts::cycles::now();
   if ((p + taskparts::kappa_cycles) > n) {
-    return 0;
+    return LLONG_MAX;
   }
   p = n;
 
@@ -209,7 +221,7 @@ int loop_handler(
    * No more work to split at any level
    */
   if (splittingLevel > myLevel) {
-    return 0;
+    return LLONG_MAX;
   }
 
   /*
@@ -229,22 +241,6 @@ int loop_handler(
   uint64_t maxItersSecond[HIGHEST_NESTED_LEVEL * 8];
 
   /*
-   * Reconstruct the environment up to the splittingLevel for both tasks
-   */
-  for (uint64_t level = 0; level <= splittingLevel; level++) {
-    uint64_t index = level * 8;
-    liveInEnvsFirst[index] = liveInEnvs[index];
-    liveInEnvsSecond[index] = liveInEnvs[index];
-    liveOutEnvsFirst[index] = liveOutEnvs[index];
-    liveOutEnvsSecond[index] = liveOutEnvs[index];
-
-    startItersFirst[index]  = startIters[index];
-    maxItersFirst[index]    = maxIters[index];
-    startItersSecond[index] = startIters[index];
-    maxItersSecond[index]   = maxIters[index];
-  }
-
-  /*
    * Determine the splitting point of the remaining iterations
    */
   uint64_t med = (startIters[splittingLevel * 8] + 1 + maxIters[splittingLevel * 8]) / 2;
@@ -252,9 +248,29 @@ int loop_handler(
   /*
    * Set startIters and maxIters for both tasks
    */
-  startItersFirst[splittingLevel * 8]++;
+  startItersFirst[splittingLevel * 8] = startIters[splittingLevel * 8] + 1;
   maxItersFirst[splittingLevel * 8] = med;
   startItersSecond[splittingLevel * 8] = med;
+  maxItersSecond[splittingLevel * 8] = maxIters[splittingLevel * 8];
+
+  /*
+   * Reset the startIters and maxIters on previous levels for both tasks
+   */
+  for (uint64_t level = 0; level < splittingLevel; level++) {
+    uint64_t index = level * 8;
+    startItersFirst[index]  = 0;
+    maxItersFirst[index]    = 0;
+    startItersSecond[index] = 0;
+    maxItersSecond[index]   = 0;
+  }
+
+  /*
+   * Reconstruct the environment at the splittingLevel for both tasks
+   */
+  liveInEnvsFirst[splittingLevel * 8] = liveInEnvs[splittingLevel * 8];
+  liveInEnvsSecond[splittingLevel * 8] = liveInEnvs[splittingLevel * 8];
+  liveOutEnvsFirst[splittingLevel * 8] = liveOutEnvs[splittingLevel * 8];
+  liveOutEnvsSecond[splittingLevel * 8] = liveOutEnvs[splittingLevel * 8];
 
   if (splittingLevel == myLevel) { // no leftover task needed
     /*
@@ -262,19 +278,12 @@ int loop_handler(
      */
     maxIters[myLevel * 8] = startIters[myLevel * 8] + 1;
 
-    /*
-     * Replace splitting level's live-out environment with kids' live-out environment
-     */
-    liveOutEnvsFirst[myLevel * 8] = liveOutEnvKids;
-    liveOutEnvsSecond[myLevel * 8] = liveOutEnvKids;
-
     taskparts::tpalrts_promote_via_nativefj([&] {
       (*splittingTasks[myLevel])(startItersFirst, maxItersFirst, liveInEnvsFirst, liveOutEnvsFirst, myLevel, 0);
     }, [&] {
       (*splittingTasks[myLevel])(startItersSecond, maxItersSecond, liveInEnvsSecond, liveOutEnvsSecond, myLevel, 1);
     }, [] { }, taskparts::bench_scheduler());
 
-    return 1;
   } else { // build up the leftover task
     /*
      * Allocate the new liveInEnvs and liveOutEnvs for leftover task
@@ -283,34 +292,35 @@ int loop_handler(
     uint64_t *liveOutEnvsLeftover[HIGHEST_NESTED_LEVEL * 8];
 
     /*
-    * Allocate startIters and maxIters for leftover task
-    */
+     * Allocate startIters and maxIters for leftover task
+     */
     uint64_t startItersLeftover[HIGHEST_NESTED_LEVEL * 8];
     uint64_t maxItersLeftover[HIGHEST_NESTED_LEVEL * 8];
+
+#ifdef LEFTOVER_SPLITTABLE
+    /*
+     * Reset the startIters and maxIters on previous levels for leftover task
+     * This is necessary if want the leftover task to be further splittable
+     */
+    for (uint64_t level = 0; level <= splittingLevel; level++) {
+      uint64_t index = level * 8;
+      startItersLeftover[index] = 0;
+      maxItersLeftover[index] = 0;
+    }
+#endif
 
     /*
      * Reconstruct the environment up to myLevel for leftover task
      */
-    for (uint64_t level = 0; level <= myLevel; level++) {
+    for (uint64_t level = splittingLevel + 1; level <= myLevel; level++) {
       uint64_t index = level * 8;
       liveInEnvsLeftover[index] = liveInEnvs[index];
       liveOutEnvsLeftover[index] = liveOutEnvs[index];
 
-      startItersLeftover[index]  = startIters[index];
-      maxItersLeftover[index]    = maxIters[index];
-    }
+      startItersLeftover[index]  = startIters[index] + 1;
+      maxItersLeftover[index] = maxIters[index];
 
-    /*
-     * Leftover task along works on the next level live-out environment
-     */
-    liveOutEnvsLeftover[myLevel] = liveOutEnvKids;
-
-    /*
-     * Set the startIters for the leftover task
-     */
-    for (uint64_t level = splittingLevel + 1; level <= myLevel; level++) {
-      startItersLeftover[level * 8]++;
-      maxIters[level * 8] = startIters[level * 8] + 1;
+      maxIters[index] = startIters[index] + 1; 
     }
 
     /*
@@ -332,26 +342,22 @@ int loop_handler(
         (*splittingTasks[splittingLevel])(startItersSecond, maxItersSecond, liveInEnvsSecond, liveOutEnvsSecond, splittingLevel, 1);
       }, [&] { }, taskparts::bench_scheduler());
     }, [&] { }, taskparts::bench_scheduler());
-
-    return 2;
   }
 
-  /*
-   * Unreachable
-   */
-  exit(1);
+  return splittingLevel;
 }
 
 #elif defined (HEARTBEAT_VERSIONING_OPTIMIZED)
 
 /*
- * Optimized loop_handler with live-out environment
+ * Optimized loop_handler WITH live-out environment
+ * Assumption: caller loop structure has highest nested level of 1
  */
 int loop_handler(
   uint64_t *startIter,
   uint64_t *maxIter,
   uint64_t *liveInEnv,
-  uint64_t *liveOutEnvKids,
+  uint64_t *liveOutEnv,
   void (*splittingTask)(uint64_t *, uint64_t *, uint64_t *, uint64_t *, uint64_t)
 ) {
   /*
@@ -392,9 +398,9 @@ int loop_handler(
   maxIter[0 * 8] = startIter[0 * 8] + 1;
 
   taskparts::tpalrts_promote_via_nativefj([&] {
-    (*splittingTask)(startIterFirst, maxIterFirst, liveInEnv, liveOutEnvKids, 0);
+    (*splittingTask)(startIterFirst, maxIterFirst, liveInEnv, liveOutEnv, 0);
   }, [&] {
-    (*splittingTask)(startIterSecond, maxIterSecond, liveInEnv, liveOutEnvKids, 1);
+    (*splittingTask)(startIterSecond, maxIterSecond, liveInEnv, liveOutEnv, 1);
   }, [] { }, taskparts::bench_scheduler());
 
   return 1;
