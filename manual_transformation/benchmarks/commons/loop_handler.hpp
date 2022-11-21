@@ -20,6 +20,8 @@
  */
 uint64_t getLeftoverTaskIndex(uint64_t splittingLevel, uint64_t myLevel);
 
+#if defined(LOOP_HANDLER_WITHOUT_LIVE_OUT)
+
 /*
  * Generic loop_handler function for the versioning version WITHOUT live-out environment
  * 1. since there's no live-out environment, caller doesn't need the
@@ -177,7 +179,29 @@ void loop_handler(
   return;
 }
 
+#elif defined(LOOP_HANDLER_WITH_LIVE_OUT)
+
 #include "limits.h"
+
+// #include <pthread.h>
+
+// #define RDTSC(rdtsc_val_) do { \
+//   uint32_t rdtsc_hi_, rdtsc_lo_; \
+//   __asm__ volatile ("rdtsc" : "=a" (rdtsc_lo_), "=d" (rdtsc_hi_)); \
+//   rdtsc_val_ = (uint64_t)rdtsc_hi_ << 32 | rdtsc_lo_; \
+// } while (0)
+
+// volatile pthread_spinlock_t lock;
+// static volatile uint64_t cycles = 0;
+// static volatile uint64_t counts = 0;
+
+// void loop_handler_init() {
+//   pthread_spin_init(&lock, 0);
+// }
+
+// void loop_handler_print() {
+//   printf("cycles: %lu, counts: %lu, cycles per invocation: %f\n", cycles, counts, (double)cycles/(double)counts);
+// }
 
 /*
  * Generic loop_handler function for the versioning version WITH live-out environment
@@ -200,9 +224,17 @@ uint64_t loop_handler(
   /*
    * Determine whether to promote since last promotion
    */
+  // uint64_t start, end;
+  // RDTSC(start);
   auto &p = taskparts::prev.mine();
   auto n = taskparts::cycles::now();
-  if ((p + taskparts::kappa_cycles) > n) {
+  bool flag = (p + taskparts::kappa_cycles) > n;
+  // RDTSC(end);
+  // pthread_spin_lock(&lock);
+  // cycles += end - start;
+  // counts += 1;
+  // pthread_spin_unlock(&lock);
+  if (flag) {
     return LLONG_MAX;
   }
   p = n;
@@ -346,6 +378,12 @@ uint64_t loop_handler(
 
   return splittingLevel;
 }
+
+#else
+
+  #error "Need to specific whether or not loop_handler handles live-out, e.g., LOOP_HANDLER_WITHOUT_LIVE_OUT, LOOP_HANDLER_WITH_LIVE_OUT
+
+#endif
 
 #elif defined (HEARTBEAT_VERSIONING_OPTIMIZED)
 

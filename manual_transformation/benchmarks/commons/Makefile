@@ -79,27 +79,36 @@ run_openmp_guided: openmp_guided
 # Heartbeat
 # ======================
 CPU_BASE_FREQUENCY ?= 2800000
-
 TASKPARTS_PATH ?= ../../runtime
 TASKPARTS_INCLUDE_PATH = $(TASKPARTS_PATH)/include
 TASKPARTS_INCLUDES = $(TASKPARTS_INCLUDE_PATH) $(HWLOC_INCLUDE_PATH)
 
 MACROS_HEARTBEAT += $(MACROS)
 
-# whether to chunk loop iterations for heartbeat
+# include benchmark specific settings
+benchmark = $(notdir $(shell pwd))
+-include $(benchmark).config
+
+# whether to chunk loop iterations before calling loop_handler
 CHUNK_LOOP_ITERATIONS ?= true
 ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 	MACROS_HEARTBEAT += -DCHUNK_LOOP_ITERATIONS
 endif
 
-# highest nested level for the benchmark
-benchmark = $(notdir $(shell pwd))
--include $(benchmark).config
-MACROS_HEARTBEAT += -DHIGHEST_NESTED_LEVEL=$(HIGHEST_NESTED_LEVEL)
-
 # minimum remaining iteration size for heartbeat promotion
 SMALLEST_GRANULARITY ?= 2
 MACROS_HEARTBEAT += -DSMALLEST_GRANULARITY=$(SMALLEST_GRANULARITY)
+
+# highest nested level for the benchmark
+MACROS_HEARTBEAT += -DHIGHEST_NESTED_LEVEL=$(HIGHEST_NESTED_LEVEL)
+
+# which loop_handler version to use, with/without live-out environment
+HANDLE_LIVE_OUT ?= false
+ifeq ($(HANDLE_LIVE_OUT), false)
+	MACROS_HEARTBEAT += -DLOOP_HANDLER_WITHOUT_LIVE_OUT
+else
+	MACROS_HEARTBEAT += -DLOOP_HANDLER_WITH_LIVE_OUT
+endif
 
 # macros used for taskparts runtime
 TASKPARTS_PLATFORM ?= -DTASKPARTS_POSIX -DTASKPARTS_X64
