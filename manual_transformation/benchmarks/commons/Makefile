@@ -15,6 +15,10 @@ else
 	MACROS += -DINPUT_TESTING
 endif
 
+# include benchmark specific settings
+benchmark = $(notdir $(shell pwd))
+-include $(benchmark).config
+
 FLAGS = --std=c++17
 OPTS = -O3 -march=native -fno-vectorize -fno-slp-vectorize
 LIBS = -lm -lstdc++
@@ -85,10 +89,6 @@ TASKPARTS_INCLUDES = $(TASKPARTS_INCLUDE_PATH) $(HWLOC_INCLUDE_PATH)
 
 MACROS_HEARTBEAT += $(MACROS)
 
-# include benchmark specific settings
-benchmark = $(notdir $(shell pwd))
--include $(benchmark).config
-
 # whether to chunk loop iterations before calling loop_handler
 CHUNK_LOOP_ITERATIONS ?= true
 ifeq ($(CHUNK_LOOP_ITERATIONS), true)
@@ -100,6 +100,7 @@ SMALLEST_GRANULARITY ?= 2
 MACROS_HEARTBEAT += -DSMALLEST_GRANULARITY=$(SMALLEST_GRANULARITY)
 
 # highest nested level for the benchmark
+HIGHEST_NESTED_LEVEL ?= 1
 MACROS_HEARTBEAT += -DHIGHEST_NESTED_LEVEL=$(HIGHEST_NESTED_LEVEL)
 
 # which loop_handler version to use, with/without live-out environment
