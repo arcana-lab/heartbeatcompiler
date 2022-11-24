@@ -15,16 +15,30 @@
 
 namespace spmv {
 
-#if defined(SPMV_RANDOM)
-  uint64_t n_bigrows = 3000000;       // input size for testing
-  uint64_t degree_bigrows = 100;      // input size for testing
-#elif defined(SPMV_POWERLAW)
-  uint64_t n_bigcols = 23;            // input size for testing
-#elif defined(SPMV_ARROWHEAD)
-  uint64_t n_arrowhead = 100000000;   // input size for testing
+#if defined(INPUT_BENCHMARKING)
+  #if defined(SPMV_RANDOM)
+    uint64_t n_bigrows = 3000000;
+    uint64_t degree_bigrows = 100;
+  #elif defined(SPMV_POWERLAW)
+    uint64_t n_bigcols = 23;
+  #elif defined(SPMV_ARROWHEAD)
+    uint64_t n_arrowhead = 1000000000;
+  #else
+    #error "Need to select input class, e.g., SPMV_RANDOM, SPMV_POWERLAW, SPMV_ARROWHEAD"
+  #endif
+#elif defined(INPUT_TESTING)
+  #if defined(SPMV_RANDOM)
+    uint64_t n_bigrows = 3000000;
+    uint64_t degree_bigrows = 100;
+  #elif defined(SPMV_POWERLAW)
+    uint64_t n_bigcols = 23;
+  #elif defined(SPMV_ARROWHEAD)
+    uint64_t n_arrowhead = 100000000;
+  #else
+    #error "Need to select input class, e.g., SPMV_RANDOM, SPMV_POWERLAW, SPMV_ARROWHEAD"
+  #endif
 #else
-  uint64_t n_bigrows = 3000000;       // input size for testing
-  uint64_t degree_bigrows = 100;      // input size for testing
+  #error "Need to select input size, e.g., INPUT_BENCHMARKING, INPUT_TESTING"
 #endif
 
 uint64_t row_len = 1000;
@@ -225,39 +239,7 @@ auto bench_pre_arrowhead() {
 
 #else
 
-auto mk_random_local_edgelist(size_t dim, size_t degree, size_t num_rows)
-  -> edgelist_type {
-  size_t non_zeros = num_rows*degree;
-  edgelist_type edges;
-  for (size_t k = 0; k < non_zeros; k++) {
-    size_t i = k / degree;
-    size_t j;
-    if (dim==0) {
-      size_t h = k;
-      do {
-	      j = ((h = hash64(h)) % num_rows);
-      } while (j == i);
-    } else {
-      size_t _pow = dim+2;
-      size_t h = k;
-      do {
-        while ((((h = hash64(h)) % 1000003) < 500001)) _pow += dim;
-        j = (i + ((h = hash64(h)) % (((long) 1) << _pow))) % num_rows;
-      } while (j == i);
-    }
-    edges.push_back(std::make_pair(i, j));
-  }
-  return edges;
-}
-
-auto bench_pre_bigrows() {
-  nb_rows = n_bigrows;
-  degree = degree_bigrows;
-  bench_pre_shared([&] {
-    auto edges = mk_random_local_edgelist(dim, degree, nb_rows);
-    csr_of_edgelist(edges);
-  });
-}
+  #error "Need to select input class, e.g., SPMV_RANDOM, SPMV_POWERLAW, SPMV_ARROWHEAD"
 
 #endif
 
@@ -269,7 +251,7 @@ void setup() {
 #elif defined(SPMV_ARROWHEAD)
   bench_pre_arrowhead();
 #else
-  bench_pre_bigrows();
+  #error "Need to select input class, e.g., SPMV_RANDOM, SPMV_POWERLAW, SPMV_ARROWHEAD"
 #endif
 }
 
