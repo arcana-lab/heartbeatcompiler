@@ -1,6 +1,6 @@
 #!/bin/bash
 
-make clean ; make correctness ;
+# make clean ; make correctness ;
 
 for i in `seq 1 5` ; do
 

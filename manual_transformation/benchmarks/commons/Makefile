@@ -2,12 +2,14 @@ CC = clang
 CXX = clang++
 
 # whether to collect and print kernel_exectime when program finishes
+# options: true, false
 COLLECT_KERNEL_TIME ?= true
 ifeq ($(COLLECT_KERNEL_TIME), true)
 	MACROS += -DCOLLECT_KERNEL_TIME
 endif
 
 # size of input, either benchmarking or testing
+# options: benchmarking, testing
 INPUT_SIZE ?= benchmarking
 ifeq ($(INPUT_SIZE), benchmarking)
 	MACROS += -DINPUT_BENCHMARKING
@@ -90,20 +92,33 @@ TASKPARTS_INCLUDES = $(TASKPARTS_INCLUDE_PATH) $(HWLOC_INCLUDE_PATH)
 MACROS_HEARTBEAT += $(MACROS)
 
 # whether to chunk loop iterations before calling loop_handler
+# options: true, false
 CHUNK_LOOP_ITERATIONS ?= true
 ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 	MACROS_HEARTBEAT += -DCHUNK_LOOP_ITERATIONS
 endif
 
 # minimum remaining iteration size for heartbeat promotion
+# options: unsigned integer >= 2
 SMALLEST_GRANULARITY ?= 2
 MACROS_HEARTBEAT += -DSMALLEST_GRANULARITY=$(SMALLEST_GRANULARITY)
 
 # highest nested level for the benchmark
+# options: unsigned integer >= 1
 HIGHEST_NESTED_LEVEL ?= 1
 MACROS_HEARTBEAT += -DHIGHEST_NESTED_LEVEL=$(HIGHEST_NESTED_LEVEL)
 
+# whether to enable heartbeat promotion
+# options: true, false
+ENABLE_HEARTBEAT_PROMOTION ?= true
+ifeq ($(ENABLE_HEARTBEAT_PROMOTION), true)
+	MACROS_HEARTBEAT += -DENABLE_HEARTBEAT_PROMOTION
+else
+	MACROS_HEARTBEAT += -DDISABLE_HEARTBEAT_PROMOTION
+endif
+
 # which loop_handler version to use, with/without live-out environment
+# options: true, false
 HANDLE_LIVE_OUT ?= false
 ifeq ($(HANDLE_LIVE_OUT), false)
 	MACROS_HEARTBEAT += -DLOOP_HANDLER_WITHOUT_LIVE_OUT
@@ -178,17 +193,19 @@ run_heartbeat_versioning_optimized: heartbeat_versioning_optimized
 # Heartbeat::Correctness
 # ======================
 # version to use for testing correctness
+# options: branches, branches_leftover_splittable, branches_optimized,
+#					 versioning, versioning_leftover_splittable, versioning_optimized
 VERSION ?= versioning
 ifeq ($(VERSION), branches)
 	CORRECTNESS_VERSION = -DHEARTBEAT_BRANCHES
 else ifeq ($(VERSION), branches_leftover_splittable)
-	CORRECTNESS_VERSION = -DHEARTBEAT_BRANCHES_LEFTOVER_SPLITTABLE
+	CORRECTNESS_VERSION = -DHEARTBEAT_BRANCHES -DLEFTOVER_SPLITTABLE
 else ifeq ($(VERSION), branches_optimized)
 	CORRECTNESS_VERSION = -BRANCHES_OPTIMIZED
 else ifeq ($(VERSION), versioning)
 	CORRECTNESS_VERSION = -DHEARTBEAT_VERSIONING
 else ifeq ($(VERSION), versioning_leftover_splittable)
-	CORRECTNESS_VERSION = -DHEARTBEAT_VERSIONING_LEFTOVER_SPLITTABLE
+	CORRECTNESS_VERSION = -DHEARTBEAT_VERSIONING -DLEFTOVER_SPLITTABLE
 else ifeq ($(VERSION), versioning_optimized)
 	CORRECTNESS_VERSION = -DHEARTBEAT_VERSIONING_OPTIMIZED
 endif
