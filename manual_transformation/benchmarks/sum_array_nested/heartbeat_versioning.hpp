@@ -129,8 +129,6 @@ uint64_t HEARTBEAT_loop0_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
   uint64_t rc = LLONG_MAX;
   uint64_t r0_private = 0;
   for (; startIters[myLevel * 8] < maxIters[myLevel * 8]; startIters[myLevel * 8]++) {
-    rc = loop_handler(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex, splittingTasks, leftoverTasks);
-
     // allocate live-in environment for loop1
     uint64_t liveInEnvLoop1[2 * 8];
     liveInEnvs[(myLevel + 1) * 8] = liveInEnvLoop1;
@@ -154,6 +152,10 @@ uint64_t HEARTBEAT_loop0_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
     uint64_t r1 = 0;
     rc = std::min(rc, HEARTBEAT_loop1_cloned(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel + 1, 0));
     r0_private += r1 + redArrLiveOut0Loop1[0 * 8];
+
+#if defined(ENABLE_HEARTBEAT_VERSIONING)
+    rc = loop_handler(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex, splittingTasks, leftoverTasks);
+#endif
   }
 
   // reduction
@@ -192,8 +194,6 @@ uint64_t HEARTBEAT_loop1_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
   uint64_t r1_private = 0;
 #if defined(CHUNK_LOOP_ITERATIONS)
   for (; ;) {
-    rc = loop_handler(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex, splittingTasks, leftoverTasks);
-
     uint64_t low = startIters[myLevel * 8];
     uint64_t high = std::min(maxIters[myLevel * 8], startIters[myLevel * 8] + CHUNKSIZE_1);
 
@@ -205,12 +205,16 @@ uint64_t HEARTBEAT_loop1_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
     if (!(startIters[myLevel * 8] < maxIters[myLevel * 8])) {
       break;
     }
+#if defined(ENABLE_HEARTBEAT_PROMOTION)
+    rc = loop_handler(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex, splittingTasks, leftoverTasks);
+#endif
   }
 #else
   for (; startIters[myLevel * 8] < maxIters[myLevel * 8]; startIters[myLevel * 8]++) {
-    rc = loop_handler(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex, splittingTasks, leftoverTasks);
-
     r1_private += a[i][startIters[myLevel * 8]];
+#if defined(ENABLE_HEARTBEAT_PROMOTION)
+    rc = loop_handler(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex, splittingTasks, leftoverTasks);
+#endif
   }
 #endif
 
