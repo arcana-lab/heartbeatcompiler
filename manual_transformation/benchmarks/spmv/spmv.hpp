@@ -20,7 +20,7 @@ namespace spmv {
     uint64_t n_bigrows = 20000000;
     uint64_t degree_bigrows = 200;
   #elif defined(SPMV_POWERLAW)
-    uint64_t n_bigcols = 23;
+    uint64_t n_bigcols = 27;
   #elif defined(SPMV_ARROWHEAD)
     uint64_t n_arrowhead = 1500000000;
   #else
@@ -31,7 +31,7 @@ namespace spmv {
     uint64_t n_bigrows = 1000000;
     uint64_t degree_bigrows = 10;
   #elif defined(SPMV_POWERLAW)
-    uint64_t n_bigcols = 23;
+    uint64_t n_bigcols = 20;
   #elif defined(SPMV_ARROWHEAD)
     uint64_t n_arrowhead = 10000000;
   #else
