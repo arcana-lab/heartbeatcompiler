@@ -17,8 +17,8 @@ namespace spmv {
 
 #if defined(INPUT_BENCHMARKING)
   #if defined(SPMV_RANDOM)
-    uint64_t n_bigrows = 3000000;
-    uint64_t degree_bigrows = 100;
+    uint64_t n_bigrows = 20000000;
+    uint64_t degree_bigrows = 200;
   #elif defined(SPMV_POWERLAW)
     uint64_t n_bigcols = 23;
   #elif defined(SPMV_ARROWHEAD)
@@ -28,8 +28,8 @@ namespace spmv {
   #endif
 #elif defined(INPUT_TESTING)
   #if defined(SPMV_RANDOM)
-    uint64_t n_bigrows = 3000000;
-    uint64_t degree_bigrows = 100;
+    uint64_t n_bigrows = 1000000;
+    uint64_t degree_bigrows = 10;
   #elif defined(SPMV_POWERLAW)
     uint64_t n_bigcols = 23;
   #elif defined(SPMV_ARROWHEAD)
