@@ -126,6 +126,15 @@ else
 	MACROS_HEARTBEAT += -DLOOP_HANDLER_WITH_LIVE_OUT
 endif
 
+# report time spent in software heartbeat polling
+# options: true, false
+COLLECT_HEARTBEAT_POLLING_TIME ?= false
+ifeq ($(ENABLE_HEARTBEAT_PROMOTION), true)
+	ifeq ($(COLLECT_HEARTBEAT_POLLING_TIME), true)
+		MACROS_HEARTBEAT += -DCOLLECT_HEARTBEAT_POLLING_TIME
+	endif
+endif
+
 # macros used for taskparts runtime
 TASKPARTS_PLATFORM ?= -DTASKPARTS_POSIX -DTASKPARTS_X64
 TASKPARTS_FLAGS = \
@@ -178,7 +187,7 @@ run_heartbeat_versioning: heartbeat_versioning
 	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY); ./$<
 
 heartbeat_versioning_leftover_splittable: heartbeat.cpp
-	$(CXX) -DHEARTBEAT_VERSIONING -DHEARTBEAT_VERSIONING_LEFTOVER_SPLITTABLE $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $^ -o $@ $(LIBS_HEARTBEAT)
+	$(CXX) -DHEARTBEAT_VERSIONING -DLEFTOVER_SPLITTABLE $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $^ -o $@ $(LIBS_HEARTBEAT)
 
 run_heartbeat_versioning_leftover_splittable: heartbeat_versioning_leftover_splittable
 	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY); ./$<

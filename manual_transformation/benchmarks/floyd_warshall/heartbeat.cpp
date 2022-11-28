@@ -24,6 +24,9 @@ void loop_dispatcher(
 }
 
 int main() {
+#if defined(COLLECT_HEARTBEAT_POLLING_TIME)
+  collect_heartbeat_polling_time_init();
+#endif
   setup();
 
 #if defined(COLLECT_KERNEL_TIME)
@@ -51,6 +54,9 @@ int main() {
 
   finishup();
 
+#if defined(COLLECT_HEARTBEAT_POLLING_TIME)
+  collect_heartbeat_polling_time_print();
+#endif
   return 0;
 
 }

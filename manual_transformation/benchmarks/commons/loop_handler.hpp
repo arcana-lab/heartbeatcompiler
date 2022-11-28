@@ -9,6 +9,43 @@
   #error "Macro SMALLEST_GRANULARITY undefined"
 #endif
 
+#if defined(COLLECT_HEARTBEAT_POLLING_TIME)
+#include <pthread.h>
+#include <stdio.h>
+
+#define RDTSC(rdtsc_val_) do { \
+  uint32_t rdtsc_hi_, rdtsc_lo_; \
+  __asm__ volatile ("rdtsc" : "=a" (rdtsc_lo_), "=d" (rdtsc_hi_)); \
+  rdtsc_val_ = (uint64_t)rdtsc_hi_ << 32 | rdtsc_lo_; \
+} while (0)
+
+volatile pthread_spinlock_t lock;
+auto num_workers = taskparts::perworker::id::get_nb_workers();
+static volatile uint64_t useful_cycles = 0;
+static volatile uint64_t useful_invocations = 0;
+static volatile uint64_t wasted_cycles = 0;
+static volatile uint64_t wasted_invocations = 0;
+
+void collect_heartbeat_polling_time_init() {
+  pthread_spin_init(&lock, 0);
+}
+
+void collect_heartbeat_polling_time_print() {
+  printf("cpu frequency: 2.8 GHz\n");
+  printf("num_workers: %zu\n", num_workers);
+
+  printf("useful_cycles: %lu\n", useful_cycles);
+  printf("useful_invocations: %lu\n", useful_invocations);
+  printf("useful_cycles_per_invocation: %.2f\n", useful_invocations == 0 ? 0 : (double)useful_cycles/(double)useful_invocations);
+  printf("useful_seconds: \033[0;32m%.2f\033[0m\n", useful_invocations == 0 ? 0.00 : (double)useful_cycles/(double)2800000000/(double)num_workers);
+
+  printf("wasted_cycles: %lu\n", wasted_cycles);
+  printf("wasted_invocations: %lu\n", wasted_invocations);
+  printf("wasted_cycles_per_invocation: %.2f\n", wasted_invocations == 0 ? 0 : (double)wasted_cycles/(double)wasted_invocations);
+  printf("wasted_seconds: \033[0;31m%.2f\033[0m\n", wasted_invocations == 0 ? 0.00 : (double)wasted_cycles/(double)2800000000/(double)num_workers);
+}
+#endif
+
 #if defined(HEARTBEAT_BRANCHES)
 
 #elif defined(HEARTBEAT_VERSIONING)
@@ -187,26 +224,6 @@ void loop_handler(
 
 #include "limits.h"
 
-// #include <pthread.h>
-
-// #define RDTSC(rdtsc_val_) do { \
-//   uint32_t rdtsc_hi_, rdtsc_lo_; \
-//   __asm__ volatile ("rdtsc" : "=a" (rdtsc_lo_), "=d" (rdtsc_hi_)); \
-//   rdtsc_val_ = (uint64_t)rdtsc_hi_ << 32 | rdtsc_lo_; \
-// } while (0)
-
-// volatile pthread_spinlock_t lock;
-// static volatile uint64_t cycles = 0;
-// static volatile uint64_t counts = 0;
-
-// void loop_handler_init() {
-//   pthread_spin_init(&lock, 0);
-// }
-
-// void loop_handler_print() {
-//   printf("cycles: %lu, counts: %lu, cycles per invocation: %f\n", cycles, counts, (double)cycles/(double)counts);
-// }
-
 /*
  * Generic loop_handler function for the versioning version WITH live-out environment
  * 1. caller side should prepare the live-out environment for kids,
@@ -232,19 +249,29 @@ uint64_t loop_handler(
   /*
    * Determine whether to promote since last promotion
    */
-  // uint64_t start, end;
-  // RDTSC(start);
+#if defined(COLLECT_HEARTBEAT_POLLING_TIME)
+  uint64_t start, end;
+  RDTSC(start);
+#endif
   auto &p = taskparts::prev.mine();
   auto n = taskparts::cycles::now();
-  bool flag = (p + taskparts::kappa_cycles) > n;
-  // RDTSC(end);
-  // pthread_spin_lock(&lock);
-  // cycles += end - start;
-  // counts += 1;
-  // pthread_spin_unlock(&lock);
-  if (flag) {
+  if ((p + taskparts::kappa_cycles) > n) {
+#if defined(COLLECT_HEARTBEAT_POLLING_TIME)
+    RDTSC(end);
+    pthread_spin_lock(&lock);
+    wasted_cycles += end - start;
+    wasted_invocations += 1;
+    pthread_spin_unlock(&lock);
+#endif
     return LLONG_MAX;
   }
+#if defined(COLLECT_HEARTBEAT_POLLING_TIME)
+  RDTSC(end);
+  pthread_spin_lock(&lock);
+  useful_cycles += end - start;
+  useful_invocations += 1;
+  pthread_spin_unlock(&lock);
+#endif
   p = n;
 
   /*
