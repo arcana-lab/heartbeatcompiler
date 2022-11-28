@@ -35,6 +35,10 @@ void loop_handler(
   void (*splittingTasks[])(uint64_t *, uint64_t *, uint64_t **, uint64_t),
   void (*leftoverTasks[])(uint64_t *, uint64_t *, uint64_t **, uint64_t)
 ) {
+#if defined(DISABLE_HEARTBEAT_PROMOTION)
+  return;
+#endif
+
   /*
    * Determine whether to promote since last promotion
    */
@@ -221,6 +225,10 @@ uint64_t loop_handler(
   uint64_t (*splittingTasks[])(uint64_t *, uint64_t *, uint64_t **, uint64_t **, uint64_t, uint64_t),
   uint64_t (*leftoverTasks[])(uint64_t *, uint64_t *, uint64_t **, uint64_t **, uint64_t, uint64_t)
 ) {
+#if defined(DISABLE_HEARTBEAT_PROMOTION)
+  return LLONG_MAX;
+#endif
+
   /*
    * Determine whether to promote since last promotion
    */
@@ -398,6 +406,10 @@ int loop_handler(
   uint64_t *liveOutEnv,
   void (*splittingTask)(uint64_t *, uint64_t *, uint64_t *, uint64_t *, uint64_t)
 ) {
+#if defined(DISABLE_HEARTBEAT_PROMOTION)
+  return 0;
+#endif
+
   /*
    * Determine whether to promote since last promotion
    */

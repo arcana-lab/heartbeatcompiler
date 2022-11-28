@@ -120,16 +120,12 @@ uint64_t HEARTBEAT_loop0_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
     if (!(startIters[myLevel * 8] < maxIters[myLevel * 8])) {
       break;
     }
-#if defined(ENABLE_HEARTBEAT_PROMOTION)
     rc = loop_handler(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex, splittingTasks, nullptr);
-#endif
   }
 #else
   for (; startIters[myLevel * 8] < maxIters[myLevel * 8]; startIters[myLevel * 8]++) {
     r_private += a[startIters[myLevel]];
-#if defined(ENABLE_HEARTBEAT_PROMOTION)
     rc = loop_handler(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex, splittingTasks, nullptr);
-#endif
   }
 #endif
 
@@ -238,16 +234,12 @@ void HEARTBEAT_loop0_cloned(uint64_t *startIter, uint64_t *maxIter, uint64_t *li
     if (!(startIter[0 * 8] < maxIter[0 * 8])) {
       break;
     }
-#if defined(ENABLE_HEARTBEAT_PROMOTION)
     rc = loop_handler(startIter, maxIter, liveInEnv, liveOutEnvKids, &HEARTBEAT_loop0_cloned);
-#endif
   }
 #else
   for (; startIter[0 * 8] < maxIter[0 * 8]; startIter[0 * 8]++) {
     r_private += a[startIter];
-#if defined(ENABLE_HEARTBEAT_PROMOTION)
     rc = loop_handler(startIter, maxIter, liveInEnv, liveOutEnvKids, &HEARTBEAT_loop0_cloned);
-#endif
   }
 #endif
 
