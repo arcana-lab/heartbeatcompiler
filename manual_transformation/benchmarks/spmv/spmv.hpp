@@ -399,10 +399,10 @@ void test_correctness(double* y) {
     }
   }
   if (num_diffs > 0) {
-    printf("INCORRECT!");
+    printf("\033[0;31mINCORRECT!\033[0m");
     printf("  num_diffs = %lu\n", num_diffs);
   } else {
-    printf("CORRECT!\n");
+    printf("\033[0;32mCORRECT!\033[0m\n");
   }
   //printf("num_diffs %ld\n", num_diffs);
   free(yref);

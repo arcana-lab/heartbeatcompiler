@@ -3,6 +3,9 @@
 #include "loop_handler.hpp"
 
 #ifdef CHUNK_LOOP_ITERATIONS
+  #ifndef CHUNKSIZE_0
+    #define CHUNKSIZE_0 1024
+  #endif
   #ifndef CHUNKSIZE_1
     #define CHUNKSIZE_1 1024
   #endif
@@ -102,9 +105,49 @@ uint64_t HEARTBEAT_loop0_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
   double *x = (double *)liveInEnv[3 * 8];
   double *y = (double *)liveInEnv[4 * 8];
 
-  uint64_t rc = LLONG_MAX;
+#if defined(CHUNK_LOOP_ITERATIONS)
+  for (; ;) {
+    uint64_t low = startIters[myLevel * 8];
+    uint64_t high = std::min(maxIters[myLevel * 8], startIters[myLevel * 8] + CHUNKSIZE_0);
+    startIters[myLevel * 8] = high - 1;
+
+    for (; low < high; low++) {
+      double r = 0.0;
+
+      // allocate live-in environment for loop1
+      uint64_t liveInEnvLoop1[3 * 8];
+      liveInEnvs[(myLevel + 1) * 8] = liveInEnvLoop1;
+
+      // allocate live-out environment for loop1
+      uint64_t liveOutEnvLoop1[1 * 8];
+      liveOutEnvs[(myLevel + 1) * 8] = liveOutEnvLoop1;
+
+      // allocate reduction array for loop1
+      double redArrLiveOut0Loop1[1 * 8];
+      liveOutEnvLoop1[0 * 8] = (uint64_t)redArrLiveOut0Loop1;
+
+      // store into loop1's live-in environment
+      liveInEnvLoop1[0 * 8] = (uint64_t)val;
+      liveInEnvLoop1[1 * 8] = (uint64_t)col_ind;
+      liveInEnvLoop1[2 * 8] = (uint64_t)x;
+
+      // set the start and max iteration for loop1
+      startIters[(myLevel + 1) * 8] = row_ptr[low];
+      maxIters[(myLevel + 1) * 8] = row_ptr[low + 1];
+
+      HEARTBEAT_loop1_cloned(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel + 1, 0);
+
+      y[low] = r + redArrLiveOut0Loop1[0 * 8];
+    }
+
+    startIters[myLevel * 8] = high;
+    if (!(startIters[myLevel * 8] < maxIters[myLevel * 8])) {
+      break;
+    }
+    loop_handler(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex, splittingTasks, leftoverTasks);
+  }
+#else
   for (; startIters[myLevel] < maxIters[myLevel]; startIters[myLevel]++) {
-    rc = loop_handler(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex, splittingTasks, leftoverTasks);
     double r = 0.0;
 
     // allocate live-in environment for loop1
@@ -128,12 +171,14 @@ uint64_t HEARTBEAT_loop0_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
     startIters[(myLevel + 1) * 8] = row_ptr[startIters[myLevel]];
     maxIters[(myLevel + 1) * 8] = row_ptr[startIters[myLevel] + 1];
 
-    rc = std::min(rc, HEARTBEAT_loop1_cloned(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel + 1, 0));
+    HEARTBEAT_loop1_cloned(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel + 1, 0);
 
     y[startIters[myLevel]] = r + redArrLiveOut0Loop1[0 * 8];
+    loop_handler(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex, splittingTasks, leftoverTasks);
   }
+#endif
 
-  return rc;
+  return LLONG_MAX;
 }
 
 uint64_t HEARTBEAT_loop1_cloned(uint64_t *startIters, uint64_t *maxIters, uint64_t **liveInEnvs, uint64_t **liveOutEnvs, uint64_t myLevel, uint64_t myIndex) {
@@ -160,23 +205,26 @@ uint64_t HEARTBEAT_loop1_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
   double r_private = 0.0;
 #if defined(CHUNK_LOOP_ITERATIONS)
   for (; ;) {
-    rc = loop_handler(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex, splittingTasks, leftoverTasks);
     uint64_t low = startIters[myLevel * 8];
     uint64_t high = std::min(maxIters[myLevel * 8], startIters[myLevel * 8] + CHUNKSIZE_1);
+    // TODO: uncommenting the following line, though unnecessary, increases the number of fibers created
+    // thus hurt performance
+    // startIters[myLevel * 8] = high - 1;
 
-    for (uint64_t k = low; k < high; k++) {
-      r_private += val[k] * x[col_ind[k]];
+    for (; low < high; low++) {
+      r_private += val[low] * x[col_ind[low]];
     }
 
     startIters[myLevel * 8] = high;
     if (!(startIters[myLevel * 8] < maxIters[myLevel * 8])) {
       break;
     }
+    rc = loop_handler(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex, splittingTasks, leftoverTasks);
   }
 #else
   for (; startIters[myLevel * 8] < maxIters[myLevel * 8]; startIters[myLevel * 8]++) {
-    rc = loop_handler(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex, splittingTasks, leftoverTasks);
     r_private += val[startIters[myLevel * 8]] * x[col_ind[startIters[myLevel * 8]]];
+    rc = loop_handler(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex, splittingTasks, leftoverTasks);
   }
 #endif
 
@@ -189,7 +237,6 @@ uint64_t HEARTBEAT_loop1_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
   } else {                    // heartbeat promotion happens and splitting happens at a lower nested level
     redArrLiveOut0[myIndex * 8] += r_private + redArrLiveOut0Kids[0 * 8];
   }
-
 
   return rc;
 }
