@@ -23,7 +23,7 @@ namespace floyd_warshall {
 #elif defined(INPUT_TESTING)
   int vertices = 2048;
 #else
-  #error "Need to select input size, e.g., INPUT_BENCHMARKING, INPUT_TESTING
+  #error "Need to select input size, e.g., INPUT_BENCHMARKING, INPUT_TESTING"
 #endif
 int *dist = nullptr;
 

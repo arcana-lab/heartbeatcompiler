@@ -5,7 +5,7 @@
 #elif defined(HEARTBEAT_VERSIONING)
 #include "heartbeat_versioning.hpp"
 #else
-#error "Need to specific the version of heartbeat, e.g., HEARTBEAT_BRANCHES, HEARTBEAT_VERSIONING
+#error "Need to specific the version of heartbeat, e.g., HEARTBEAT_BRANCHES, HEARTBEAT_VERSIONING"
 #endif
 #if defined(COLLECT_KERNEL_TIME)
 #include <stdio.h>
@@ -45,7 +45,7 @@ int main() {
 #elif defined(HEARTBEAT_VERSIONING)
   loop_dispatcher(&sum_array_nested_heartbeat_versioning, a, 0, n1, 0, n2, result);
 #else
-  #error "Need to specific the version of heartbeat, e.g., HEARTBEAT_BRANCHES, HEARTBEAT_VERSIONING
+  #error "Need to specific the version of heartbeat, e.g., HEARTBEAT_BRANCHES, HEARTBEAT_VERSIONING"
 #endif
 
 #if defined(COLLECT_KERNEL_TIME)

@@ -253,10 +253,6 @@ void HEARTBEAT_loop0_cloned(uint64_t *startIter, uint64_t *maxIter, uint64_t *li
   return;
 }
 
-#else
-
-  #error "Need to specific the version of heartbeat, e.g., HEARTBEAT_BRANCHES, HEARTBEAT_VERSIONING
-
 #endif
 
 }
