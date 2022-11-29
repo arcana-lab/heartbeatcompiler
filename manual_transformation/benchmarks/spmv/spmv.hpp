@@ -22,7 +22,7 @@ namespace spmv {
   #elif defined(SPMV_POWERLAW)
     uint64_t n_bigcols = 27;
   #elif defined(SPMV_ARROWHEAD)
-    uint64_t n_arrowhead = 1500000000;
+    uint64_t n_arrowhead = 1000000000;
   #else
     #error "Need to select input class, e.g., SPMV_RANDOM, SPMV_POWERLAW, SPMV_ARROWHEAD"
   #endif

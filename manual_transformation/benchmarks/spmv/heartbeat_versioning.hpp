@@ -2,15 +2,6 @@
 
 #include "loop_handler.hpp"
 
-#ifdef CHUNK_LOOP_ITERATIONS
-  #ifndef CHUNKSIZE_0
-    #define CHUNKSIZE_0 1024
-  #endif
-  #ifndef CHUNKSIZE_1
-    #define CHUNKSIZE_1 1024
-  #endif
-#endif
-
 /*
  * User defined function to determine the index of the leftover task
  * needs to be defined outside the namespace
