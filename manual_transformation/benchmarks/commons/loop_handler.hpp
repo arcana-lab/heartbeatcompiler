@@ -79,11 +79,29 @@ void loop_handler(
   /*
    * Determine whether to promote since last promotion
    */
+#if defined(COLLECT_HEARTBEAT_POLLING_TIME)
+  uint64_t start, end;
+  RDTSC(start);
+#endif
   auto &p = taskparts::prev.mine();
   auto n = taskparts::cycles::now();
   if ((p + taskparts::kappa_cycles) > n) {
+#if defined(COLLECT_HEARTBEAT_POLLING_TIME)
+    RDTSC(end);
+    pthread_spin_lock(&lock);
+    wasted_cycles += end - start;
+    wasted_invocations += 1;
+    pthread_spin_unlock(&lock);
+#endif
     return;
   }
+#if defined(COLLECT_HEARTBEAT_POLLING_TIME)
+  RDTSC(end);
+  pthread_spin_lock(&lock);
+  useful_cycles += end - start;
+  useful_invocations += 1;
+  pthread_spin_unlock(&lock);
+#endif
   p = n;
 
   /*
@@ -440,11 +458,29 @@ int loop_handler(
   /*
    * Determine whether to promote since last promotion
    */
+#if defined(COLLECT_HEARTBEAT_POLLING_TIME)
+  uint64_t start, end;
+  RDTSC(start);
+#endif
   auto &p = taskparts::prev.mine();
   auto n = taskparts::cycles::now();
   if ((p + taskparts::kappa_cycles) > n) {
+#if defined(COLLECT_HEARTBEAT_POLLING_TIME)
+    RDTSC(end);
+    pthread_spin_lock(&lock);
+    wasted_cycles += end - start;
+    wasted_invocations += 1;
+    pthread_spin_unlock(&lock);
+#endif
     return 0;
   }
+#if defined(COLLECT_HEARTBEAT_POLLING_TIME)
+  RDTSC(end);
+  pthread_spin_lock(&lock);
+  useful_cycles += end - start;
+  useful_invocations += 1;
+  pthread_spin_unlock(&lock);
+#endif
   p = n;
 
   /*
