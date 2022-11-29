@@ -2,12 +2,6 @@
 
 #include "loop_handler.hpp"
 
-#ifdef CHUNK_LOOP_ITERATIONS
-  #ifndef CHUNKSIZE_0
-    #define CHUNKSIZE_0 64
-  #endif
-#endif
-
 #if defined(HEARTBEAT_VERSIONING)
 /*
  * User defined function to determine the index of the leftover task

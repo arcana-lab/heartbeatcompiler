@@ -2,11 +2,6 @@
 
 #include "loop_handler.hpp"
 
-#ifdef CHUNK_LOOP_ITERATIONS
-  #ifndef CHUNKSIZE_1
-    #define CHUNKSIZE_1 32
-  #endif
-#endif
 #define SUB(array, row_sz, i, j) (array[i * row_sz + j])
 
 /*
@@ -102,6 +97,37 @@ void HEARTBEAT_loop0_cloned(uint64_t *startIters, uint64_t *maxIters, uint64_t *
   int vertices = (int)liveInEnv[1 * 8];
   int via = (int)liveInEnv[2 * 8];
 
+#if defined(CHUNK_LOOP_ITERATIONS)
+  for (; ;) {
+    uint64_t low = startIters[myLevel * 8];
+    uint64_t high = std::min(maxIters[myLevel * 8], startIters[myLevel * 8] + CHUNKSIZE_0);
+    startIters[myLevel * 8] = high - 1;
+
+    for (; low < high; low++) {
+      // allocate live-in environment for loop1
+      uint64_t liveInEnvLoop1[4 * 8];
+      liveInEnvs[(myLevel + 1) * 8] = (uint64_t *)liveInEnvLoop1;
+
+      // store into loop1's live-in environment
+      liveInEnvLoop1[0 * 8] = (uint64_t)dist;
+      liveInEnvLoop1[1 * 8] = (uint64_t)vertices;
+      liveInEnvLoop1[2 * 8] = (uint64_t)via;
+      liveInEnvLoop1[3 * 8] = (uint64_t)low;  // from
+
+      // set the start and max iteation for loop1
+      startIters[(myLevel + 1) * 8] = 0;
+      maxIters[(myLevel + 1) * 8] = vertices;
+
+      HEARTBEAT_loop1_cloned(startIters, maxIters, liveInEnvs, myLevel + 1);
+    }
+
+    startIters[myLevel * 8] = high;
+    if (!(startIters[myLevel * 8] < maxIters[myLevel * 8])) {
+      break;
+    }
+    loop_handler(startIters, maxIters, liveInEnvs, myLevel, splittingTasks, leftoverTasks);
+  }
+#else
   for (; startIters[myLevel * 8] < maxIters[myLevel * 8]; startIters[myLevel * 8]++) {
     // allocate live-in environment for loop1
     uint64_t liveInEnvLoop1[4 * 8];
@@ -120,7 +146,7 @@ void HEARTBEAT_loop0_cloned(uint64_t *startIters, uint64_t *maxIters, uint64_t *
     HEARTBEAT_loop1_cloned(startIters, maxIters, liveInEnvs, myLevel + 1);
     loop_handler(startIters, maxIters, liveInEnvs, myLevel, splittingTasks, leftoverTasks);
   }
-
+#endif
   return;
 }
 
@@ -137,11 +163,11 @@ void HEARTBEAT_loop1_cloned(uint64_t *startIters, uint64_t *maxIters, uint64_t *
     uint64_t low = startIters[myLevel * 8];
     uint64_t high = std::min(maxIters[myLevel * 8], startIters[myLevel * 8] + CHUNKSIZE_1);
 
-    for (uint64_t to = low; to < high; to++) {
-      if ((from != to) && (from != via) && (to != via)) {
-        SUB(dist, vertices, from, to) =
-          std::min(SUB(dist, vertices, from, to),
-                  SUB(dist, vertices, from, via) + SUB(dist, vertices, via, to));
+    for (; low < high; low++) {
+      if ((from != low) && (from != via) && (low != via)) {
+        SUB(dist, vertices, from, low) =
+          std::min(SUB(dist, vertices, from, low),
+                  SUB(dist, vertices, from, via) + SUB(dist, vertices, via, low));
       }
     }
 

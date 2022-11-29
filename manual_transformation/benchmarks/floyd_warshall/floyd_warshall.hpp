@@ -125,10 +125,10 @@ void test_correctness(int *dist) {
     }
   }
   if (num_diffs > 0) {
-    printf("INCORRECT!");
+    printf("\033[0;31mINCORRECT!\033[0m");
     printf("  num_diffs = %d\n", num_diffs);
   } else {
-    printf("CORRECT!\n");
+    printf("\033[0;32mCORRECT!\033[0m\n");
   }
   free(dist2);
 }

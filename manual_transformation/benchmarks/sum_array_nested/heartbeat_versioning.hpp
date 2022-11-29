@@ -2,12 +2,6 @@
 
 #include "loop_handler.hpp"
 
-#ifdef CHUNK_LOOP_ITERATIONS
-  #ifndef CHUNKSIZE_1
-    #define CHUNKSIZE_1 64
-  #endif
-#endif
-
 /*
  * User defined function to determine the index of the leftover task
  * needs to be defined outside the namespace
@@ -128,6 +122,45 @@ uint64_t HEARTBEAT_loop0_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
 
   uint64_t rc = LLONG_MAX;
   uint64_t r0_private = 0;
+#if defined(CHUNK_LOOP_ITERATIONS)
+  for (; ;) {
+    uint64_t low = startIters[myLevel * 8];
+    uint64_t high = std::min(maxIters[myLevel * 8], startIters[myLevel * 8] + CHUNKSIZE_1);
+    startIters[myLevel * 8] = high - 1;
+
+    for (; low < high; low++) {
+      // allocate live-in environment for loop1
+      uint64_t liveInEnvLoop1[2 * 8];
+      liveInEnvs[(myLevel + 1) * 8] = liveInEnvLoop1;
+
+      // allocate live-out environment for loop1
+      uint64_t liveOutEnvLoop1[1 * 8];
+      liveOutEnvs[(myLevel + 1) * 8] = liveOutEnvLoop1;
+
+      // allocate reduction array for loop1
+      uint64_t redArrLiveOut0Loop1[1 * 8];
+      liveOutEnvLoop1[0 * 8] = (uint64_t)redArrLiveOut0Loop1;
+
+      // store into live-in environment for loop1
+      liveInEnvLoop1[0 * 8] = (uint64_t)a;
+      liveInEnvLoop1[1 * 8] = (uint64_t)low;
+
+      // set the start and max iteration for loop1
+      startIters[(myLevel + 1) * 8] = low2;
+      maxIters[(myLevel + 1) * 8] = high2;
+
+      uint64_t r1 = 0;
+      rc = std::min(rc, HEARTBEAT_loop1_cloned(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel + 1, 0));
+      r0_private += r1 + redArrLiveOut0Loop1[0 * 8];
+    }
+
+    startIters[myLevel * 8] = high;
+    if (!(startIters[myLevel * 8] < maxIters[myLevel * 8])) {
+      break;
+    }
+    rc = loop_handler(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex, splittingTasks, leftoverTasks);
+  }
+#else
   for (; startIters[myLevel * 8] < maxIters[myLevel * 8]; startIters[myLevel * 8]++) {
     // allocate live-in environment for loop1
     uint64_t liveInEnvLoop1[2 * 8];
@@ -154,6 +187,7 @@ uint64_t HEARTBEAT_loop0_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
     r0_private += r1 + redArrLiveOut0Loop1[0 * 8];
     rc = loop_handler(startIters, maxIters, liveInEnvs, liveOutEnvs, myLevel, myIndex, splittingTasks, leftoverTasks);
   }
+#endif
 
   // reduction
   if (rc == LLONG_MAX) {      // either no heartbeat promotion happens or promotion happens at a higher nested level
@@ -194,8 +228,8 @@ uint64_t HEARTBEAT_loop1_cloned(uint64_t *startIters, uint64_t *maxIters, uint64
     uint64_t low = startIters[myLevel * 8];
     uint64_t high = std::min(maxIters[myLevel * 8], startIters[myLevel * 8] + CHUNKSIZE_1);
 
-    for (uint64_t j = low; j < high; j++) {
-      r1_private += a[i][j];
+    for (; low < high; low++) {
+      r1_private += a[i][low];
     }
 
     startIters[myLevel * 8] = high;
