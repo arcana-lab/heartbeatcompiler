@@ -135,6 +135,15 @@ ifeq ($(ENABLE_HEARTBEAT_PROMOTION), true)
 	endif
 endif
 
+# whether the leftover task is further splittable through heartbeat promotion
+# options: true, false
+LEFTOVER_SPLITTABLE ?= false
+ifeq ($(LEFTOVER_SPLITTABLE), true)
+	MACROS_HEARTBEAT += -DLEFTOVER_SPLITTABLE
+else
+	MACROS_HEARTBEAT += -DLEFTOVER_UNSPLITTABLE
+endif
+
 # macros used for taskparts runtime
 TASKPARTS_PLATFORM ?= -DTASKPARTS_POSIX -DTASKPARTS_X64
 TASKPARTS_FLAGS = \
@@ -186,12 +195,6 @@ heartbeat_versioning: heartbeat.cpp
 run_heartbeat_versioning: heartbeat_versioning
 	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY); ./$<
 
-heartbeat_versioning_leftover_splittable: heartbeat.cpp
-	$(CXX) -DHEARTBEAT_VERSIONING -DLEFTOVER_SPLITTABLE $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $^ -o $@ $(LIBS_HEARTBEAT)
-
-run_heartbeat_versioning_leftover_splittable: heartbeat_versioning_leftover_splittable
-	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY); ./$<
-
 heartbeat_versioning_optimized: heartbeat.cpp
 	$(CXX) -DHEARTBEAT_VERSIONING_OPTIMIZED $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $^ -o $@ $(LIBS_HEARTBEAT)
 
@@ -202,19 +205,15 @@ run_heartbeat_versioning_optimized: heartbeat_versioning_optimized
 # Heartbeat::Correctness
 # ======================
 # version to use for testing correctness
-# options: branches, branches_leftover_splittable, branches_optimized,
-#					 versioning, versioning_leftover_splittable, versioning_optimized
+# options: branches, branches_optimized,
+#					 versioning, versioning_optimized
 VERSION ?= versioning
 ifeq ($(VERSION), branches)
 	CORRECTNESS_VERSION = -DHEARTBEAT_BRANCHES
-else ifeq ($(VERSION), branches_leftover_splittable)
-	CORRECTNESS_VERSION = -DHEARTBEAT_BRANCHES -DLEFTOVER_SPLITTABLE
 else ifeq ($(VERSION), branches_optimized)
 	CORRECTNESS_VERSION = -BRANCHES_OPTIMIZED
 else ifeq ($(VERSION), versioning)
 	CORRECTNESS_VERSION = -DHEARTBEAT_VERSIONING
-else ifeq ($(VERSION), versioning_leftover_splittable)
-	CORRECTNESS_VERSION = -DHEARTBEAT_VERSIONING -DLEFTOVER_SPLITTABLE
 else ifeq ($(VERSION), versioning_optimized)
 	CORRECTNESS_VERSION = -DHEARTBEAT_VERSIONING_OPTIMIZED
 endif
@@ -239,8 +238,8 @@ condor:
 # ======================
 clean:
 	rm -f baseline opencilk openmp openmp_dynamic openmp_guided ;
-	rm -f heartbeat_branches heartbeat_branches_leftover_splittable heartbeat_branches_optimized ;
-	rm -f heartbeat_versioning heartbeat_versioning_leftover_splittable heartbeat_versioning_optimized ;
+	rm -f heartbeat_branches heartbeat_branches_optimized ;
+	rm -f heartbeat_versioning heartbeat_versioning_optimized ;
 	rm -f correctness *.json ;
 	rm -f eval/condor.* eval/tmp* ;
 
