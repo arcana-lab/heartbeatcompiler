@@ -37,12 +37,12 @@ void collect_heartbeat_polling_time_print() {
   printf("useful_cycles: %lu\n", useful_cycles);
   printf("useful_invocations: %lu\n", useful_invocations);
   printf("useful_cycles_per_invocation: %.2f\n", useful_invocations == 0 ? 0 : (double)useful_cycles/(double)useful_invocations);
-  printf("useful_seconds: \033[0;32m%.2f\033[0m\n", useful_invocations == 0 ? 0.00 : (double)useful_cycles/(double)2800000000/(double)num_workers);
+  printf("useful_seconds: %.2f\n", useful_invocations == 0 ? 0.00 : (double)useful_cycles/(double)2800000000/(double)num_workers);
 
   printf("wasted_cycles: %lu\n", wasted_cycles);
   printf("wasted_invocations: %lu\n", wasted_invocations);
   printf("wasted_cycles_per_invocation: %.2f\n", wasted_invocations == 0 ? 0 : (double)wasted_cycles/(double)wasted_invocations);
-  printf("wasted_seconds: \033[0;31m%.2f\033[0m\n", wasted_invocations == 0 ? 0.00 : (double)wasted_cycles/(double)2800000000/(double)num_workers);
+  printf("wasted_seconds: %.2f\n", wasted_invocations == 0 ? 0.00 : (double)wasted_cycles/(double)2800000000/(double)num_workers);
 }
 #endif
 
