@@ -241,6 +241,5 @@ clean:
 	rm -f heartbeat_branches heartbeat_branches_optimized ;
 	rm -f heartbeat_versioning heartbeat_versioning_optimized ;
 	rm -f correctness *.json ;
-	rm -f eval/condor.* eval/tmp* ;
 
 .PHONY: clean
