@@ -3,6 +3,7 @@
 #include <vector>
 #include <functional>
 #include <cassert>
+#include <unistd.h>
 #if defined(USE_OPENCILK)
 #include <cilk/cilk.h>
 #endif
@@ -130,6 +131,49 @@ auto csr_of_edgelist(edgelist_type& edges) {
   }
 }
 
+void read_matrix_from_file(const char *filename) {
+  FILE *infile;
+
+  infile = fopen(filename, "r");
+  if (infile == NULL) {
+    fprintf(stderr, "\nError opening file\n");
+    exit(1);
+  }
+
+  fread(&nb_vals, sizeof(uint64_t), 1, infile);
+
+  row_ptr = (uint64_t*)malloc(sizeof(uint64_t) * (nb_rows + 1));
+  col_ind = (uint64_t*)malloc(sizeof(uint64_t) * nb_vals);
+  val = (double*)malloc(sizeof(double) * nb_vals);
+
+  fread(row_ptr, sizeof(uint64_t), nb_rows + 1, infile);
+  fread(col_ind, sizeof(uint64_t), nb_vals, infile);
+  fread(val, sizeof(double), nb_vals, infile);
+
+  fclose(infile);
+
+  return;
+}
+
+void write_matrix_to_file(const char *filename) {
+  FILE *outfile;
+
+  outfile = fopen(filename, "w");
+  if (outfile == NULL) {
+    fprintf(stderr, "\nError opening file\n");
+    exit(1);
+  }
+
+  fwrite(&nb_vals, sizeof(uint64_t), 1, outfile);
+  fwrite(row_ptr, sizeof(uint64_t), nb_rows + 1, outfile);
+  fwrite(col_ind, sizeof(uint64_t), nb_vals, outfile);
+  fwrite(val, sizeof(double), nb_vals, outfile);
+
+  fclose(outfile);
+
+  return;
+}
+
 template <typename Gen_matrix>
 auto bench_pre_shared(const Gen_matrix& gen_matrix) {
   gen_matrix();
@@ -177,8 +221,20 @@ auto bench_pre_bigrows() {
   nb_rows = n_bigrows;
   degree = degree_bigrows;
   bench_pre_shared([&] {
-    auto edges = mk_random_local_edgelist(dim, degree, nb_rows);
-    csr_of_edgelist(edges);
+#if defined(INPUT_BENCHMARKING)
+    const char* filename = "matrix_random_benchmarking.dat";
+#else
+    const char* filename = "matrix_random_testing.dat";
+#endif
+    if (!access(filename, F_OK)) {
+      printf("read matrix from %s\n", filename);
+      read_matrix_from_file(filename);
+    } else {
+      auto edges = mk_random_local_edgelist(dim, degree, nb_rows);
+      csr_of_edgelist(edges);
+      write_matrix_to_file(filename);
+      printf("write matrix to %s\n", filename);
+    }
   });
 }
 
@@ -208,8 +264,20 @@ auto mk_powerlaw_edgelist(size_t lg) {
 auto bench_pre_bigcols() {
   nb_rows = 1<<n_bigcols;
   bench_pre_shared([&] {
-    auto edges = mk_powerlaw_edgelist(n_bigcols);
-    csr_of_edgelist(edges);
+#if defined(INPUT_BENCHMARKING)
+    const char* filename = "matrix_powerlaw_benchmarking.dat";
+#else
+    const char* filename = "matrix_powerlaw_testing.dat";
+#endif
+    if (!access(filename, F_OK)) {
+      printf("read matrix from %s\n", filename);
+      read_matrix_from_file(filename);
+    } else {
+      auto edges = mk_powerlaw_edgelist(n_bigcols);
+      csr_of_edgelist(edges);
+      write_matrix_to_file(filename);
+      printf("write matrix to %s\n", filename);
+    }
   });
 }
 
@@ -232,8 +300,20 @@ auto mk_arrowhead_edgelist(size_t n) {
 auto bench_pre_arrowhead() {
   nb_rows = n_arrowhead;
   bench_pre_shared([&] {
-    auto edges = mk_arrowhead_edgelist(nb_rows);
-    csr_of_edgelist(edges);
+#if defined(INPUT_BENCHMARKING)
+    const char* filename = "matrix_arrowhead_benchmarking.dat";
+#else
+    const char* filename = "matrix_arrowhead_testing.dat";
+#endif
+    if (!access(filename, F_OK)) {
+      printf("read matrix from %s\n", filename);
+      read_matrix_from_file(filename);
+    } else {
+      auto edges = mk_arrowhead_edgelist(nb_rows);
+      csr_of_edgelist(edges);
+      write_matrix_to_file(filename);
+      printf("write matrix to %s\n", filename);
+    }
   });
 }
 
