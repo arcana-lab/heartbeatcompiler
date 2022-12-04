@@ -44,7 +44,7 @@ run_baseline: baseline
 # ======================
 OPENCILK_COMPILER ?= /nfs-scratch/yso0488/opencilk/build/bin/bin/opencilk++
 
-MACROS_OPENCILK = $(MACROS) -DUSE_OPENCILK
+MACROS_OPENCILK += $(MACROS) -DUSE_OPENCILK
 FLAGS_OPENCILK = $(FLAGS) -fopencilk
 OPTS_OPENCILK = $(OPTS)
 LIBS_OPENCILK = $(LIBS)

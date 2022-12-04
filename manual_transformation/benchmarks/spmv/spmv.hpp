@@ -3,6 +3,7 @@
 #include <vector>
 #include <functional>
 #include <cassert>
+#include <stdio.h>
 #include <unistd.h>
 #if defined(USE_OPENCILK)
 #include <cilk/cilk.h>
@@ -23,7 +24,7 @@ namespace spmv {
   #elif defined(SPMV_POWERLAW)
     uint64_t n_bigcols = 27;
   #elif defined(SPMV_ARROWHEAD)
-    uint64_t n_arrowhead = 1000000000;
+    uint64_t n_arrowhead = 2000000000;
   #else
     #error "Need to select input class, e.g., SPMV_RANDOM, SPMV_POWERLAW, SPMV_ARROWHEAD"
   #endif
@@ -344,31 +345,30 @@ void finishup() {
 }
 
 #if defined(USE_OPENCILK)
+#if defined(OPENCILK_REDUCER)
+void zero_double(void *view) {
+  *(double *)view = 0.0;
+}
+void add_double(void *left, void *right) {
+  *(double *)left += *(double *)right;
+}
+void spmv_opencilk(
+  double* val,
+  uint64_t* row_ptr,
+  uint64_t* col_ind,
+  double* x,
+  double* y,
+  int64_t n) {
+  cilk_for (int64_t i = 0; i < n; i++) {  // row loop
+    double cilk_reducer(zero_double, add_double) sum;
+    cilk_for (int64_t k = row_ptr[i]; k < row_ptr[i+1]; k++) { // col loop
+      sum += val[k] * x[col_ind[k]];
+    }
+    y[i] = sum;
+  }
+}
 
-// // spmv reducer implementation
-// void zero_double(void *view) {
-//   *(double *)view = 0.0;
-// }
-// void add_double(void *left, void *right) {
-//   *(double *)left += *(double *)right;
-// }
-// void spmv_opencilk(
-//   double* val,
-//   uint64_t* row_ptr,
-//   uint64_t* col_ind,
-//   double* x,
-//   double* y,
-//   int64_t n) {
-//   cilk_for (int64_t i = 0; i < n; i++) {  // row loop
-//     double cilk_reducer(zero_double, add_double) sum;
-//     cilk_for (int64_t k = row_ptr[i]; k < row_ptr[i+1]; k++) { // col loop
-//       sum += val[k] * x[col_ind[k]];
-//     }
-//     y[i] = sum;
-//   }
-// }
-
-// spmv map-reduce implementation
+#elif defined(OPENCILK_MAP_REDUCE)
 static constexpr
 uint64_t threshold = 1024;
 template <typename F>
@@ -402,23 +402,23 @@ void spmv_opencilk(
     }, row_ptr[i], row_ptr[i+1], &y[i]);
   }
 }
-
-// // spmv sequential inner loop implementation
-// void spmv_opencilk(
-//   double* val,
-// 	uint64_t* row_ptr,
-// 	uint64_t* col_ind,
-// 	double* x,
-// 	double* y,
-// 	int64_t n) {
-//   cilk_for (int64_t i = 0; i < n; i++) {  // row loop
-//     double t = 0.0;
-//     for (int64_t k = row_ptr[i]; k < row_ptr[i+1]; k++) { // col loop
-//       t += val[k] * x[col_ind[k]];
-//     }
-//     y[i] = t;
-//   }
-// }
+#elif defined(OPENCILK_OUTER)
+void spmv_opencilk(
+  double* val,
+	uint64_t* row_ptr,
+	uint64_t* col_ind,
+	double* x,
+	double* y,
+	int64_t n) {
+  cilk_for (int64_t i = 0; i < n; i++) {  // row loop
+    double t = 0.0;
+    for (int64_t k = row_ptr[i]; k < row_ptr[i+1]; k++) { // col loop
+      t += val[k] * x[col_ind[k]];
+    }
+    y[i] = t;
+  }
+}
+#endif
 #elif defined(USE_OPENMP)
 void spmv_openmp(
   double* val,
