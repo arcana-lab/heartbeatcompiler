@@ -103,11 +103,6 @@ endif
 SMALLEST_GRANULARITY ?= 2
 MACROS_HEARTBEAT += -DSMALLEST_GRANULARITY=$(SMALLEST_GRANULARITY)
 
-# highest nested level for the benchmark
-# options: unsigned integer >= 1
-HIGHEST_NESTED_LEVEL ?= 1
-MACROS_HEARTBEAT += -DHIGHEST_NESTED_LEVEL=$(HIGHEST_NESTED_LEVEL)
-
 # whether to enable heartbeat promotion
 # options: true, false
 ENABLE_HEARTBEAT_PROMOTION ?= true
