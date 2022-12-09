@@ -190,27 +190,16 @@ heartbeat_versioning: heartbeat.cpp
 run_heartbeat_versioning: heartbeat_versioning
 	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY); ./$<
 
-heartbeat_versioning_optimized: heartbeat.cpp
-	$(CXX) -DHEARTBEAT_VERSIONING_OPTIMIZED $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $^ -o $@ $(LIBS_HEARTBEAT)
-
-run_heartbeat_versioning_optimized: heartbeat_versioning_optimized
-	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY); ./$<
-
 # ======================
 # Heartbeat::Correctness
 # ======================
 # version to use for testing correctness
-# options: branches, branches_optimized,
-#					 versioning, versioning_optimized
+# options: branches, versioning
 VERSION ?= versioning
 ifeq ($(VERSION), branches)
 	CORRECTNESS_VERSION = -DHEARTBEAT_BRANCHES
-else ifeq ($(VERSION), branches_optimized)
-	CORRECTNESS_VERSION = -BRANCHES_OPTIMIZED
 else ifeq ($(VERSION), versioning)
 	CORRECTNESS_VERSION = -DHEARTBEAT_VERSIONING
-else ifeq ($(VERSION), versioning_optimized)
-	CORRECTNESS_VERSION = -DHEARTBEAT_VERSIONING_OPTIMIZED
 endif
 
 correctness: heartbeat.cpp
@@ -233,8 +222,7 @@ condor:
 # ======================
 clean:
 	rm -f baseline opencilk openmp openmp_dynamic openmp_guided ;
-	rm -f heartbeat_branches heartbeat_branches_optimized ;
-	rm -f heartbeat_versioning heartbeat_versioning_optimized ;
+	rm -f heartbeat_branches heartbeat_versioning ;
 	rm -f correctness *.json ;
 
 .PHONY: clean

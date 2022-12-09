@@ -64,6 +64,8 @@ uint64_t getLeafTaskIndex(uint64_t myLevel);
 
 #if defined(LOOP_HANDLER_WITHOUT_LIVE_OUT)
 
+#if !defined(LOOP_HANDLER_OPTIMIZED)
+
 /*
  * Generic loop_handler function for the versioning version WITHOUT live-out environment
  * 1. since there's no live-out environment, caller doesn't need the
@@ -241,6 +243,8 @@ void loop_handler(
   return;
 }
 
+#endif
+
 void loop_handler_optimized(
   uint64_t *startIter,
   uint64_t *maxIter,
@@ -318,6 +322,8 @@ void loop_handler_optimized(
 #elif defined(LOOP_HANDLER_WITH_LIVE_OUT)
 
 #include "limits.h"
+
+#if !defined(LOOP_HANDLER_OPTIMIZED)
 
 /*
  * Generic loop_handler function for the versioning version WITH live-out environment
@@ -504,6 +510,8 @@ uint64_t loop_handler(
   return splittingLevel;
 }
 
+#endif
+
 uint64_t loop_handler_optimized(
   uint64_t *startIter,
   uint64_t *maxIter,
@@ -576,7 +584,7 @@ uint64_t loop_handler_optimized(
    */
   maxIter[0 * 8] = startIter[0 * 8] + 1;
 
-  return 1;
+  return 0;
 }
 
 #else
@@ -584,86 +592,5 @@ uint64_t loop_handler_optimized(
   #error "Need to specific whether or not loop_handler handles live-out, e.g., LOOP_HANDLER_WITHOUT_LIVE_OUT, LOOP_HANDLER_WITH_LIVE_OUT"
 
 #endif
-
-#elif defined (HEARTBEAT_VERSIONING_OPTIMIZED)
-
-/*
- * Optimized loop_handler WITH live-out environment
- * Assumption: caller loop structure has highest nested level of 1
- */
-int loop_handler(
-  uint64_t *startIter,
-  uint64_t *maxIter,
-  uint64_t *liveInEnv,
-  uint64_t *liveOutEnv,
-  void (*splittingTask)(uint64_t *, uint64_t *, uint64_t *, uint64_t *, uint64_t)
-) {
-#if defined(DISABLE_HEARTBEAT_PROMOTION)
-  return 0;
-#endif
-
-  /*
-   * Determine whether to promote since last promotion
-   */
-#if defined(COLLECT_HEARTBEAT_POLLING_TIME)
-  uint64_t start, end;
-  RDTSC(start);
-#endif
-  auto &p = taskparts::prev.mine();
-  auto n = taskparts::cycles::now();
-  if ((p + taskparts::kappa_cycles) > n) {
-#if defined(COLLECT_HEARTBEAT_POLLING_TIME)
-    RDTSC(end);
-    pthread_spin_lock(&lock);
-    wasted_cycles += end - start;
-    wasted_invocations += 1;
-    pthread_spin_unlock(&lock);
-#endif
-    return 0;
-  }
-#if defined(COLLECT_HEARTBEAT_POLLING_TIME)
-  RDTSC(end);
-  pthread_spin_lock(&lock);
-  useful_cycles += end - start;
-  useful_invocations += 1;
-  pthread_spin_unlock(&lock);
-#endif
-  p = n;
-
-  /*
-   * Decide the splitting level
-   * Optimization: splitting level is always 0
-   */
-  if ((maxIter[0 * 8] - startIter[0 * 8]) <= SMALLEST_GRANULARITY) {
-    return 0;
-  }
-
-  /*
-   * Allocate startIter and maxIter for both tasks
-   */
-  uint64_t startIterFirst[1 * 8];
-  uint64_t maxIterFirst[1 * 8];
-  uint64_t startIterSecond[1 * 8];
-  uint64_t maxIterSecond[1 * 8];
-
-  uint64_t med = (startIter[0 * 8] + maxIter[0 * 8] + 1) / 2;
-  startIterFirst[0 * 8] = startIter[0 * 8] + 1;
-  maxIterFirst[0 * 8] = med;
-  startIterSecond[0 * 8] = med;
-  maxIterSecond[0 * 8] = maxIter[0 * 8];
-
-  /*
-   * Reset maxIters for the tail task
-   */
-  maxIter[0 * 8] = startIter[0 * 8] + 1;
-
-  taskparts::tpalrts_promote_via_nativefj([&] {
-    (*splittingTask)(startIterFirst, maxIterFirst, liveInEnv, liveOutEnv, 0);
-  }, [&] {
-    (*splittingTask)(startIterSecond, maxIterSecond, liveInEnv, liveOutEnv, 1);
-  }, [] { }, taskparts::bench_scheduler());
-
-  return 1;
-}
 
 #endif

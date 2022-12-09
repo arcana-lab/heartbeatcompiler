@@ -297,7 +297,7 @@ uint64_t HEARTBEAT_loop1_optimized(uint64_t *startIter, uint64_t *maxIter, uint6
   // reduction
   if (rc == LLONG_MAX) {      // no heartbeat promotion happens
     redArrLiveOut0[myIndex * 8] += r_private;
-  } else if (rc == 1) {       // heartbeat promotion happens
+  } else if (rc == 0) {       // heartbeat promotion happens
     redArrLiveOut0[myIndex * 8] += r_private + redArrLiveOut0Kids[0 * 8] + redArrLiveOut0Kids[1 * 8];
   }
 
