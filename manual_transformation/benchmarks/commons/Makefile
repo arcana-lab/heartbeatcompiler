@@ -84,7 +84,7 @@ run_openmp_guided: openmp_guided
 # ======================
 # Heartbeat
 # ======================
-CPU_BASE_FREQUENCY ?= 2800000
+CPU_BASE_FREQUENCY_KHZ ?= 2800000
 TASKPARTS_PATH ?= ../../runtime
 TASKPARTS_INCLUDE_PATH = $(TASKPARTS_PATH)/include
 TASKPARTS_INCLUDES = $(TASKPARTS_INCLUDE_PATH) $(HWLOC_INCLUDE_PATH)
@@ -179,7 +179,7 @@ heartbeat_branches: heartbeat.cpp
 	$(CXX) -DHEARTBEAT_BRANCHES $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $^ -o $@ $(LIBS_HEARTBEAT)
 
 run_heartbeat_branches: heartbeat_branches
-	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY); ./$<
+	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY_KHZ); ./$<
 
 # ======================
 # Heartbeat::Versioning
@@ -188,7 +188,7 @@ heartbeat_versioning: heartbeat.cpp
 	$(CXX) -DHEARTBEAT_VERSIONING $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $^ -o $@ $(LIBS_HEARTBEAT)
 
 run_heartbeat_versioning: heartbeat_versioning
-	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY); ./$<
+	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY_KHZ); ./$<
 
 # ======================
 # Heartbeat::Correctness
@@ -206,7 +206,7 @@ correctness: heartbeat.cpp
 	$(CXX) -DTEST_CORRECTNESS $(CORRECTNESS_VERSION) $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $^ -o $@ $(LIBS_HEARTBEAT)
 
 run_correctness: correctness
-	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY); ./$<
+	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY_KHZ); ./$<
 
 test_correctness: test_correctness.sh
 	./$<
