@@ -16,6 +16,6 @@ int main() {
 		RDTSC(start);
 		usleep(1000);
 		RDTSC(end);
-		printf("%d,%lu\n", i, (end - start) * 1000);
+		printf("%d -- %lu\n", i, (end - start) * 1000);
 	}
 }
