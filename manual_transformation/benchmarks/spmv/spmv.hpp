@@ -26,9 +26,9 @@ namespace spmv {
   #elif defined(SPMV_ARROWHEAD)
     uint64_t n_arrowhead = 2000000000;
   #elif defined(SPMV_DENSE)
-    uint64_t n_dense = 200000;
+    uint64_t n_dense = 100000;
   #elif defined(SPMV_DIAGONAL)
-    uint64_t n_diagonal = 10000000000;
+    uint64_t n_diagonal = 5000000000;
   #else
     #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL}"
   #endif
@@ -41,7 +41,7 @@ namespace spmv {
   #elif defined(SPMV_ARROWHEAD)
     uint64_t n_arrowhead = 10000000;
   #elif defined(SPMV_DENSE)
-    uint64_t n_dense = 20000;
+    uint64_t n_dense = 10000;
   #elif defined(SPMV_DIAGONAL)
     uint64_t n_diagonal = 50000000;
   #else
