@@ -25,8 +25,12 @@ namespace spmv {
     uint64_t n_bigcols = 27;
   #elif defined(SPMV_ARROWHEAD)
     uint64_t n_arrowhead = 2000000000;
+  #elif defined(SPMV_DENSE)
+    uint64_t n_dense = 200000;
+  #elif defined(SPMV_DIAGONAL)
+    uint64_t n_diagonal = 10000000000;
   #else
-    #error "Need to select input class, e.g., SPMV_RANDOM, SPMV_POWERLAW, SPMV_ARROWHEAD"
+    #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL}"
   #endif
 #elif defined(INPUT_TESTING)
   #if defined(SPMV_RANDOM)
@@ -36,11 +40,15 @@ namespace spmv {
     uint64_t n_bigcols = 20;
   #elif defined(SPMV_ARROWHEAD)
     uint64_t n_arrowhead = 10000000;
+  #elif defined(SPMV_DENSE)
+    uint64_t n_dense = 20000;
+  #elif defined(SPMV_DIAGONAL)
+    uint64_t n_diagonal = 50000000;
   #else
-    #error "Need to select input class, e.g., SPMV_RANDOM, SPMV_POWERLAW, SPMV_ARROWHEAD"
+    #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL}"
   #endif
 #else
-  #error "Need to select input size, e.g., INPUT_BENCHMARKING, INPUT_TESTING"
+  #error "Need to select input size: INPUT_BENCHMARKING, INPUT_TESTING"
 #endif
 
 uint64_t row_len = 1000;
@@ -318,9 +326,71 @@ auto bench_pre_arrowhead() {
   });
 }
 
+#elif defined(SPMV_DENSE)
+
+auto mk_dense_edgelist(size_t n) {
+  edgelist_type edges;
+  for (size_t i = 0; i < n; i++) {
+    for (size_t j = 0; j < n; j++) {
+      edges.push_back(std::make_pair(i, j));
+    }
+  }
+  return edges;
+}
+
+auto bench_pre_dense() {
+  nb_rows = n_dense;
+  bench_pre_shared([&] {
+#if defined(INPUT_BENCHMARKING)
+    const char* filename = "matrix_dense_benchmarking.dat";
+#else
+    const char* filename = "matrix_dense_testing.dat";
+#endif
+    if (!access(filename, F_OK)) {
+      printf("read matrix from %s\n", filename);
+      read_matrix_from_file(filename);
+    } else {
+      auto edges = mk_dense_edgelist(nb_rows);
+      csr_of_edgelist(edges);
+      write_matrix_to_file(filename);
+      printf("write matrix to %s\n", filename);
+    }
+  });
+}
+
+#elif defined(SPMV_DIAGONAL)
+
+auto mk_diagonal_edgelist(size_t n) {
+  edgelist_type edges;
+  for (size_t i = 0; i < n; i++) {
+    edges.push_back(std::make_pair(i, i));
+  }
+  return edges;
+}
+
+auto bench_pre_diagonal() {
+  nb_rows = n_diagonal;
+  bench_pre_shared([&] {
+#if defined(INPUT_BENCHMARKING)
+    const char* filename = "matrix_diagonal_benchmarking.dat";
+#else
+    const char* filename = "matrix_diagonal_testing.dat";
+#endif
+    if (!access(filename, F_OK)) {
+      printf("read matrix from %s\n", filename);
+      read_matrix_from_file(filename);
+    } else {
+      auto edges = mk_diagonal_edgelist(nb_rows);
+      csr_of_edgelist(edges);
+      write_matrix_to_file(filename);
+      printf("write matrix to %s\n", filename);
+    }
+  });
+}
+
 #else
 
-  #error "Need to select input class, e.g., SPMV_RANDOM, SPMV_POWERLAW, SPMV_ARROWHEAD"
+  #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL}"
 
 #endif
 
@@ -331,8 +401,12 @@ void setup() {
   bench_pre_bigcols();
 #elif defined(SPMV_ARROWHEAD)
   bench_pre_arrowhead();
+#elif defined(SPMV_DENSE)
+  bench_pre_dense();
+#elif defined(SPMV_DIAGONAL)
+  bench_pre_diagonal();
 #else
-  #error "Need to select input class, e.g., SPMV_RANDOM, SPMV_POWERLAW, SPMV_ARROWHEAD"
+  #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL}"
 #endif
 }
 
