@@ -44,6 +44,18 @@ void collect_heartbeat_polling_time_print() {
 }
 #endif
 
+#define CACHELINE     8
+#define START_ITER    0
+#define MAX_ITER      1
+#define LIVE_IN_ENV   2
+#define LIVE_OUT_ENV  3
+
+/*
+ * Benchmark-specific variable indicating the level of nested loop
+ * This variable should be defined inside heartbeat_*.hpp
+ */
+extern uint64_t numLevels;
+
 #if defined(HEARTBEAT_BRANCHES)
 
 #elif defined(HEARTBEAT_VERSIONING)
@@ -334,17 +346,12 @@ void loop_handler_optimized(
  * 3. caller should perform the correct reduction depends on the return value
  */ 
 uint64_t loop_handler(
-  uint64_t *startIters,
-  uint64_t *maxIters,
-  uint64_t *constLiveIns,
-  uint64_t **liveInEnvs,
-  uint64_t **liveOutEnvs,
+  uint64_t *envs,
   uint64_t myLevel,
   uint64_t startingLevel,
-  uint64_t numLevels,
-  uint64_t (*splittingTasks[])(uint64_t *, uint64_t *, uint64_t *, uint64_t **, uint64_t **, uint64_t, uint64_t, uint64_t),
-  uint64_t (*leftoverTasks[])(uint64_t *, uint64_t *, uint64_t *, uint64_t **, uint64_t **, uint64_t, uint64_t, uint64_t),
-  uint64_t (*leafTasks[])(uint64_t *, uint64_t *, uint64_t *, uint64_t *, uint64_t *, uint64_t)
+  uint64_t (*splittingTasks[])(uint64_t *, uint64_t, uint64_t, uint64_t),
+  uint64_t (*leftoverTasks[])(uint64_t *, uint64_t, uint64_t, uint64_t),
+  uint64_t (*leafTasks[])(uint64_t *, uint64_t)
 ) {
 #if defined(DISABLE_HEARTBEAT_PROMOTION)
   return LLONG_MAX;
@@ -383,7 +390,7 @@ uint64_t loop_handler(
    */
   uint64_t splittingLevel = numLevels;
   for (uint64_t level = startingLevel; level <= myLevel; level++) {
-    if (maxIters[level * 8] - startIters[level * 8] >= SMALLEST_GRANULARITY + 1) {
+    if (envs[level * CACHELINE + MAX_ITER] - envs[level * CACHELINE + START_ITER] >= SMALLEST_GRANULARITY + 1) {
       splittingLevel = level;
       break;
     }
@@ -396,41 +403,31 @@ uint64_t loop_handler(
   }
 
   /*
-   * Allocate the new liveInEnvs and liveOutEnvs for both tasks
+   * Allocate envs for both tasks
    */
-  uint64_t **liveInEnvsFirst =    (uint64_t **)alloca(sizeof(uint64_t) * numLevels * 8);
-  uint64_t **liveInEnvsSecond =   (uint64_t **)alloca(sizeof(uint64_t) * numLevels * 8);
-  uint64_t **liveOutEnvsFirst =   (uint64_t **)alloca(sizeof(uint64_t) * numLevels * 8);
-  uint64_t **liveOutEnvsSecond =  (uint64_t **)alloca(sizeof(uint64_t) * numLevels * 8);
-
-  /*
-   * Allocate startIters and maxIters for both tasks
-   */
-  uint64_t *startItersFirst =   (uint64_t *)alloca(sizeof(uint64_t) * numLevels * 8);
-  uint64_t *maxItersFirst =     (uint64_t *)alloca(sizeof(uint64_t) * numLevels * 8);
-  uint64_t *startItersSecond =  (uint64_t *)alloca(sizeof(uint64_t) * numLevels * 8);
-  uint64_t *maxItersSecond =    (uint64_t *)alloca(sizeof(uint64_t) * numLevels * 8);
+  uint64_t *envsFirst   = (uint64_t *)alloca(sizeof(uint64_t) * numLevels * CACHELINE);
+  uint64_t *envsSecond  = (uint64_t *)alloca(sizeof(uint64_t) * numLevels * CACHELINE);
 
   /*
    * Determine the splitting point of the remaining iterations
    */
-  uint64_t med = (startIters[splittingLevel * 8] + 1 + maxIters[splittingLevel * 8]) / 2;
+  uint64_t med = (envs[splittingLevel * CACHELINE + START_ITER] + 1 + envs[splittingLevel * CACHELINE + MAX_ITER]) / 2;
 
   /*
    * Set startIters and maxIters for both tasks
    */
-  startItersFirst[splittingLevel * 8] = startIters[splittingLevel * 8] + 1;
-  maxItersFirst[splittingLevel * 8] = med;
-  startItersSecond[splittingLevel * 8] = med;
-  maxItersSecond[splittingLevel * 8] = maxIters[splittingLevel * 8];
+  envsFirst[splittingLevel * CACHELINE + START_ITER]   = envs[splittingLevel * CACHELINE + START_ITER] + 1;
+  envsFirst[splittingLevel * CACHELINE + MAX_ITER]     = med;
+  envsSecond[splittingLevel * CACHELINE + START_ITER]  = med;
+  envsSecond[splittingLevel * CACHELINE + MAX_ITER]    = envs[splittingLevel * CACHELINE + MAX_ITER];
 
   /*
    * Reconstruct the environment at the splittingLevel for both tasks
    */
-  liveInEnvsFirst[splittingLevel * 8] = liveInEnvs[splittingLevel * 8];
-  liveInEnvsSecond[splittingLevel * 8] = liveInEnvs[splittingLevel * 8];
-  liveOutEnvsFirst[splittingLevel * 8] = liveOutEnvs[splittingLevel * 8];
-  liveOutEnvsSecond[splittingLevel * 8] = liveOutEnvs[splittingLevel * 8];
+  envsFirst[splittingLevel * CACHELINE + LIVE_IN_ENV]   = envs[splittingLevel * CACHELINE + LIVE_IN_ENV];
+  envsSecond[splittingLevel * CACHELINE + LIVE_IN_ENV]  = envs[splittingLevel * CACHELINE + LIVE_IN_ENV];
+  envsFirst[splittingLevel * CACHELINE + LIVE_OUT_ENV]  = envs[splittingLevel * CACHELINE + LIVE_OUT_ENV];
+  envsSecond[splittingLevel * CACHELINE + LIVE_OUT_ENV] = envs[splittingLevel * CACHELINE + LIVE_OUT_ENV];
 
   if (splittingLevel == myLevel) { // no leftover task needed
     /*
@@ -438,9 +435,9 @@ uint64_t loop_handler(
      */
     if (myLevel + 1 != numLevels) {
       taskparts::tpalrts_promote_via_nativefj([&] {
-        (*splittingTasks[myLevel])(startItersFirst, maxItersFirst, constLiveIns, liveInEnvsFirst, liveOutEnvsFirst, myLevel, 0, splittingLevel);
+        (*splittingTasks[myLevel])(envsFirst, myLevel, 0, myLevel);
       }, [&] {
-        (*splittingTasks[myLevel])(startItersSecond, maxItersSecond, constLiveIns, liveInEnvsSecond, liveOutEnvsSecond, myLevel, 1, splittingLevel);
+        (*splittingTasks[myLevel])(envsSecond, myLevel, 1, myLevel);
       }, [] { }, taskparts::bench_scheduler());
 
     } else {
@@ -450,40 +447,33 @@ uint64_t loop_handler(
       uint64_t leafTaskIndex = getLeafTaskIndex(myLevel);
 
       taskparts::tpalrts_promote_via_nativefj([&] {
-        (*leafTasks[leafTaskIndex])(&startItersFirst[myLevel * 8], &maxItersFirst[myLevel * 8], constLiveIns, liveInEnvsFirst[myLevel * 8], liveOutEnvsFirst[myLevel * 8], 0);
+        (*leafTasks[leafTaskIndex])(&envsFirst[myLevel * CACHELINE], 0);
       }, [&] {
-        (*leafTasks[leafTaskIndex])(&startItersSecond[myLevel * 8], &maxItersSecond[myLevel * 8], constLiveIns, liveInEnvsSecond[myLevel * 8], liveOutEnvsSecond[myLevel * 8], 1);
+        (*leafTasks[leafTaskIndex])(&envsSecond[myLevel * CACHELINE], 1);
       }, [] { }, taskparts::bench_scheduler());
     }
 
   } else { // build up the leftover task
     /*
-     * Allocate the new liveInEnvs and liveOutEnvs for leftover task
+     * Allocate env for leftover task
      */
-    uint64_t **liveInEnvsLeftover =   (uint64_t **)alloca(sizeof(uint64_t) * numLevels * 8);
-    uint64_t **liveOutEnvsLeftover =  (uint64_t **)alloca(sizeof(uint64_t) * numLevels * 8);
-
-    /*
-     * Allocate startIters and maxIters for leftover task
-     */
-    uint64_t *startItersLeftover =  (uint64_t *)alloca(sizeof(uint64_t) * numLevels * 8);
-    uint64_t *maxItersLeftover =    (uint64_t *)alloca(sizeof(uint64_t) * numLevels * 8);
+    uint64_t *envsLeftover = (uint64_t *)alloca(sizeof(uint64_t) * numLevels * CACHELINE);
 
     /*
      * Reconstruct the environment starting from splittingLevel + 1 up to myLevel for leftover task
      */
     for (uint64_t level = splittingLevel + 1; level <= myLevel; level++) {
-      uint64_t index = level * 8;
-      liveInEnvsLeftover[index] = liveInEnvs[index];
-      liveOutEnvsLeftover[index] = liveOutEnvs[index];
+      uint64_t index = level * CACHELINE;
+      envsLeftover[index + LIVE_IN_ENV]   = envs[index + LIVE_IN_ENV];
+      envsLeftover[index + LIVE_OUT_ENV]  = envs[index + LIVE_OUT_ENV];
 
-      startItersLeftover[index]  = startIters[index] + 1;
-      maxItersLeftover[index] = maxIters[index];
+      envsLeftover[index + START_ITER] = envs[index + START_ITER] + 1;
+      envsLeftover[index + MAX_ITER]   = envs[index + MAX_ITER];
 
       /*
        * Set maxIters for the tail task
        */
-      maxIters[index] = startIters[index] + 1; 
+      envs[index + MAX_ITER] = envs[index + START_ITER] + 1;
     }
 
     /*
@@ -492,12 +482,12 @@ uint64_t loop_handler(
     uint64_t leftoverTaskIndex = getLeftoverTaskIndex(splittingLevel, myLevel);
 
     taskparts::tpalrts_promote_via_nativefj([&] {
-      (*leftoverTasks[leftoverTaskIndex])(startItersLeftover, maxItersLeftover, constLiveIns, liveInEnvsLeftover, liveOutEnvsLeftover, myLevel, 0, splittingLevel + 1);
+      (*leftoverTasks[leftoverTaskIndex])(envsLeftover, myLevel, 0, splittingLevel + 1);
     }, [&] {
       taskparts::tpalrts_promote_via_nativefj([&] {
-        (*splittingTasks[splittingLevel])(startItersFirst, maxItersFirst, constLiveIns, liveInEnvsFirst, liveOutEnvsFirst, splittingLevel, 0, splittingLevel);
+        (*splittingTasks[splittingLevel])(envsFirst, splittingLevel, 0, splittingLevel);
       }, [&] {
-        (*splittingTasks[splittingLevel])(startItersSecond, maxItersSecond, constLiveIns, liveInEnvsSecond, liveOutEnvsSecond, splittingLevel, 1, splittingLevel);
+        (*splittingTasks[splittingLevel])(envsSecond, splittingLevel, 1, splittingLevel);
       }, [&] { }, taskparts::bench_scheduler());
     }, [&] { }, taskparts::bench_scheduler());
   }
@@ -505,7 +495,7 @@ uint64_t loop_handler(
   /*
    * Set maxIters for the tail task
    */
-  maxIters[splittingLevel * 8] = startIters[splittingLevel * 8] + 1;
+  envs[splittingLevel * CACHELINE + MAX_ITER] = envs[splittingLevel * CACHELINE + START_ITER] + 1;
 
   return splittingLevel;
 }
@@ -513,12 +503,8 @@ uint64_t loop_handler(
 #endif
 
 uint64_t loop_handler_optimized(
-  uint64_t *startIter,
-  uint64_t *maxIter,
-  uint64_t *constLiveIns,
-  uint64_t *liveInEnv,
-  uint64_t *liveOutEnv,
-  uint64_t (*leafTask)(uint64_t *, uint64_t *, uint64_t *, uint64_t *, uint64_t *, uint64_t)
+  uint64_t *env,
+  uint64_t (*leafTask)(uint64_t *, uint64_t)
 ) {
 #if defined(DISABLE_HEARTBEAT_PROMOTION)
   return LLONG_MAX;
@@ -555,34 +541,37 @@ uint64_t loop_handler_optimized(
   /*
    * Determine if there's more work for splitting
    */
-  if ((maxIter[0 * 8] - startIter[0 * 8]) <= SMALLEST_GRANULARITY) {
+  if ((env[MAX_ITER] - env[START_ITER]) <= SMALLEST_GRANULARITY) {
     return LLONG_MAX;
   }
 
   /*
-   * Allocate startIter and maxIter for both tasks
+   * Allocate env for both tasks
    */
-  uint64_t startIterFirst[1 * 8];
-  uint64_t maxIterFirst[1 * 8];
-  uint64_t startIterSecond[1 * 8];
-  uint64_t maxIterSecond[1 * 8];
+  uint64_t envFirst[1 * CACHELINE];
+  uint64_t envSecond[1 * CACHELINE];
 
-  uint64_t med = (startIter[0 * 8] + maxIter[0 * 8] + 1) / 2;
-  startIterFirst[0 * 8] = startIter[0 * 8] + 1;
-  maxIterFirst[0 * 8] = med;
-  startIterSecond[0 * 8] = med;
-  maxIterSecond[0 * 8] = maxIter[0 * 8];
+  uint64_t med  = (env[START_ITER] + env[MAX_ITER] + 1) / 2;
+  envFirst[START_ITER]  = env[START_ITER] + 1;
+  envFirst[MAX_ITER]    = med;
+  envSecond[START_ITER] = med;
+  envSecond[MAX_ITER]   = env[MAX_ITER];
+
+  envFirst[LIVE_IN_ENV]   = env[LIVE_IN_ENV];
+  envFirst[LIVE_OUT_ENV]  = env[LIVE_OUT_ENV];
+  envSecond[LIVE_IN_ENV]  = env[LIVE_IN_ENV];
+  envSecond[LIVE_OUT_ENV] = env[LIVE_OUT_ENV];
 
   taskparts::tpalrts_promote_via_nativefj([&] {
-    (*leafTask)(startIterFirst, maxIterFirst, constLiveIns, liveInEnv, liveOutEnv, 0);
+    (*leafTask)(envFirst, 0);
   }, [&] {
-    (*leafTask)(startIterSecond, maxIterSecond, constLiveIns, liveInEnv, liveOutEnv, 1);
+    (*leafTask)(envSecond, 1);
   }, [] { }, taskparts::bench_scheduler());
 
   /*
    * Set maxIters for the tail task
    */
-  maxIter[0 * 8] = startIter[0 * 8] + 1;
+  env[MAX_ITER] = env[START_ITER] + 1;
 
   return 0;
 }
