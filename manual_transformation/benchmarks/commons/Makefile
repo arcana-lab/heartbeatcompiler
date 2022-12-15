@@ -207,27 +207,6 @@ run_heartbeat_versioning: heartbeat_versioning
 	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY_KHZ); ./$<
 
 # ======================
-# Heartbeat::Correctness
-# ======================
-# version to use for testing correctness
-# options: branches, versioning
-VERSION ?= versioning
-ifeq ($(VERSION), branches)
-	CORRECTNESS_VERSION = -DHEARTBEAT_BRANCHES
-else ifeq ($(VERSION), versioning)
-	CORRECTNESS_VERSION = -DHEARTBEAT_VERSIONING
-endif
-
-correctness: heartbeat.cpp
-	$(CXX) -DTEST_CORRECTNESS $(CORRECTNESS_VERSION) $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $^ -o $@ $(LIBS_HEARTBEAT)
-
-run_correctness: correctness
-	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY_KHZ); ./$<
-
-test_correctness: test_correctness.sh
-	./$<
-
-# ======================
 # Heartbeat:Evaluation
 # ======================
 condor:
