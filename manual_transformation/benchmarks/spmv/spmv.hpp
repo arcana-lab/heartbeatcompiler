@@ -476,7 +476,41 @@ void spmv_opencilk(
     }, row_ptr[i], row_ptr[i+1], &y[i]);
   }
 }
-#elif defined(OPENCILK_OUTER)
+
+#elif defined(OPENCILK_OUTER_SPAWN)
+static constexpr
+uint64_t threshold = 1024;
+template <typename F>
+void outer_spawn_cilk(const F& f, uint64_t lo, uint64_t hi) {
+  if ((hi - lo) < threshold) {
+    f(lo, hi);
+  } else {
+    auto mid = (lo + hi) / 2;
+    cilk_spawn outer_spawn_cilk(f, lo, mid);
+    outer_spawn_cilk(f, mid, hi);
+    cilk_sync;
+  }
+}
+
+void spmv_opencilk(
+  double* val,
+	uint64_t* row_ptr,
+	uint64_t* col_ind,
+	double* x,
+	double* y,
+	int64_t n) {
+  outer_spawn_cilk([=] (uint64_t lo, uint64_t hi) {
+    for (int64_t i = lo; i < hi; i++) {
+      double r = 0.0;
+      for (int64_t k = row_ptr[i]; k < row_ptr[i+1]; k++) {
+        r += val[k] * x[col_ind[k]];
+      }
+      y[i] = r;
+    }
+  }, 0, n);
+}
+
+#elif defined(OPENCILK_OUTER_FOR)
 void spmv_opencilk(
   double* val,
 	uint64_t* row_ptr,
