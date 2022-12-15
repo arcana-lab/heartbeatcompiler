@@ -7,7 +7,7 @@
   #error "Macro SMALLEST_GRANULARITY undefined"
 #endif
 
-#if defined(COLLECT_HEARTBEAT_POLLING_TIME)
+#if defined(COLLECT_HEARTBEAT_POLLING_TIME) || defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
 #include <pthread.h>
 #include <stdio.h>
 
@@ -17,8 +17,11 @@
   rdtsc_val_ = (uint64_t)rdtsc_hi_ << 32 | rdtsc_lo_; \
 } while (0)
 
-volatile pthread_spinlock_t lock;
+auto cpu_frequency_khz = taskparts::get_cpu_frequency_khz();
 auto num_workers = taskparts::perworker::id::get_nb_workers();
+
+#if defined(COLLECT_HEARTBEAT_POLLING_TIME)
+volatile pthread_spinlock_t lock;
 static volatile uint64_t useful_cycles = 0;
 static volatile uint64_t useful_invocations = 0;
 static volatile uint64_t wasted_cycles = 0;
@@ -29,19 +32,59 @@ void collect_heartbeat_polling_time_init() {
 }
 
 void collect_heartbeat_polling_time_print() {
-  printf("cpu frequency: 2.8 GHz\n");
+  printf("========= Heartbeat Polling Time Summary =========\n");
+  printf("cpu_frequency_khz: %lu\n", cpu_frequency_khz);
   printf("num_workers: %zu\n", num_workers);
+
+  printf("\n");
 
   printf("useful_cycles: %lu\n", useful_cycles);
   printf("useful_invocations: %lu\n", useful_invocations);
-  printf("useful_cycles_per_invocation: %.2f\n", useful_invocations == 0 ? 0 : (double)useful_cycles/(double)useful_invocations);
-  printf("useful_seconds: %.2f\n", useful_invocations == 0 ? 0.00 : (double)useful_cycles/(double)2800000000/(double)num_workers);
+  printf("useful_cycles_per_invocation: %.2f\n", useful_invocations == 0 ? 0.00 : (double)useful_cycles/(double)useful_invocations);
+  printf("useful_seconds: %.2f\n", useful_invocations == 0 ? 0.00 : (double)useful_cycles/((double)cpu_frequency_khz * 100)/(double)num_workers);
+
+  printf("\n");
 
   printf("wasted_cycles: %lu\n", wasted_cycles);
   printf("wasted_invocations: %lu\n", wasted_invocations);
-  printf("wasted_cycles_per_invocation: %.2f\n", wasted_invocations == 0 ? 0 : (double)wasted_cycles/(double)wasted_invocations);
-  printf("wasted_seconds: %.2f\n", wasted_invocations == 0 ? 0.00 : (double)wasted_cycles/(double)2800000000/(double)num_workers);
+  printf("wasted_cycles_per_invocation: %.2f\n", wasted_invocations == 0 ? 0.00 : (double)wasted_cycles/(double)wasted_invocations);
+  printf("wasted_seconds: %.2f\n", wasted_invocations == 0 ? 0.00 : (double)wasted_cycles/((double)cpu_frequency_khz * 100)/(double)num_workers);
+  printf("==================================================\n");
 }
+#endif
+
+#if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
+volatile pthread_spinlock_t promotion_lock;
+static volatile uint64_t promotion_generic_cycles = 0;
+static volatile uint64_t promotion_generic_counts = 0;
+static volatile uint64_t promotion_optimized_cycles = 0;
+static volatile uint64_t promotion_optimized_counts = 0;
+
+void collect_heartbeat_promotion_time_init() {
+  pthread_spin_init(&promotion_lock, 0);
+}
+
+void collect_heartbeat_promotion_time_print() {
+  printf("======== Heartbeat Promotion Time Summary ========\n");
+  printf("cpu_frequency_khz: %lu\n", cpu_frequency_khz);
+  printf("num_workers: %zu\n", num_workers);
+
+  printf("\n");
+
+  printf("promotion_generic_cycles: %lu\n", promotion_generic_cycles);
+  printf("promotion_generic_counts: %lu\n", promotion_generic_counts);
+  printf("promotion_generic_cycles_per_count: %.2f\n", promotion_generic_counts == 0 ? 0.00 : (double)promotion_generic_cycles/(double)promotion_generic_counts);
+  printf("promotion_generic_seconds: %.2f\n", promotion_generic_counts == 0 ? 0.00 : (double)promotion_generic_cycles/((double)cpu_frequency_khz * 100)/(double)num_workers);
+
+  printf("\n");
+
+  printf("promotion_optimized_cycles: %lu\n", promotion_optimized_cycles);
+  printf("promotion_optimized_counts: %lu\n", promotion_optimized_counts);
+  printf("promotion_optimized_cycles_per_count: %.2f\n", promotion_optimized_counts == 0 ? 0.00 : (double)promotion_optimized_cycles/(double)promotion_optimized_counts);
+  printf("promotion_optimized_seconds: %.2f\n", promotion_optimized_counts == 0 ? 0.00 : (double)promotion_optimized_cycles/((double)cpu_frequency_khz * 100)/(double)num_workers);
+  printf("==================================================\n");
+}
+#endif
 #endif
 
 #define CACHELINE     8
@@ -110,11 +153,11 @@ void loop_handler(
   auto n = taskparts::cycles::now();
   if ((p + taskparts::kappa_cycles) > n) {
 #if defined(COLLECT_HEARTBEAT_POLLING_TIME)
-    RDTSC(end);
-    pthread_spin_lock(&lock);
-    wasted_cycles += end - start;
-    wasted_invocations += 1;
-    pthread_spin_unlock(&lock);
+  RDTSC(end);
+  pthread_spin_lock(&lock);
+  wasted_cycles += end - start;
+  wasted_invocations += 1;
+  pthread_spin_unlock(&lock);
 #endif
     return;
   }
@@ -184,6 +227,13 @@ void loop_handler(
      * Splitting the rest of work depending on whether splitting the leaf loop
      */
     if (myLevel + 1 != numLevels) {
+#if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
+  RDTSC(promotion_end);
+  pthread_spin_lock(&promotion_lock);
+  promotion_optimized_cycles += promotion_end - promotion_start;
+  promotion_optimized_counts += 1;
+  pthread_spin_unlock(&promotion_lock);
+#endif
       taskparts::tpalrts_promote_via_nativefj([&] {
         (*splittingTasks[myLevel])(startItersFirst, maxItersFirst, constLiveIns, liveInEnvsFirst, myLevel, splittingLevel);
       }, [&] {
@@ -196,6 +246,13 @@ void loop_handler(
        */
       uint64_t leafTaskIndex = getLeafTaskIndex(myLevel);
 
+#if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
+  RDTSC(promotion_end);
+  pthread_spin_lock(&promotion_lock);
+  promotion_optimized_cycles += promotion_end - promotion_start;
+  promotion_optimized_counts += 1;
+  pthread_spin_unlock(&promotion_lock);
+#endif
       taskparts::tpalrts_promote_via_nativefj([&] {
         (*leafTasks[leafTaskIndex])(&startItersFirst[myLevel * 8], &maxItersFirst[myLevel * 8], constLiveIns, liveInEnvsFirst[myLevel * 8]);
       }, [&] {
@@ -236,6 +293,13 @@ void loop_handler(
      */
     uint64_t leftoverTaskIndex = getLeftoverTaskIndex(splittingLevel, myLevel);
 
+#if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
+  RDTSC(promotion_end);
+  pthread_spin_lock(&promotion_lock);
+  promotion_optimized_cycles += promotion_end - promotion_start;
+  promotion_optimized_counts += 1;
+  pthread_spin_unlock(&promotion_lock);
+#endif
     taskparts::tpalrts_promote_via_nativefj([&] {
       (*leftoverTasks[leftoverTaskIndex])(startItersLeftover, maxItersLeftover, constLiveIns, liveInEnvsLeftover, myLevel, splittingLevel + 1);
     }, [&] {
@@ -279,11 +343,11 @@ void loop_handler_optimized(
   auto n = taskparts::cycles::now();
   if ((p + taskparts::kappa_cycles) > n) {
 #if defined(COLLECT_HEARTBEAT_POLLING_TIME)
-    RDTSC(end);
-    pthread_spin_lock(&lock);
-    wasted_cycles += end - start;
-    wasted_invocations += 1;
-    pthread_spin_unlock(&lock);
+  RDTSC(end);
+  pthread_spin_lock(&lock);
+  wasted_cycles += end - start;
+  wasted_invocations += 1;
+  pthread_spin_unlock(&lock);
 #endif
     return;
   }
@@ -317,6 +381,13 @@ void loop_handler_optimized(
   startIterSecond[0 * 8] = med;
   maxIterSecond[0 * 8] = maxIter[0 * 8];
 
+#if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
+  RDTSC(promotion_end);
+  pthread_spin_lock(&promotion_lock);
+  promotion_optimized_cycles += promotion_end - promotion_start;
+  promotion_optimized_counts += 1;
+  pthread_spin_unlock(&promotion_lock);
+#endif
   taskparts::tpalrts_promote_via_nativefj([&] {
     (*leafTask)(startIterFirst, maxIterFirst, constLiveIns, liveInEnv);
   }, [&] {
@@ -368,11 +439,11 @@ uint64_t loop_handler(
   auto n = taskparts::cycles::now();
   if ((p + taskparts::kappa_cycles) > n) {
 #if defined(COLLECT_HEARTBEAT_POLLING_TIME)
-    RDTSC(end);
-    pthread_spin_lock(&lock);
-    wasted_cycles += end - start;
-    wasted_invocations += 1;
-    pthread_spin_unlock(&lock);
+  RDTSC(end);
+  pthread_spin_lock(&lock);
+  wasted_cycles += end - start;
+  wasted_invocations += 1;
+  pthread_spin_unlock(&lock);
 #endif
     return LLONG_MAX;
   }
@@ -402,6 +473,10 @@ uint64_t loop_handler(
     return LLONG_MAX;
   }
 
+#if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
+  uint64_t promotion_start, promotion_end;
+  RDTSC(promotion_start);
+#endif
   /*
    * Allocate envs for both tasks
    */
@@ -434,6 +509,13 @@ uint64_t loop_handler(
      * Splitting the rest of work depending on whether splitting the leaf loop
      */
     if (myLevel + 1 != numLevels) {
+#if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
+  RDTSC(promotion_end);
+  pthread_spin_lock(&promotion_lock);
+  promotion_generic_cycles += promotion_end - promotion_start;
+  promotion_generic_counts += 1;
+  pthread_spin_unlock(&promotion_lock);
+#endif
       taskparts::tpalrts_promote_via_nativefj([&] {
         (*splittingTasks[myLevel])(envsFirst, myLevel, 0, myLevel);
       }, [&] {
@@ -446,6 +528,13 @@ uint64_t loop_handler(
        */
       uint64_t leafTaskIndex = getLeafTaskIndex(myLevel);
 
+#if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
+  RDTSC(promotion_end);
+  pthread_spin_lock(&promotion_lock);
+  promotion_generic_cycles += promotion_end - promotion_start;
+  promotion_generic_counts += 1;
+  pthread_spin_unlock(&promotion_lock);
+#endif
       taskparts::tpalrts_promote_via_nativefj([&] {
         (*leafTasks[leafTaskIndex])(&envsFirst[myLevel * CACHELINE], 0);
       }, [&] {
@@ -481,6 +570,13 @@ uint64_t loop_handler(
      */
     uint64_t leftoverTaskIndex = getLeftoverTaskIndex(splittingLevel, myLevel);
 
+#if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
+  RDTSC(promotion_end);
+  pthread_spin_lock(&promotion_lock);
+  promotion_generic_cycles += promotion_end - promotion_start;
+  promotion_generic_counts += 1;
+  pthread_spin_unlock(&promotion_lock);
+#endif
     taskparts::tpalrts_promote_via_nativefj([&] {
       (*leftoverTasks[leftoverTaskIndex])(envsLeftover, myLevel, 0, splittingLevel + 1);
     }, [&] {
@@ -521,11 +617,11 @@ uint64_t loop_handler_optimized(
   auto n = taskparts::cycles::now();
   if ((p + taskparts::kappa_cycles) > n) {
 #if defined(COLLECT_HEARTBEAT_POLLING_TIME)
-    RDTSC(end);
-    pthread_spin_lock(&lock);
-    wasted_cycles += end - start;
-    wasted_invocations += 1;
-    pthread_spin_unlock(&lock);
+  RDTSC(end);
+  pthread_spin_lock(&lock);
+  wasted_cycles += end - start;
+  wasted_invocations += 1;
+  pthread_spin_unlock(&lock);
 #endif
     return LLONG_MAX;
   }
@@ -545,6 +641,10 @@ uint64_t loop_handler_optimized(
     return LLONG_MAX;
   }
 
+#if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
+  uint64_t promotion_start, promotion_end;
+  RDTSC(promotion_start);
+#endif
   /*
    * Allocate env for both tasks
    */
@@ -562,6 +662,13 @@ uint64_t loop_handler_optimized(
   envSecond[LIVE_IN_ENV]  = env[LIVE_IN_ENV];
   envSecond[LIVE_OUT_ENV] = env[LIVE_OUT_ENV];
 
+#if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
+  RDTSC(promotion_end);
+  pthread_spin_lock(&promotion_lock);
+  promotion_optimized_cycles += promotion_end - promotion_start;
+  promotion_optimized_counts += 1;
+  pthread_spin_unlock(&promotion_lock);
+#endif
   taskparts::tpalrts_promote_via_nativefj([&] {
     (*leafTask)(envFirst, 0);
   }, [&] {

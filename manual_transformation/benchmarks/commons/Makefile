@@ -130,6 +130,15 @@ ifeq ($(ENABLE_HEARTBEAT_PROMOTION), true)
 	endif
 endif
 
+# report time overhead spent in heartbeat promotion
+# options: true, false
+COLLECT_HEARTBEAT_PROMOTION_TIME ?= false
+ifeq ($(ENABLE_HEARTBEAT_PROMOTION), true)
+	ifeq ($(COLLECT_HEARTBEAT_PROMOTION_TIME), true)
+		MACROS_HEARTBEAT += -DCOLLECT_HEARTBEAT_PROMOTION_TIME
+	endif
+endif
+
 # whether the leftover task is further splittable through heartbeat promotion
 # options: true, false
 LEFTOVER_SPLITTABLE ?= false

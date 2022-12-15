@@ -30,6 +30,9 @@ int main() {
 #if defined(COLLECT_HEARTBEAT_POLLING_TIME)
   collect_heartbeat_polling_time_init();
 #endif
+#if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
+  collect_heartbeat_promotion_time_init();
+#endif
   setup();
 
 #if defined(COLLECT_KERNEL_TIME)
@@ -55,6 +58,9 @@ int main() {
   printf("result=%lu\n", result);
 #if defined(COLLECT_HEARTBEAT_POLLING_TIME)
   collect_heartbeat_polling_time_print();
+#endif
+#if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
+  collect_heartbeat_promotion_time_print();
 #endif
   return 0;
 }
