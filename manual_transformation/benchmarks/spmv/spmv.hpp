@@ -550,7 +550,8 @@ void spmv_openmp(
     y[i] = r;
   }
 }
-#else
+#endif
+
 void spmv_serial(
   double *val,
   uint64_t *row_ptr,
@@ -566,7 +567,6 @@ void spmv_serial(
     y[i] = r;
   }
 }
-#endif
 
 #if defined(TEST_CORRECTNESS)
 void test_correctness(double* y) {

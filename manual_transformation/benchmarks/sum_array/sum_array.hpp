@@ -61,7 +61,8 @@ uint64_t sum_array_openmp(char* a, uint64_t lo, uint64_t hi) {
   }
   return r;
 }
-#else
+#endif
+
 uint64_t sum_array_serial(char *a, uint64_t lo, uint64_t hi) {
   uint64_t r = 0;
   for (uint64_t i = lo; i != hi; i++) {
@@ -69,6 +70,5 @@ uint64_t sum_array_serial(char *a, uint64_t lo, uint64_t hi) {
   }
   return r;
 }
-#endif
 
 }

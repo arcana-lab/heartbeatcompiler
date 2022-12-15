@@ -24,6 +24,9 @@ int main() {
   printf("\"kernel_exectime\":  %.2f\n", duration.count());
 #endif
 
+#if defined(TEST_CORRECTNESS)
+  test_correctness(y);
+#endif
 
   finishup();
 

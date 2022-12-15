@@ -96,7 +96,8 @@ void floyd_warshall_openmp(int* dist, int vertices) {
     }
   }
 }
-#else
+#endif
+
 void floyd_warshall_serial(int* dist, int vertices) {
   for (int via = 0; via < vertices; via++) {
     for (int from = 0; from < vertices; from++) {
@@ -110,7 +111,6 @@ void floyd_warshall_serial(int* dist, int vertices) {
     }
   }
 }
-#endif
 
 #if defined(TEST_CORRECTNESS)
 void test_correctness(int *dist) {

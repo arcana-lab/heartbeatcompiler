@@ -70,7 +70,8 @@ uint64_t sum_array_nested_openmp(char **a, uint64_t lo1, uint64_t hi1, uint64_t 
   }
   return r;
 }
-#else
+#endif
+
 uint64_t sum_array_nested_serial(char **a, uint64_t lo1, uint64_t hi1, uint64_t lo2, uint64_t hi2) {
   uint64_t r = 0;
   for (uint64_t i = lo1; i != hi1; i++) {
@@ -80,6 +81,5 @@ uint64_t sum_array_nested_serial(char **a, uint64_t lo1, uint64_t hi1, uint64_t 
   }
   return r;
 }
-#endif
 
 }

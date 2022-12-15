@@ -17,6 +17,13 @@ else
 	MACROS += -DINPUT_TESTING
 endif
 
+# whether to test the correctness of any implementation
+# options: true, false
+TEST_CORRECTNESS ?= false
+ifeq ($(TEST_CORRECTNESS), true)
+	MACROS += -DTEST_CORRECTNESS
+endif
+
 # include benchmark specific settings
 benchmark = $(notdir $(shell pwd))
 -include $(benchmark).config
