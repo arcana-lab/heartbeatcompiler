@@ -49,12 +49,14 @@ uint64_t sum_array_opencilk(char *a, uint64_t lo, uint64_t hi) {
 #elif defined(USE_OPENMP)
 uint64_t sum_array_openmp(char* a, uint64_t lo, uint64_t hi) {
   uint64_t r = 0;
-#if defined(OMP_DYNAMIC)
+#if defined(OMP_STATIC)
+  #pragma omp parallel for schedule(static) reduction(+:r)
+#elif defined(OMP_DYNAMIC)
   #pragma omp parallel for schedule(dynamic) reduction(+:r)
-#elif defined(OMP_GUIDED) 
+#elif defined(OMP_GUIDED)
   #pragma omp parallel for schedule(guided) reduction(+:r)
-#else  
-  #pragma omp parallel for reduction(+:r)
+#else
+  #error "Need to select OpenMP scheduler: STATIC, DYNAMIC or GUIDED"
 #endif
   for (uint64_t i = lo; i != hi; i++) {
     r += a[i];

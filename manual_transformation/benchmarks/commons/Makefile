@@ -70,22 +70,19 @@ FLAGS_OPENMP = $(FLAGS) -fopenmp
 OPTS_OPENMP = $(OPTS)
 LIBS_OPENMP = $(LIBS) -fopenmp
 
+OMP_SCHEDULE ?= STATIC
+ifeq ($(OMP_SCHEDULE), STATIC)
+	MACROS_OPENMP += -DOMP_STATIC
+else ifeq ($(OMP_SCHEDULE), DYNAMIC)
+	MACROS_OPENMP += -DOMP_DYNAMIC
+else ifeq ($(OMP_SCHEDULE), GUIDED)
+	MACROS_OPENMP += -DOMP_GUIDED
+endif
+
 openmp: openmp.cpp
 	$(CXX) $(MACROS_OPENMP) $(FLAGS_OPENMP) $(OPTS_OPENMP) $^ -o $@ $(LIBS_OPENMP)
 
 run_openmp: openmp
-	./$<
-
-openmp_dynamic: openmp.cpp
-	$(CXX) $(MACROS_OPENMP) -DOMP_DYNAMIC $(FLAGS_OPENMP) $(OPTS_OPENMP) $^ -o $@ $(LIBS_OPENMP)
-
-run_openmp_dynamic: openmp_dynamic
-	./$<
-
-openmp_guided: openmp.cpp
-	$(CXX) $(MACROS_OPENMP) -DOMP_GUIDED $(FLAGS_OPENMP) $(OPTS_OPENMP) $^ -o $@ $(LIBS_OPENMP)
-
-run_openmp_guided: openmp_guided
 	./$<
 
 # ======================
@@ -216,7 +213,7 @@ condor:
 # Other
 # ======================
 clean:
-	rm -f baseline opencilk openmp openmp_dynamic openmp_guided ;
+	rm -f baseline opencilk openmp ;
 	rm -f heartbeat_branches heartbeat_versioning ;
 	rm -f correctness *.json ;
 

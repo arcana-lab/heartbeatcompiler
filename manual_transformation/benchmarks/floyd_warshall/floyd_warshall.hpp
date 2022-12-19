@@ -78,13 +78,15 @@ void floyd_warshall_opencilk(int* dist, int vertices) {
 #elif defined(USE_OPENMP)
 void floyd_warshall_openmp(int* dist, int vertices) {
   for (int via = 0; via < vertices; via++) {
-  #if defined(OMP_DYNAMIC)
+#if defined(OMP_STATIC)
+    #pragma omp parallel for schedule(static)
+#elif defined(OMP_DYNAMIC)
     #pragma omp parallel for schedule(dynamic)
-  #elif defined(OMP_GUIDED) 
+#elif defined(OMP_GUIDED)
     #pragma omp parallel for schedule(guided)
-  #else  
-    #pragma omp parallel for
-  #endif
+#else
+    #error "Need to select OpenMP scheduler: STATIC, DYNAMIC or GUIDED"
+#endif
     for (int from = 0; from < vertices; from++) {
       for (int to = 0; to < vertices; to++) {
         if ((from != to) && (from != via) && (to != via)) {

@@ -535,12 +535,14 @@ void spmv_openmp(
   double* x,
   double* y,
   int64_t n) {
-#if defined(OMP_DYNAMIC)
+#if defined(OMP_STATIC)
+  #pragma omp parallel for schedule(static)
+#elif defined(OMP_DYNAMIC)
   #pragma omp parallel for schedule(dynamic)
-#elif defined(OMP_GUIDED) 
+#elif defined(OMP_GUIDED)
   #pragma omp parallel for schedule(guided)
-#else  
-  #pragma omp parallel for
+#else
+  #error "Need to select OpenMP scheduler: STATIC, DYNAMIC or GUIDED"
 #endif
   for (int64_t i = 0; i < n; i++) {  // row loop
     double r = 0.0;
