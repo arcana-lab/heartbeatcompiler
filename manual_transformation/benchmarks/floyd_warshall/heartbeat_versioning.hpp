@@ -4,6 +4,21 @@
 
 #define SUB(array, row_sz, i, j) (array[i * row_sz + j])
 
+#define CACHELINE     8
+#define LIVE_IN_ENV   0
+#define START_ITER    0
+#define MAX_ITER      1
+
+#define NUM_LEVELS  2
+#define LEVEL_ZERO  0
+#define LEVEL_ONE   1
+
+/*
+ * Benchmark-specific variable indicating the level of nested loop
+ * needs to be defined outside the namespace
+ */
+uint64_t numLevels;
+
 /*
  * User defined function to determine the index of the leftover task
  * needs to be defined outside the namespace
@@ -25,26 +40,35 @@ namespace floyd_warshall {
 void floyd_warshall_heartbeat_versioning(int *, int);
 void HEARTBEAT_loop0(int *, int, int);
 void HEARTBEAT_loop1(int *, int, int, int);
-void HEARTBEAT_loop0_cloned(uint64_t *, uint64_t *, uint64_t *, uint64_t **, uint64_t, uint64_t);
-void HEARTBEAT_loop1_cloned(uint64_t *, uint64_t *, uint64_t *, uint64_t **, uint64_t, uint64_t);
-void HEARTBEAT_loop1_leftover(uint64_t *, uint64_t *, uint64_t *, uint64_t **, uint64_t, uint64_t);
-void HEARTBEAT_loop1_optimized(uint64_t *, uint64_t *, uint64_t *, uint64_t *);
 
-typedef void(*functionPointer)(uint64_t *, uint64_t *, uint64_t *, uint64_t **, uint64_t, uint64_t);
-functionPointer splittingTasks[2] = {
-  &HEARTBEAT_loop0_cloned,
-  &HEARTBEAT_loop1_cloned
+int64_t HEARTBEAT_loop0_slice(uint64_t *, uint64_t, uint64_t);
+int64_t HEARTBEAT_loop1_slice(uint64_t *, uint64_t, uint64_t, uint64_t, uint64_t);
+__inline__ int64_t HEARTBEAT_loop0_slice_variadic(uint64_t *cxts, uint64_t startIter, uint64_t maxIter, ...) {
+  return HEARTBEAT_loop0_slice(cxts, startIter, maxIter);
+}
+__inline__ int64_t HEARTBEAT_loop1_slice_variadic(uint64_t *cxts, uint64_t startIter, uint64_t maxIter, ...) {
+  return HEARTBEAT_loop1_slice(cxts, startIter, maxIter, 0, 0);
+}
+typedef int64_t(*sliceTaskPointer)(uint64_t *, uint64_t, uint64_t, ...);
+sliceTaskPointer sliceTasks[2] = {
+  &HEARTBEAT_loop0_slice_variadic,
+  &HEARTBEAT_loop1_slice_variadic
 };
-functionPointer leftoverTasks[1] = {
-  &HEARTBEAT_loop1_leftover
+
+int64_t HEARTBEAT_loop_1_0_leftover(uint64_t *, uint64_t *);
+typedef int64_t(*leftoverTaskPointer)(uint64_t *, uint64_t *);
+leftoverTaskPointer leftoverTasks[1] = {
+  &HEARTBEAT_loop_1_0_leftover
 };
-typedef void(*leafFunctionPointer)(uint64_t *, uint64_t *, uint64_t *, uint64_t *);
-leafFunctionPointer leafTasks[1] = {
+
+int64_t HEARTBEAT_loop1_optimized(uint64_t *, uint64_t, uint64_t);
+typedef int64_t(*leafTaskPointer)(uint64_t *, uint64_t, uint64_t);
+leafTaskPointer leafTasks[1] = {
   &HEARTBEAT_loop1_optimized
 };
 
 static bool run_heartbeat = true;
-const static uint64_t numLevels = 2;
+static uint64_t *constLiveIns;
 
 // Entry function for the benchmark
 void floyd_warshall_heartbeat_versioning(int *dist, int vertices) {
@@ -58,25 +82,20 @@ void HEARTBEAT_loop0(int *dist, int vertices, int via) {
   if (run_heartbeat) {
     run_heartbeat = false;
 
+    // initialize number of levels for this nested loop
+    numLevels = NUM_LEVELS;
+
     // allocate const live-ins
-    uint64_t constLiveIns[3];
+    constLiveIns = (uint64_t *)alloca(sizeof(uint64_t) * 3);
     constLiveIns[0] = (uint64_t)dist;
     constLiveIns[1] = (uint64_t)vertices;
     constLiveIns[2] = (uint64_t)via;
 
-    // allocate the startIters and maxIters array
-    uint64_t startIters[2 * 8];
-    uint64_t maxIters[2 * 8];
-
-    // allocate live-in environments
-    uint64_t *liveInEnvs[2 * 8];
-
-    // set the start and max iteration for loop0
-    startIters[0 * 8] = 0;
-    maxIters[0 * 8] = (uint64_t)vertices;
+    // allocate cxts
+    uint64_t cxts[NUM_LEVELS * CACHELINE];
 
     // invoke loop0 in heartbeat form
-    HEARTBEAT_loop0_cloned(startIters, maxIters, constLiveIns, liveInEnvs, 0, 0);
+    HEARTBEAT_loop0_slice(cxts, 0, (uint64_t)vertices);
 
     run_heartbeat = true;
   } else {
@@ -101,73 +120,80 @@ void HEARTBEAT_loop1(int *dist, int vertices, int via, int from) {
 }
 
 // Cloned loops
-void HEARTBEAT_loop0_cloned(uint64_t *startIters, uint64_t *maxIters, uint64_t *constLiveIns, uint64_t **liveInEnvs, uint64_t myLevel, uint64_t startingLevel) {
+int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t startIter, uint64_t maxIter) {
   // load const live-ins
   int vertices = (int)constLiveIns[1];
 
-  // allocate live-in environment for loop1
-  uint64_t liveInEnvLoop1[1 * 8];
-  liveInEnvs[(myLevel + 1) * 8] = (uint64_t *)liveInEnvLoop1;
-
+  int64_t rc = 0;
 #if defined(CHUNK_LOOP_ITERATIONS)
   int low, high;
 
   // store into live-in environment for loop1
-  liveInEnvLoop1[0 * 8] = (uint64_t)&low;
+  cxts[LEVEL_ONE * CACHELINE + LIVE_IN_ENV] = (uint64_t)&low;
 
   for (; ;) {
-    low = (int)startIters[myLevel * 8];
-    high = (int)std::min(maxIters[myLevel * 8], startIters[myLevel * 8] + CHUNKSIZE_0);
-    startIters[myLevel * 8] = (uint64_t)(high - 1);
+    low = (int)startIter;
+    high = (int)std::min(maxIter, startIter + CHUNKSIZE_0);
 
     for (; low < high; low++) {
-      // set the start and max iteation for loop1
-      startIters[(myLevel + 1) * 8] = 0;
-      maxIters[(myLevel + 1) * 8] = (uint64_t)vertices;
-
-      HEARTBEAT_loop1_cloned(startIters, maxIters, constLiveIns, liveInEnvs, myLevel + 1, startingLevel);
+      rc = HEARTBEAT_loop1_slice(cxts, 0, (uint64_t)vertices, low, maxIter);
+      if (rc > 0) {
+        high = low + 1;
+      }
     }
 
-    if (low == (int)maxIters[myLevel]) {
+    // exit the chunk execution when either
+    // 1. heartbeat promotion happens at a higher nested level and in the process of returnning
+    // 2. all iterations are finished
+    if (rc > 0 || low == (int)maxIter) {
       break;
     }
-    loop_handler(startIters, maxIters, constLiveIns, liveInEnvs, myLevel, startingLevel, 2, splittingTasks, leftoverTasks, nullptr);
-    if (low == (int)maxIters[myLevel]) {
+
+    rc = loop_handler(cxts, LEVEL_ZERO, sliceTasks, leftoverTasks, nullptr, (uint64_t)(low - 1), maxIter);
+    if (rc > 0) {
       break;
     }
-    startIters[myLevel * 8] = (uint64_t)low;
+    startIter = low;
   }
 #else
   // store into live-in environment for loop1
-  liveInEnvLoop1[0 * 8] = (uint64_t)&startIters[myLevel * 8];
+  cxts[LEVEL_ONE * CACHELINE + LIVE_IN_ENV] = (uint64_t)&startIter;
 
-  for (; (int)startIters[myLevel * 8] < (int)maxIters[myLevel * 8]; (int)startIters[myLevel * 8]++) {
-    // set the start and max iteation for loop1
-    startIters[(myLevel + 1) * 8] = 0;
-    maxIters[(myLevel + 1) * 8] = (uint64_t)vertices;
+  for (; (int)startIter < (int)maxIter; startIter++) {
+    rc = HEARTBEAT_loop1_slice(cxts, 0, (uint64_t)vertices, startIter, maxIter);
+    if (rc > 0) {
+      maxIter = startIter + 1;
+    }
 
-    HEARTBEAT_loop1_cloned(startIters, maxIters, constLiveIns, liveInEnvs, myLevel + 1, startingLevel);
-    loop_handler(startIters, maxIters, constLiveIns, liveInEnvs, myLevel, startingLevel, 2, splittingTasks, leftoverTasks, nullptr);
+    if (rc > 0) {
+      continue;
+    } else {
+      rc = loop_handler(cxts, LEVEL_ZERO, sliceTasks, leftoverTasks, nullptr, startIter, maxIter);
+      if (rc > 0) {
+        maxIter = startIter + 1;
+      }
+    }
   }
 #endif
-  return;
+
+  return rc - 1;
 }
 
-void HEARTBEAT_loop1_cloned(uint64_t *startIters, uint64_t *maxIters, uint64_t *constLiveIns, uint64_t **liveInEnvs, uint64_t myLevel, uint64_t startingLevel) {
+int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t startIter, uint64_t maxIter, uint64_t startIter0, uint64_t maxIter0) {
   // load const live-ins
   int *dist = (int *)constLiveIns[0];
   int vertices = (int)constLiveIns[1];
   int via = (int)constLiveIns[2];
 
   // load live-in environment
-  uint64_t *liveInEnv = liveInEnvs[myLevel * 8];
-  int from = *(int *)liveInEnv[0 * 8];
+  int from = *(int *)cxts[LEVEL_ONE * CACHELINE + LIVE_IN_ENV];
 
+  int64_t rc = 0;
 #if defined(CHUNK_LOOP_ITERATIONS)
   int low, high;
   for (; ;) {
-    low = (int)startIters[myLevel * 8];
-    high = (int)std::min(maxIters[myLevel * 8], startIters[myLevel * 8] + CHUNKSIZE_1);
+    low = (int)startIter;
+    high = (int)std::min(maxIter, startIter + CHUNKSIZE_1);
 
     for (; low < high; low++) {
       if ((from != low) && (from != via) && (low != via)) {
@@ -176,29 +202,39 @@ void HEARTBEAT_loop1_cloned(uint64_t *startIters, uint64_t *maxIters, uint64_t *
                   SUB(dist, vertices, from, via) + SUB(dist, vertices, via, low));
       }
     }
-
-    if (low == (int)maxIters[myLevel * 8]) {
+    if (low == (int)maxIter) {
       break;
     }
-    startIters[myLevel * 8] = (uint64_t)low;
-    loop_handler(startIters, maxIters, constLiveIns, liveInEnvs, myLevel, startingLevel, 2, splittingTasks, leftoverTasks, leafTasks);
+
+    rc = loop_handler(cxts, LEVEL_ONE, sliceTasks, leftoverTasks, leafTasks, startIter0, maxIter0, uint64_t(low - 1), maxIter);
+    if (rc > 0) {
+      break;
+    }
+    startIter = low;
   }
 #else
-  for (; (int)startIters[myLevel * 8] < (int)maxIters[myLevel * 8]; (int)startIters[myLevel * 8]++) {
-    if ((from != (int)startIters[myLevel * 8]) && (from != via) && ((int)startIters[myLevel * 8] != via)) {
-      SUB(dist, vertices, from, (int)startIters[myLevel * 8]) =
-        std::min(SUB(dist, vertices, from, (int)startIters[myLevel * 8]),
-                SUB(dist, vertices, from, via) + SUB(dist, vertices, via, (int)startIters[myLevel * 8]));
+  for (; (int)startIter < (int)maxIter; startIter++) {
+    if ((from != (int)startIter) && (from != via) && ((int)startIter != via)) {
+      SUB(dist, vertices, from, (int)startIter) =
+        std::min(SUB(dist, vertices, from, (int)startIter),
+                SUB(dist, vertices, from, via) + SUB(dist, vertices, via, (int)startIter));
     }
-    loop_handler(startIters, maxIters, constLiveIns, liveInEnvs, myLevel, startingLevel, 2, splittingTasks, leftoverTasks, leafTasks);
+    rc = loop_handler(cxts, LEVEL_ONE, sliceTasks, leftoverTasks, leafTasks, startIter0, maxIter0, startIter, maxIter);
+    if (rc > 0) {
+      maxIter = startIter + 1;
+    }
   }
 #endif
 
-  return;
+  return rc - 1;
 }
 
 // Leftover loops
-void HEARTBEAT_loop1_leftover(uint64_t *startIters, uint64_t *maxIters, uint64_t *constLiveIns, uint64_t **liveInEnvs, uint64_t myLevel, uint64_t startingLevel) {
+int64_t HEARTBEAT_loop_1_0_leftover(uint64_t *cxts, uint64_t *itersArr) {
+  // load startIter and maxIter
+  uint64_t startIter = itersArr[LEVEL_ONE * 2 + START_ITER];
+  uint64_t maxIter   = itersArr[LEVEL_ONE * 2 + MAX_ITER];
+
 #ifndef LEFTOVER_SPLITTABLE
 
   // load const live-ins
@@ -207,44 +243,41 @@ void HEARTBEAT_loop1_leftover(uint64_t *startIters, uint64_t *maxIters, uint64_t
   int via = (int)constLiveIns[2];
 
   // load live-in environment
-  uint64_t *liveInEnv = liveInEnvs[myLevel * 8];
-  int from = *(int *)liveInEnv[0 * 8];
+  int from = *(int *)cxts[LEVEL_ONE * CACHELINE + LIVE_IN_ENV];
 
-  for (int to = (int)startIters[myLevel * 8]; to < (int)maxIters[myLevel * 8]; to++) {
+  for (int to = (int)startIter; to < (int)maxIter; to++) {
     if ((from != to) && (from != via) && (to != via)) {
       SUB(dist, vertices, from, to) =
         std::min(SUB(dist, vertices, from, to),
                 SUB(dist, vertices, from, via) + SUB(dist, vertices, via, to));
     }
   }
-  startIters[myLevel * 8] = (uint64_t)(int)maxIters[myLevel * 8];
 
-  return;
+  return 0;
 
 #else
 
-  HEARTBEAT_loop1_cloned(startIters, maxIters, constLiveIns, liveInEnvs, myLevel, startingLevel);
-
-  return;
+  return HEARTBEAT_loop1_slice(cxts, startIter, maxIter, 0, 0);
 
 #endif
 }
 
 // Cloned optimized leaf loops
-void HEARTBEAT_loop1_optimized(uint64_t *startIter, uint64_t *maxIter, uint64_t *constLiveIns, uint64_t *liveInEnv) {
+int64_t HEARTBEAT_loop1_optimized(uint64_t *cxt, uint64_t startIter, uint64_t maxIter) {
   // load const live-ins
   int *dist = (int *)constLiveIns[0];
   int vertices = (int)constLiveIns[1];
   int via = (int)constLiveIns[2];
 
   // load live-in environment
-  int from = *(int *)liveInEnv[0 * 8];
+  int from = *(int *)cxt[LIVE_IN_ENV];
 
+  int64_t rc = 0;
 #if defined(CHUNK_LOOP_ITERATIONS)
   int low, high;
   for (; ;) {
-    low = (int)startIter[0 * 8];
-    high = (int)std::min(maxIter[0 * 8], startIter[0 * 8] + CHUNKSIZE_1);
+    low = (int)startIter;
+    high = (int)std::min(maxIter, startIter + CHUNKSIZE_1);
 
     for (; low < high; low++) {
       if ((from != low) && (from != via) && (low != via)) {
@@ -253,25 +286,31 @@ void HEARTBEAT_loop1_optimized(uint64_t *startIter, uint64_t *maxIter, uint64_t 
                   SUB(dist, vertices, from, via) + SUB(dist, vertices, via, low));
       }
     }
-
-    if (low == (int)maxIter[0 * 8]) {
+    if (low == (int)maxIter) {
       break;
     }
-    startIter[0 * 8] = (uint64_t)low;
-    loop_handler_optimized(startIter, maxIter, constLiveIns, liveInEnv, &HEARTBEAT_loop1_optimized);
+
+    rc = loop_handler_optimized(cxt, (uint64_t)(low - 1), maxIter, &HEARTBEAT_loop1_optimized);
+    if (rc > 0) {
+      break;
+    }
+    startIter = low;
   }
 #else
-  for (; (int)startIter[0 * 8] < (int)maxIter[0 * 8]; (int)startIter[0 * 8]++) {
-    if ((from != (int)startIter[0 * 8]) && (from != via) && ((int)startIter[0 * 8] != via)) {
-      SUB(dist, vertices, from, (int)startIter[0 * 8]) =
-        std::min(SUB(dist, vertices, from, (int)startIter[0 * 8]),
-                SUB(dist, vertices, from, via) + SUB(dist, vertices, via, (int)startIter[0 * 8]));
+  for (; (int)startIter < (int)maxIter; startIter++) {
+    if ((from != (int)startIter) && (from != via) && ((int)startIter != via)) {
+      SUB(dist, vertices, from, (int)startIter) =
+        std::min(SUB(dist, vertices, from, (int)startIter),
+                SUB(dist, vertices, from, via) + SUB(dist, vertices, via, (int)startIter));
     }
-    loop_handler_optimized(startIter, maxIter, constLiveIns, liveInEnv, &HEARTBEAT_loop1_optimized);
+    rc = loop_handler_optimized(cxt, startIter, maxIter, &HEARTBEAT_loop1_optimized);
+    if (rc > 0) {
+      maxIter = startIter + 1;
+    }
   }
 #endif
 
-  return;
+  return rc - 1;
 }
 
 }
