@@ -41,14 +41,14 @@ void collect_heartbeat_polling_time_print() {
   printf("useful_cycles: %lu\n", useful_cycles);
   printf("useful_invocations: %lu\n", useful_invocations);
   printf("useful_cycles_per_invocation: %.2f\n", useful_invocations == 0 ? 0.00 : (double)useful_cycles/(double)useful_invocations);
-  printf("useful_seconds: %.2f\n", useful_invocations == 0 ? 0.00 : (double)useful_cycles/((double)cpu_frequency_khz * 100)/(double)num_workers);
+  printf("useful_seconds: %.2f\n", useful_invocations == 0 ? 0.00 : (double)useful_cycles/((double)cpu_frequency_khz * 1000)/(double)num_workers);
 
   printf("\n");
 
   printf("wasted_cycles: %lu\n", wasted_cycles);
   printf("wasted_invocations: %lu\n", wasted_invocations);
   printf("wasted_cycles_per_invocation: %.2f\n", wasted_invocations == 0 ? 0.00 : (double)wasted_cycles/(double)wasted_invocations);
-  printf("wasted_seconds: %.2f\n", wasted_invocations == 0 ? 0.00 : (double)wasted_cycles/((double)cpu_frequency_khz * 100)/(double)num_workers);
+  printf("wasted_seconds: %.2f\n", wasted_invocations == 0 ? 0.00 : (double)wasted_cycles/((double)cpu_frequency_khz * 1000)/(double)num_workers);
   printf("==================================================\n");
 }
 #endif
@@ -74,30 +74,54 @@ void collect_heartbeat_promotion_time_print() {
   printf("promotion_generic_cycles: %lu\n", promotion_generic_cycles);
   printf("promotion_generic_counts: %lu\n", promotion_generic_counts);
   printf("promotion_generic_cycles_per_count: %.2f\n", promotion_generic_counts == 0 ? 0.00 : (double)promotion_generic_cycles/(double)promotion_generic_counts);
-  printf("promotion_generic_seconds: %.2f\n", promotion_generic_counts == 0 ? 0.00 : (double)promotion_generic_cycles/((double)cpu_frequency_khz * 100)/(double)num_workers);
+  printf("promotion_generic_seconds: %.2f\n", promotion_generic_counts == 0 ? 0.00 : (double)promotion_generic_cycles/((double)cpu_frequency_khz * 1000)/(double)num_workers);
 
   printf("\n");
 
   printf("promotion_optimized_cycles: %lu\n", promotion_optimized_cycles);
   printf("promotion_optimized_counts: %lu\n", promotion_optimized_counts);
   printf("promotion_optimized_cycles_per_count: %.2f\n", promotion_optimized_counts == 0 ? 0.00 : (double)promotion_optimized_cycles/(double)promotion_optimized_counts);
-  printf("promotion_optimized_seconds: %.2f\n", promotion_optimized_counts == 0 ? 0.00 : (double)promotion_optimized_cycles/((double)cpu_frequency_khz * 100)/(double)num_workers);
+  printf("promotion_optimized_seconds: %.2f\n", promotion_optimized_counts == 0 ? 0.00 : (double)promotion_optimized_cycles/((double)cpu_frequency_khz * 1000)/(double)num_workers);
   printf("==================================================\n");
 }
 #endif
 #endif
 
 #define CACHELINE     8
+#define LIVE_IN_ENV   0
+#define LIVE_OUT_ENV  1
 #define START_ITER    0
 #define MAX_ITER      1
-#define LIVE_IN_ENV   2
-#define LIVE_OUT_ENV  3
 
 /*
  * Benchmark-specific variable indicating the level of nested loop
  * This variable should be defined inside heartbeat_*.hpp
  */
 extern uint64_t numLevels;
+
+/*
+ * Recursively function to determine the splitting level given the
+ * global iteration state
+ * 1. if no level decided, return numLevels
+ * 2. else return the correct splitting level
+ */
+int64_t determine_splitting_level(int64_t level) {
+  return numLevels;
+}
+
+template<typename... uint64_ts>
+int64_t determine_splitting_level(
+  int64_t level,
+  uint64_t startIter,
+  uint64_t maxIter,
+  uint64_ts... restIters
+) {
+  if ((maxIter - startIter) >= SMALLEST_GRANULARITY + 1) {
+    return level;
+  } else {
+    return determine_splitting_level(level + 1, restIters...);
+  }
+}
 
 #if defined(HEARTBEAT_BRANCHES)
 
@@ -404,28 +428,26 @@ void loop_handler_optimized(
 
 #elif defined(LOOP_HANDLER_WITH_LIVE_OUT)
 
-#include "limits.h"
-
 #if !defined(LOOP_HANDLER_OPTIMIZED)
 
 /*
  * Generic loop_handler function for the versioning version WITH live-out environment
  * 1. caller side should prepare the live-out environment for kids,
  *    loop_handler does simply copy the existing live-out environments
- * 2. if no heartbeat promotion happens, return LLONG_MAX
- *    if heartbeat promotion happens, return splittingLevel
- * 3. caller should perform the correct reduction depends on the return value
- */ 
-uint64_t loop_handler(
+ * 2. if no heartbeat promotion happens, return 0
+ *    if heartbeat promotion happens, return the number of levels that maxIter needs to be reset
+ */
+template<typename... uint64_ts>
+int64_t loop_handler(
   uint64_t *cxts,
-  uint64_t myLevel,
-  uint64_t startingLevel,
-  uint64_t (*splittingTasks[])(uint64_t *, uint64_t, uint64_t, uint64_t),
-  uint64_t (*leftoverTasks[])(uint64_t *, uint64_t, uint64_t, uint64_t),
-  uint64_t (*leafTasks[])(uint64_t *, uint64_t)
+  uint64_t receivingLevel,
+  int64_t (*sliceTasks[])(uint64_t *, uint64_t, uint64_t, uint64_t, ...),
+  int64_t (*leftoverTasks[])(uint64_t *, uint64_t, uint64_t *),
+  int64_t (*leafTasks[])(uint64_t *, uint64_t, uint64_t, uint64_t),
+  uint64_ts... iters
 ) {
 #if defined(DISABLE_HEARTBEAT_PROMOTION)
-  return LLONG_MAX;
+  return 0;
 #endif
 
   /*
@@ -445,7 +467,7 @@ uint64_t loop_handler(
   wasted_invocations += 1;
   pthread_spin_unlock(&lock);
 #endif
-    return LLONG_MAX;
+    return 0;
   }
 #if defined(COLLECT_HEARTBEAT_POLLING_TIME)
   RDTSC(end);
@@ -459,24 +481,28 @@ uint64_t loop_handler(
   /*
    * Decide the splitting level
    */
-  uint64_t splittingLevel = numLevels;
-  for (uint64_t level = startingLevel; level <= myLevel; level++) {
-    if (cxts[level * CACHELINE + MAX_ITER] - cxts[level * CACHELINE + START_ITER] >= SMALLEST_GRANULARITY + 1) {
-      splittingLevel = level;
-      break;
-    }
-  }
+  uint64_t splittingLevel = (uint64_t)determine_splitting_level(0, iters...);
+
   /*
    * No more work to split at any level
    */
   if (splittingLevel == numLevels) {
-    return LLONG_MAX;
+    return 0;
   }
 
 #if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
   uint64_t promotion_start, promotion_end;
   RDTSC(promotion_start);
 #endif
+  /*
+   * Snapshot global iteration state
+   */
+  uint64_t *itersArr = (uint64_t *)alloca(sizeof(uint64_t) * numLevels * 2);
+  uint64_t index = 0;
+  for (const uint64_t iter : {iters...}) {
+    itersArr[index++] = iter;
+  }
+
   /*
    * Allocate cxts for both tasks
    */
@@ -486,29 +512,21 @@ uint64_t loop_handler(
   /*
    * Determine the splitting point of the remaining iterations
    */
-  uint64_t med = (cxts[splittingLevel * CACHELINE + START_ITER] + 1 + cxts[splittingLevel * CACHELINE + MAX_ITER]) / 2;
-
-  /*
-   * Set startIters and maxIters for both tasks
-   */
-  cxtsFirst[splittingLevel * CACHELINE + START_ITER]   = cxts[splittingLevel * CACHELINE + START_ITER] + 1;
-  cxtsFirst[splittingLevel * CACHELINE + MAX_ITER]     = med;
-  cxtsSecond[splittingLevel * CACHELINE + START_ITER]  = med;
-  cxtsSecond[splittingLevel * CACHELINE + MAX_ITER]    = cxts[splittingLevel * CACHELINE + MAX_ITER];
+  uint64_t med = (itersArr[splittingLevel * 2 + START_ITER] + 1 + itersArr[splittingLevel * 2 + MAX_ITER]) / 2;
 
   /*
    * Reconstruct the context at the splittingLevel for both tasks
    */
   cxtsFirst[splittingLevel * CACHELINE + LIVE_IN_ENV]   = cxts[splittingLevel * CACHELINE + LIVE_IN_ENV];
-  cxtsSecond[splittingLevel * CACHELINE + LIVE_IN_ENV]  = cxts[splittingLevel * CACHELINE + LIVE_IN_ENV];
   cxtsFirst[splittingLevel * CACHELINE + LIVE_OUT_ENV]  = cxts[splittingLevel * CACHELINE + LIVE_OUT_ENV];
+  cxtsSecond[splittingLevel * CACHELINE + LIVE_IN_ENV]  = cxts[splittingLevel * CACHELINE + LIVE_IN_ENV];
   cxtsSecond[splittingLevel * CACHELINE + LIVE_OUT_ENV] = cxts[splittingLevel * CACHELINE + LIVE_OUT_ENV];
 
-  if (splittingLevel == myLevel) { // no leftover task needed
+  if (splittingLevel == receivingLevel) { // no leftover task needed
     /*
-     * Splitting the rest of work depending on whether splitting the leaf loop
+     * Split the rest of work depending on whether splitting the leaf loop
      */
-    if (myLevel + 1 != numLevels) {
+    if (receivingLevel + 1 != numLevels) {
 #if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
   RDTSC(promotion_end);
   pthread_spin_lock(&promotion_lock);
@@ -517,16 +535,15 @@ uint64_t loop_handler(
   pthread_spin_unlock(&promotion_lock);
 #endif
       taskparts::tpalrts_promote_via_nativefj([&] {
-        (*splittingTasks[myLevel])(cxtsFirst, myLevel, 0, myLevel);
+        (*sliceTasks[receivingLevel])(cxtsFirst, 0, itersArr[receivingLevel * 2 + START_ITER] + 1, med);
       }, [&] {
-        (*splittingTasks[myLevel])(cxtsSecond, myLevel, 1, myLevel);
+        (*sliceTasks[receivingLevel])(cxtsSecond, 1, med, itersArr[receivingLevel * 2 + MAX_ITER]);
       }, [] { }, taskparts::bench_scheduler());
-
     } else {
       /*
        * Determine which optimized leaf task to run
        */
-      uint64_t leafTaskIndex = getLeafTaskIndex(myLevel);
+      uint64_t leafTaskIndex = getLeafTaskIndex(receivingLevel);
 
 #if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
   RDTSC(promotion_end);
@@ -536,9 +553,9 @@ uint64_t loop_handler(
   pthread_spin_unlock(&promotion_lock);
 #endif
       taskparts::tpalrts_promote_via_nativefj([&] {
-        (*leafTasks[leafTaskIndex])(&cxtsFirst[myLevel * CACHELINE], 0);
+        (*leafTasks[leafTaskIndex])(&cxtsFirst[receivingLevel * CACHELINE], 0, itersArr[receivingLevel * 2 + START_ITER] + 1, med);
       }, [&] {
-        (*leafTasks[leafTaskIndex])(&cxtsSecond[myLevel * CACHELINE], 1);
+        (*leafTasks[leafTaskIndex])(&cxtsSecond[receivingLevel * CACHELINE], 1, med, itersArr[receivingLevel * 2 + MAX_ITER]);
       }, [] { }, taskparts::bench_scheduler());
     }
 
@@ -549,26 +566,23 @@ uint64_t loop_handler(
     uint64_t *cxtsLeftover = (uint64_t *)alloca(sizeof(uint64_t) * numLevels * CACHELINE);
 
     /*
-     * Reconstruct the context starting from splittingLevel + 1 up to myLevel for leftover task
+     * Reconstruct the context starting from splittingLevel + 1 up to receivingLevel for leftover task
      */
-    for (uint64_t level = splittingLevel + 1; level <= myLevel; level++) {
+    for (uint64_t level = splittingLevel + 1; level <= receivingLevel; level++) {
       uint64_t index = level * CACHELINE;
       cxtsLeftover[index + LIVE_IN_ENV]   = cxts[index + LIVE_IN_ENV];
       cxtsLeftover[index + LIVE_OUT_ENV]  = cxts[index + LIVE_OUT_ENV];
 
-      cxtsLeftover[index + START_ITER] = cxts[index + START_ITER] + 1;
-      cxtsLeftover[index + MAX_ITER]   = cxts[index + MAX_ITER];
-
       /*
-       * Set maxIters for the tail task
+       * Rreset global iters for leftover task
        */
-      cxts[index + MAX_ITER] = cxts[index + START_ITER] + 1;
+      itersArr[level * 2 + START_ITER] += 1;
     }
 
     /*
      * Determine which leftover task to run
      */
-    uint64_t leftoverTaskIndex = getLeftoverTaskIndex(splittingLevel, myLevel);
+    uint64_t leftoverTaskIndex = getLeftoverTaskIndex(splittingLevel, receivingLevel);
 
 #if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
   RDTSC(promotion_end);
@@ -578,32 +592,32 @@ uint64_t loop_handler(
   pthread_spin_unlock(&promotion_lock);
 #endif
     taskparts::tpalrts_promote_via_nativefj([&] {
-      (*leftoverTasks[leftoverTaskIndex])(cxtsLeftover, myLevel, 0, splittingLevel + 1);
+      (*leftoverTasks[leftoverTaskIndex])(cxtsLeftover, 0, itersArr);
     }, [&] {
       taskparts::tpalrts_promote_via_nativefj([&] {
-        (*splittingTasks[splittingLevel])(cxtsFirst, splittingLevel, 0, splittingLevel);
+        (*sliceTasks[splittingLevel])(cxtsFirst, 0, itersArr[splittingLevel * 2 + START_ITER] + 1, med);
       }, [&] {
-        (*splittingTasks[splittingLevel])(cxtsSecond, splittingLevel, 1, splittingLevel);
+        (*sliceTasks[splittingLevel])(cxtsSecond, 1, med, itersArr[splittingLevel * 2 + MAX_ITER]);
       }, [&] { }, taskparts::bench_scheduler());
     }, [&] { }, taskparts::bench_scheduler());
   }
 
   /*
-   * Set maxIters for the tail task
+   * Return the number of levels that maxIter needs to be reset
    */
-  cxts[splittingLevel * CACHELINE + MAX_ITER] = cxts[splittingLevel * CACHELINE + START_ITER] + 1;
-
-  return splittingLevel;
+  return receivingLevel - splittingLevel + 1;
 }
 
 #endif
 
-uint64_t loop_handler_optimized(
+int64_t loop_handler_optimized(
   uint64_t *cxt,
-  uint64_t (*leafTask)(uint64_t *, uint64_t)
+  uint64_t startIter,
+  uint64_t maxIter,
+  int64_t (*leafTask)(uint64_t *, uint64_t, uint64_t, uint64_t)
 ) {
 #if defined(DISABLE_HEARTBEAT_PROMOTION)
-  return LLONG_MAX;
+  return 0;
 #endif
 
   /*
@@ -623,7 +637,7 @@ uint64_t loop_handler_optimized(
   wasted_invocations += 1;
   pthread_spin_unlock(&lock);
 #endif
-    return LLONG_MAX;
+    return 0;
   }
 #if defined(COLLECT_HEARTBEAT_POLLING_TIME)
   RDTSC(end);
@@ -637,8 +651,8 @@ uint64_t loop_handler_optimized(
   /*
    * Determine if there's more work for splitting
    */
-  if ((cxt[MAX_ITER] - cxt[START_ITER]) <= SMALLEST_GRANULARITY) {
-    return LLONG_MAX;
+  if ((maxIter - startIter) <= SMALLEST_GRANULARITY) {
+    return 0;
   }
 
 #if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
@@ -646,16 +660,12 @@ uint64_t loop_handler_optimized(
   RDTSC(promotion_start);
 #endif
   /*
-   * Allocate context for both tasks
+   * Allocate and construct cxts for both tasks
    */
   uint64_t cxtFirst[1 * CACHELINE];
   uint64_t cxtSecond[1 * CACHELINE];
 
-  uint64_t med  = (cxt[START_ITER] + cxt[MAX_ITER] + 1) / 2;
-  cxtFirst[START_ITER]  = cxt[START_ITER] + 1;
-  cxtFirst[MAX_ITER]    = med;
-  cxtSecond[START_ITER] = med;
-  cxtSecond[MAX_ITER]   = cxt[MAX_ITER];
+  uint64_t med  = (startIter + 1 + maxIter) / 2;
 
   cxtFirst[LIVE_IN_ENV]   = cxt[LIVE_IN_ENV];
   cxtFirst[LIVE_OUT_ENV]  = cxt[LIVE_OUT_ENV];
@@ -670,17 +680,12 @@ uint64_t loop_handler_optimized(
   pthread_spin_unlock(&promotion_lock);
 #endif
   taskparts::tpalrts_promote_via_nativefj([&] {
-    (*leafTask)(cxtFirst, 0);
+    (*leafTask)(cxtFirst, 0, startIter + 1, med);
   }, [&] {
-    (*leafTask)(cxtSecond, 1);
+    (*leafTask)(cxtSecond, 1, med, maxIter);
   }, [] { }, taskparts::bench_scheduler());
 
-  /*
-   * Set maxIters for the tail task
-   */
-  cxt[MAX_ITER] = cxt[START_ITER] + 1;
-
-  return 0;
+  return 1;
 }
 
 #else
