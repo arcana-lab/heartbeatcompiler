@@ -101,7 +101,8 @@ unsigned char* mandelbrot_openmp(double x0, double y0, double x1, double y1,
   }
   return output;
 }
-#else
+#endif
+
 unsigned char* mandelbrot_serial(double x0, double y0, double x1, double y1,
                           int width, int height, int max_depth) {
   double xstep = (x1 - x0) / width;
@@ -129,6 +130,26 @@ unsigned char* mandelbrot_serial(double x0, double y0, double x1, double y1,
     }
   }
   return output;
+}
+
+#if defined(TEST_CORRECTNESS)
+void test_correctness(unsigned char *output) {
+  unsigned char *output2 = mandelbrot_serial(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_width, _mb_height, _mb_max_depth);
+  int num_diffs = 0;
+  for (int i = 0; i < _mb_height; i++) {
+    for (int j = 0; j < _mb_width; j++) {
+      if (output[i * _mb_width + j] != output2[i * _mb_width + j]) {
+        num_diffs++;
+      }
+    }
+  }
+  if (num_diffs > 0) {
+    printf("\033[0;31mINCORRECT!\033[0m");
+    printf("  num_diffs = %d\n", num_diffs);
+  } else {
+    printf("\033[0;32mCORRECT!\033[0m\n");
+  }
+  free(output2);
 }
 #endif
 
