@@ -215,6 +215,5 @@ condor:
 clean:
 	rm -f baseline opencilk openmp ;
 	rm -f heartbeat_branches heartbeat_versioning ;
-	rm -f correctness *.json ;
 
 .PHONY: clean

@@ -161,19 +161,16 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t myIndex, uint64_t startIt
     double r = 0.0;
 
     rc = HEARTBEAT_loop1_slice(cxts, 0, row_ptr[startIter], row_ptr[startIter + 1], startIter, maxIter);
-    if (rc > 0) {
-      maxIter = startIter + 1;
-    }
 
     y[startIter] = r + redArrLiveOut0Loop1[0 * CACHELINE];
 
     if (rc > 0) {
+      maxIter = startIter + 1;
       continue;
-    } else {
-      rc = loop_handler(cxts, LEVEL_ZERO, sliceTasks, leftoverTasks, nullptr, startIter, maxIter);
-      if (rc > 0) {
-        maxIter = startIter + 1;
-      }
+    }
+    rc = loop_handler(cxts, LEVEL_ZERO, sliceTasks, leftoverTasks, nullptr, startIter, maxIter);
+    if (rc > 0) {
+      maxIter = startIter + 1;
     }
   }
 #endif

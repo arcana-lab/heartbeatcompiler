@@ -163,15 +163,12 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t startIter, uint64_t maxIt
     rc = HEARTBEAT_loop1_slice(cxts, 0, (uint64_t)vertices, startIter, maxIter);
     if (rc > 0) {
       maxIter = startIter + 1;
+      continue;
     }
 
+    rc = loop_handler(cxts, LEVEL_ZERO, sliceTasks, leftoverTasks, nullptr, startIter, maxIter);
     if (rc > 0) {
-      continue;
-    } else {
-      rc = loop_handler(cxts, LEVEL_ZERO, sliceTasks, leftoverTasks, nullptr, startIter, maxIter);
-      if (rc > 0) {
-        maxIter = startIter + 1;
-      }
+      maxIter = startIter + 1;
     }
   }
 #endif
