@@ -5,6 +5,8 @@
 #include <cassert>
 #include <stdio.h>
 #include <unistd.h>
+#include <math.h>
+#define _USE_MATH_DEFINES
 #if defined(USE_OPENCILK)
 #include <cilk/cilk.h>
 #endif
@@ -29,8 +31,10 @@ namespace spmv {
     uint64_t n_dense = 100000;
   #elif defined(SPMV_DIAGONAL)
     uint64_t n_diagonal = 5000000000;
+  #elif defined(SPMV_NORMAL)
+    uint64_t n_normal = 200000;
   #else
-    #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL}"
+    #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL}"
   #endif
 #elif defined(INPUT_TESTING)
   #if defined(SPMV_RANDOM)
@@ -44,8 +48,10 @@ namespace spmv {
     uint64_t n_dense = 10000;
   #elif defined(SPMV_DIAGONAL)
     uint64_t n_diagonal = 50000000;
+  #elif defined(SPMV_NORMAL)
+    uint64_t n_normal = 20000;
   #else
-    #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL}"
+    #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL}"
   #endif
 #else
   #error "Need to select input size: INPUT_BENCHMARKING, INPUT_TESTING"
@@ -388,9 +394,47 @@ auto bench_pre_diagonal() {
   });
 }
 
+#elif defined(SPMV_NORMAL)
+
+auto mk_normal_edgelist(size_t n) {
+  edgelist_type edges;
+  double mean = n/2;
+  double stdev = n/6.1;   
+  // double stdev = n/10;   // steeper curve
+  // double stdev = n/5;    // flatter curve
+  for (size_t i = 0; i < n; i++) {
+    double y = 1.0 / (stdev * sqrt(2.0 * M_PI)) * exp(-(pow((i - mean)/stdev, 2)/2.0));
+    uint64_t max = std::min(n, (size_t) (y * n * (n/2.4)));   // scaling and ceiling
+    for (size_t j = 0; j < max; j++) {
+      edges.push_back(std::make_pair(i, j));
+    }
+  }
+  return edges;
+}
+
+auto bench_pre_normal() {
+  nb_rows = n_normal;
+  bench_pre_shared([&] {
+#if defined(INPUT_BENCHMARKING)
+    const char* filename = "matrix_normal_benchmarking.dat";
+#else
+    const char* filename = "matrix_normal_testing.dat";
+#endif
+    if (!access(filename, F_OK)) {
+      printf("read matrix from %s\n", filename);
+      read_matrix_from_file(filename);
+    } else {
+      auto edges = mk_normal_edgelist(nb_rows);
+      csr_of_edgelist(edges);
+      write_matrix_to_file(filename);
+      printf("write matrix to %s\n", filename);
+    }
+  });
+}
+
 #else
 
-  #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL}"
+  #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL}"
 
 #endif
 
@@ -405,8 +449,10 @@ void setup() {
   bench_pre_dense();
 #elif defined(SPMV_DIAGONAL)
   bench_pre_diagonal();
+#elif defined(SPMV_NORMAL)
+  bench_pre_normal();
 #else
-  #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL}"
+  #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL}"
 #endif
 }
 
