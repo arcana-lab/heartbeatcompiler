@@ -89,9 +89,7 @@ void collect_heartbeat_promotion_time_print() {
 
 #define CACHELINE     8
 #define LIVE_IN_ENV   0
-#if defined(LOOP_HANDLER_WITH_LIVE_OUT)
 #define LIVE_OUT_ENV  1
-#endif
 #define START_ITER    0
 #define MAX_ITER      1
 
@@ -100,30 +98,6 @@ void collect_heartbeat_promotion_time_print() {
  * This variable should be defined inside heartbeat_*.hpp
  */
 extern uint64_t numLevels;
-
-/*
- * Recursively function to determine the splitting level given the
- * global iteration state
- * 1. if no level decided, return numLevels
- * 2. else return the correct splitting level
- */
-int64_t determine_splitting_level(int64_t level) {
-  return numLevels;
-}
-
-template<typename... uint64_ts>
-int64_t determine_splitting_level(
-  int64_t level,
-  uint64_t startIter,
-  uint64_t maxIter,
-  uint64_ts... restIters
-) {
-  if ((maxIter - startIter) >= SMALLEST_GRANULARITY + 1) {
-    return level;
-  } else {
-    return determine_splitting_level(level + 1, restIters...);
-  }
-}
 
 #if defined(HEARTBEAT_BRANCHES)
 
@@ -145,6 +119,8 @@ uint64_t getLeafTaskIndex(uint64_t myLevel);
 
 #if !defined(LOOP_HANDLER_OPTIMIZED)
 
+#include "code_loop_slice_declaration.hpp"
+
 /*
  * Generic loop_handler function for the versioning version
  * 1. if no heartbeat promotion happens, return 0
@@ -153,20 +129,10 @@ uint64_t getLeafTaskIndex(uint64_t myLevel);
  * 2. caller side should prepare the live-out environment (if any) for kids,
  *    loop_handler does simply copy the existing live-out environments
  */
-template<typename... uint64_ts>
 int64_t loop_handler(
   uint64_t *cxts,
   uint64_t receivingLevel,
-#if defined(LOOP_HANDLER_WITH_LIVE_OUT)
-  int64_t (*sliceTasks[])(uint64_t *, uint64_t, uint64_t, uint64_t, ...),
-  int64_t (*leftoverTasks[])(uint64_t *, uint64_t, uint64_t *),
-  int64_t (*leafTasks[])(uint64_t *, uint64_t, uint64_t, uint64_t),
-#else
-  int64_t (*sliceTasks[])(uint64_t *, uint64_t, uint64_t, ...),
-  int64_t (*leftoverTasks[])(uint64_t *, uint64_t *),
-  int64_t (*leafTasks[])(uint64_t *, uint64_t, uint64_t),
-#endif
-  uint64_ts... iters
+  #include "code_loop_handler_signature.hpp"
 ) {
 #if defined(DISABLE_HEARTBEAT_PROMOTION)
   return 0;
@@ -203,7 +169,8 @@ int64_t loop_handler(
   /*
    * Decide the splitting level
    */
-  uint64_t splittingLevel = (uint64_t)determine_splitting_level(0, iters...);
+  uint64_t splittingLevel = numLevels;
+  #include "code_splitting_level_determination.hpp"
 
   /*
    * No more work to split at any level
@@ -221,9 +188,7 @@ int64_t loop_handler(
    */
   uint64_t *itersArr = (uint64_t *)alloca(sizeof(uint64_t) * numLevels * 2);
   uint64_t index = 0;
-  for (const uint64_t iter : {iters...}) {
-    itersArr[index++] = iter;
-  }
+  #include "code_iteration_state_snapshot.hpp"
 
   /*
    * Allocate cxts for both tasks
@@ -239,12 +204,7 @@ int64_t loop_handler(
   /*
    * Reconstruct the context at the splittingLevel for both tasks
    */
-  cxtsFirst[splittingLevel * CACHELINE + LIVE_IN_ENV]   = cxts[splittingLevel * CACHELINE + LIVE_IN_ENV];
-  cxtsSecond[splittingLevel * CACHELINE + LIVE_IN_ENV]  = cxts[splittingLevel * CACHELINE + LIVE_IN_ENV];
-#if defined(LOOP_HANDLER_WITH_LIVE_OUT)
-  cxtsFirst[splittingLevel * CACHELINE + LIVE_OUT_ENV]  = cxts[splittingLevel * CACHELINE + LIVE_OUT_ENV];
-  cxtsSecond[splittingLevel * CACHELINE + LIVE_OUT_ENV] = cxts[splittingLevel * CACHELINE + LIVE_OUT_ENV];
-#endif
+  #include "code_slice_context_construction.hpp"
 
   if (splittingLevel == receivingLevel) { // no leftover task needed
     /*
@@ -258,19 +218,7 @@ int64_t loop_handler(
   promotion_generic_counts += 1;
   pthread_spin_unlock(&promotion_lock);
 #endif
-#if defined(LOOP_HANDLER_WITH_LIVE_OUT)
-      taskparts::tpalrts_promote_via_nativefj([&] {
-        (*sliceTasks[receivingLevel])(cxtsFirst, 0, itersArr[receivingLevel * 2 + START_ITER] + 1, med);
-      }, [&] {
-        (*sliceTasks[receivingLevel])(cxtsSecond, 1, med, itersArr[receivingLevel * 2 + MAX_ITER]);
-      }, [] { }, taskparts::bench_scheduler());
-#else
-      taskparts::tpalrts_promote_via_nativefj([&] {
-        (*sliceTasks[receivingLevel])(cxtsFirst, itersArr[receivingLevel * 2 + START_ITER] + 1, med);
-      }, [&] {
-        (*sliceTasks[receivingLevel])(cxtsSecond, med, itersArr[receivingLevel * 2 + MAX_ITER]);
-      }, [] { }, taskparts::bench_scheduler());
-#endif
+      #include "code_slice_task_invocation.hpp"
 
     } else {
       /*
@@ -285,19 +233,7 @@ int64_t loop_handler(
   promotion_generic_counts += 1;
   pthread_spin_unlock(&promotion_lock);
 #endif
-#if defined(LOOP_HANDLER_WITH_LIVE_OUT)
-      taskparts::tpalrts_promote_via_nativefj([&] {
-        (*leafTasks[leafTaskIndex])(&cxtsFirst[receivingLevel * CACHELINE], 0, itersArr[receivingLevel * 2 + START_ITER] + 1, med);
-      }, [&] {
-        (*leafTasks[leafTaskIndex])(&cxtsSecond[receivingLevel * CACHELINE], 1, med, itersArr[receivingLevel * 2 + MAX_ITER]);
-      }, [] { }, taskparts::bench_scheduler());
-#else
-      taskparts::tpalrts_promote_via_nativefj([&] {
-        (*leafTasks[leafTaskIndex])(&cxtsFirst[receivingLevel * CACHELINE], itersArr[receivingLevel * 2 + START_ITER] + 1, med);
-      }, [&] {
-        (*leafTasks[leafTaskIndex])(&cxtsSecond[receivingLevel * CACHELINE], med, itersArr[receivingLevel * 2 + MAX_ITER]);
-      }, [] { }, taskparts::bench_scheduler());
-#endif
+      #include "code_leaf_task_invocation.hpp"
     }
 
   } else { // build up the leftover task
@@ -311,10 +247,7 @@ int64_t loop_handler(
      */
     for (uint64_t level = splittingLevel + 1; level <= receivingLevel; level++) {
       uint64_t index = level * CACHELINE;
-      cxtsLeftover[index + LIVE_IN_ENV]   = cxts[index + LIVE_IN_ENV];
-#if defined(LOOP_HANDLER_WITH_LIVE_OUT)
-      cxtsLeftover[index + LIVE_OUT_ENV]  = cxts[index + LIVE_OUT_ENV];
-#endif
+      #include "code_leftover_context_construction.hpp"
 
       /*
        * Rreset global iters for leftover task
@@ -334,27 +267,7 @@ int64_t loop_handler(
   promotion_generic_counts += 1;
   pthread_spin_unlock(&promotion_lock);
 #endif
-#if defined(LOOP_HANDLER_WITH_LIVE_OUT)
-    taskparts::tpalrts_promote_via_nativefj([&] {
-      (*leftoverTasks[leftoverTaskIndex])(cxtsLeftover, 0, itersArr);
-    }, [&] {
-      taskparts::tpalrts_promote_via_nativefj([&] {
-        (*sliceTasks[splittingLevel])(cxtsFirst, 0, itersArr[splittingLevel * 2 + START_ITER] + 1, med);
-      }, [&] {
-        (*sliceTasks[splittingLevel])(cxtsSecond, 1, med, itersArr[splittingLevel * 2 + MAX_ITER]);
-      }, [&] { }, taskparts::bench_scheduler());
-    }, [&] { }, taskparts::bench_scheduler());
-#else
-    taskparts::tpalrts_promote_via_nativefj([&] {
-      (*leftoverTasks[leftoverTaskIndex])(cxtsLeftover, itersArr);
-    }, [&] {
-      taskparts::tpalrts_promote_via_nativefj([&] {
-        (*sliceTasks[splittingLevel])(cxtsFirst, itersArr[splittingLevel * 2 + START_ITER] + 1, med);
-      }, [&] {
-        (*sliceTasks[splittingLevel])(cxtsSecond, med, itersArr[splittingLevel * 2 + MAX_ITER]);
-      }, [&] { }, taskparts::bench_scheduler());
-    }, [&] { }, taskparts::bench_scheduler());
-#endif
+    #include "code_leftover_task_invocation.hpp"
   }
 
   /*
@@ -369,11 +282,7 @@ int64_t loop_handler_optimized(
   uint64_t *cxt,
   uint64_t startIter,
   uint64_t maxIter,
-#if defined(LOOP_HANDLER_WITH_LIVE_OUT)
-  int64_t (*leafTask)(uint64_t *, uint64_t, uint64_t, uint64_t)
-#else
-  int64_t (*leafTask)(uint64_t *, uint64_t, uint64_t)
-#endif
+  #include "code_optimized_loop_handler_signature.hpp"
 ) {
 #if defined(DISABLE_HEARTBEAT_PROMOTION)
   return 0;
@@ -426,12 +335,7 @@ int64_t loop_handler_optimized(
 
   uint64_t med  = (startIter + 1 + maxIter) / 2;
 
-  cxtFirst[LIVE_IN_ENV]   = cxt[LIVE_IN_ENV];
-  cxtSecond[LIVE_IN_ENV]  = cxt[LIVE_IN_ENV];
-#if defined(LOOP_HANDLER_WITH_LIVE_OUT)
-  cxtSecond[LIVE_OUT_ENV] = cxt[LIVE_OUT_ENV];
-  cxtFirst[LIVE_OUT_ENV]  = cxt[LIVE_OUT_ENV];
-#endif
+  #include "code_optimized_slice_context_construction.hpp"
 
 #if defined(COLLECT_HEARTBEAT_PROMOTION_TIME)
   RDTSC(promotion_end);
@@ -440,19 +344,7 @@ int64_t loop_handler_optimized(
   promotion_optimized_counts += 1;
   pthread_spin_unlock(&promotion_lock);
 #endif
-#if defined(LOOP_HANDLER_WITH_LIVE_OUT)
-  taskparts::tpalrts_promote_via_nativefj([&] {
-    (*leafTask)(cxtFirst, 0, startIter + 1, med);
-  }, [&] {
-    (*leafTask)(cxtSecond, 1, med, maxIter);
-  }, [] { }, taskparts::bench_scheduler());
-#else
-  taskparts::tpalrts_promote_via_nativefj([&] {
-    (*leafTask)(cxtFirst, startIter + 1, med);
-  }, [&] {
-    (*leafTask)(cxtSecond, med, maxIter);
-  }, [] { }, taskparts::bench_scheduler());
-#endif
+  #include "code_optimized_leaf_task_invocation.hpp"
 
   return 1;
 }

@@ -116,15 +116,6 @@ else
 	MACROS_HEARTBEAT += -DDISABLE_HEARTBEAT_PROMOTION
 endif
 
-# which loop_handler version to use, with/without live-out environment
-# options: true, false
-HANDLE_LIVE_OUT ?= false
-ifeq ($(HANDLE_LIVE_OUT), false)
-	MACROS_HEARTBEAT += -DLOOP_HANDLER_WITHOUT_LIVE_OUT
-else
-	MACROS_HEARTBEAT += -DLOOP_HANDLER_WITH_LIVE_OUT
-endif
-
 # report time spent in software heartbeat polling
 # options: true, false
 COLLECT_HEARTBEAT_POLLING_TIME ?= false
@@ -186,6 +177,12 @@ LIBS_HEARTBEAT = \
 	$(CUSTOM_MALLOC) # needs to go last, or else it won't be used
 
 # ======================
+# Code Generation
+# ======================
+code_generation: generate_code.sh level.config live_out.config
+	./$< `cat level.config` `cat live_out.config`
+
+# ======================
 # Heartbeat::Branches
 # ======================
 heartbeat_branches: heartbeat.cpp
@@ -198,16 +195,20 @@ run_heartbeat_branches: heartbeat_branches
 # Heartbeat::Versioning
 # ======================
 heartbeat_versioning: heartbeat.cpp
-	$(CXX) -DHEARTBEAT_VERSIONING $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $^ -o $@ $(LIBS_HEARTBEAT)
+	make code_generation
+	$(CXX) -DHEARTBEAT_VERSIONING $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $< -o $@ $(LIBS_HEARTBEAT)
 
 run_heartbeat_versioning: heartbeat_versioning
 	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY_KHZ); ./$<
 
 # ======================
-# Heartbeat:Evaluation
+# Evaluation
 # ======================
 condor:
 	cd eval ; condor_submit job.con ;
+
+condor_clean:
+	cd eval ; rm -f condor.* ;
 
 # ======================
 # Other
@@ -215,5 +216,6 @@ condor:
 clean:
 	rm -f baseline opencilk openmp ;
 	rm -f heartbeat_branches heartbeat_versioning ;
+	rm -f code_*.hpp ;
 
 .PHONY: clean

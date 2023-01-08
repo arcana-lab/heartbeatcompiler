@@ -35,25 +35,9 @@ uint64_t getLeafTaskIndex(uint64_t myLevel) {
   return 0;
 }
 
-namespace floyd_warshall {
-
 void floyd_warshall_heartbeat_versioning(int *, int);
 void HEARTBEAT_loop0(int *, int, int);
 void HEARTBEAT_loop1(int *, int, int, int);
-
-int64_t HEARTBEAT_loop0_slice(uint64_t *, uint64_t, uint64_t);
-int64_t HEARTBEAT_loop1_slice(uint64_t *, uint64_t, uint64_t, uint64_t, uint64_t);
-__inline__ int64_t HEARTBEAT_loop0_slice_variadic(uint64_t *cxts, uint64_t startIter, uint64_t maxIter, ...) {
-  return HEARTBEAT_loop0_slice(cxts, startIter, maxIter);
-}
-__inline__ int64_t HEARTBEAT_loop1_slice_variadic(uint64_t *cxts, uint64_t startIter, uint64_t maxIter, ...) {
-  return HEARTBEAT_loop1_slice(cxts, startIter, maxIter, 0, 0);
-}
-typedef int64_t(*sliceTaskPointer)(uint64_t *, uint64_t, uint64_t, ...);
-sliceTaskPointer sliceTasks[2] = {
-  &HEARTBEAT_loop0_slice_variadic,
-  &HEARTBEAT_loop1_slice_variadic
-};
 
 int64_t HEARTBEAT_loop_1_0_leftover(uint64_t *, uint64_t *);
 typedef int64_t(*leftoverTaskPointer)(uint64_t *, uint64_t *);
@@ -136,7 +120,7 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t startIter, uint64_t maxIt
     high = (int)std::min(maxIter, startIter + CHUNKSIZE_0);
 
     for (; low < high; low++) {
-      rc = HEARTBEAT_loop1_slice(cxts, 0, (uint64_t)vertices, low, maxIter);
+      rc = HEARTBEAT_loop1_slice(cxts, low, maxIter, 0, (uint64_t)vertices);
       if (rc > 0) {
         high = low + 1;
       }
@@ -149,7 +133,7 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t startIter, uint64_t maxIt
       break;
     }
 
-    rc = loop_handler(cxts, LEVEL_ZERO, sliceTasks, leftoverTasks, nullptr, (uint64_t)(low - 1), maxIter);
+    rc = loop_handler(cxts, LEVEL_ZERO, leftoverTasks, nullptr, (uint64_t)(low - 1), maxIter, 0, 0);
     if (rc > 0) {
       break;
     }
@@ -160,13 +144,13 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t startIter, uint64_t maxIt
   cxts[LEVEL_ONE * CACHELINE + LIVE_IN_ENV] = (uint64_t)&startIter;
 
   for (; (int)startIter < (int)maxIter; startIter++) {
-    rc = HEARTBEAT_loop1_slice(cxts, 0, (uint64_t)vertices, startIter, maxIter);
+    rc = HEARTBEAT_loop1_slice(cxts, startIter, maxIter, 0, (uint64_t)vertices);
     if (rc > 0) {
       maxIter = startIter + 1;
       continue;
     }
 
-    rc = loop_handler(cxts, LEVEL_ZERO, sliceTasks, leftoverTasks, nullptr, startIter, maxIter);
+    rc = loop_handler(cxts, LEVEL_ZERO, leftoverTasks, nullptr, startIter, maxIter, 0, 0);
     if (rc > 0) {
       maxIter = startIter + 1;
     }
@@ -176,7 +160,7 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t startIter, uint64_t maxIt
   return rc - 1;
 }
 
-int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t startIter, uint64_t maxIter, uint64_t startIter0, uint64_t maxIter0) {
+int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t startIter0, uint64_t maxIter0, uint64_t startIter, uint64_t maxIter) {
   // load const live-ins
   int *dist = (int *)constLiveIns[0];
   int vertices = (int)constLiveIns[1];
@@ -203,7 +187,7 @@ int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t startIter, uint64_t maxIt
       break;
     }
 
-    rc = loop_handler(cxts, LEVEL_ONE, sliceTasks, leftoverTasks, leafTasks, startIter0, maxIter0, uint64_t(low - 1), maxIter);
+    rc = loop_handler(cxts, LEVEL_ONE, leftoverTasks, leafTasks, startIter0, maxIter0, uint64_t(low - 1), maxIter);
     if (rc > 0) {
       break;
     }
@@ -216,7 +200,7 @@ int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t startIter, uint64_t maxIt
         std::min(SUB(dist, vertices, from, (int)startIter),
                 SUB(dist, vertices, from, via) + SUB(dist, vertices, via, (int)startIter));
     }
-    rc = loop_handler(cxts, LEVEL_ONE, sliceTasks, leftoverTasks, leafTasks, startIter0, maxIter0, startIter, maxIter);
+    rc = loop_handler(cxts, LEVEL_ONE, leftoverTasks, leafTasks, startIter0, maxIter0, startIter, maxIter);
     if (rc > 0) {
       maxIter = startIter + 1;
     }
@@ -308,6 +292,4 @@ int64_t HEARTBEAT_loop1_optimized(uint64_t *cxt, uint64_t startIter, uint64_t ma
 #endif
 
   return rc - 1;
-}
-
 }
