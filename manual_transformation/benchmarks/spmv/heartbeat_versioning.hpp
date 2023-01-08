@@ -249,7 +249,7 @@ int64_t HEARTBEAT_loop_1_0_leftover(uint64_t *cxts, uint64_t myIndex, uint64_t *
 
 #else
 
-  return HEARTBEAT_loop1_slice(cxts, myIndex, startIter, maxIter, 0, 0);
+  return HEARTBEAT_loop1_slice(cxts, myIndex, 0, 0, startIter, maxIter);
 
 #endif
 
