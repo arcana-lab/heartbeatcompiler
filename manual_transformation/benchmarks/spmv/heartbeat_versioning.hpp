@@ -176,10 +176,6 @@ int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t myIndex, uint64_t startIt
   double redArrLiveOut0Kids[2 * CACHELINE];
   cxts[LEVEL_ONE * CACHELINE + LIVE_OUT_ENV] = (uint64_t)redArrLiveOut0Kids;
 
-  // initialize reduction array for kids
-  redArrLiveOut0Kids[0 * CACHELINE] = 0.0;
-  redArrLiveOut0Kids[1 * CACHELINE] = 0.0;
-
   int64_t rc = 0;
   double r_private = 0.0;
 #if defined(CHUNK_LOOP_ITERATIONS)
@@ -212,7 +208,14 @@ int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t myIndex, uint64_t startIt
 #endif
 
   // reduction
-  redArrLiveOut0[myIndex * CACHELINE] += r_private + redArrLiveOut0Kids[0 * CACHELINE] + redArrLiveOut0Kids[1 * CACHELINE];
+  if (rc == 0) { // no heartbeat promotion happens or splittingLevel > myLevel
+    redArrLiveOut0[myIndex * CACHELINE] += r_private;
+  } else if (rc == 1) { // splittingLevel == myLevel
+    redArrLiveOut0[myIndex * CACHELINE] += r_private + redArrLiveOut0Kids[0 * CACHELINE] + redArrLiveOut0Kids[1 * CACHELINE];
+  } else {
+    assert(rc > 1); // splittingLevel < myLevel
+    redArrLiveOut0[myIndex * CACHELINE] += r_private + redArrLiveOut0Kids[0 * CACHELINE];
+  }
 
   // reset live-out environment
   cxts[LEVEL_ONE * CACHELINE + LIVE_OUT_ENV] = (uint64_t)redArrLiveOut0;
@@ -270,10 +273,6 @@ int64_t HEARTBEAT_loop1_optimized(uint64_t *cxt, uint64_t myIndex, uint64_t star
   double redArrLiveOut0Kids[2 * CACHELINE];
   cxt[LIVE_OUT_ENV] = (uint64_t)redArrLiveOut0Kids;
 
-  // initialize reduction array for kids
-  redArrLiveOut0Kids[0 * CACHELINE] = 0.0;
-  redArrLiveOut0Kids[1 * CACHELINE] = 0.0;
-
   int64_t rc = 0;
   double r_private = 0.0;
 #if defined(CHUNK_LOOP_ITERATIONS)
@@ -306,7 +305,12 @@ int64_t HEARTBEAT_loop1_optimized(uint64_t *cxt, uint64_t myIndex, uint64_t star
 #endif
 
   // reduction
-  redArrLiveOut0[myIndex * CACHELINE] += r_private + redArrLiveOut0Kids[0 * CACHELINE] + redArrLiveOut0Kids[1 * CACHELINE];
+  if (rc == 0) { // no heartbeat promotion happens
+    redArrLiveOut0[myIndex * CACHELINE] += r_private;
+  } else {  // splittingLevel == myLevel
+    assert(rc == 1);
+    redArrLiveOut0[myIndex * CACHELINE] += r_private + redArrLiveOut0Kids[0 * CACHELINE] + redArrLiveOut0Kids[1 * CACHELINE];
+  }
 
   // reset live-out environment
   cxt[LIVE_OUT_ENV] = (uint64_t)redArrLiveOut0;
