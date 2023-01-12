@@ -143,6 +143,15 @@ else
 	MACROS_HEARTBEAT += -DLEFTOVER_UNSPLITTABLE
 endif
 
+# whether to enable the rollforward compilation
+# options: true, false
+ENABLE_ROLLFORWARD ?= false
+ifeq ($(ENABLE_ROLLFORWARD), true)
+	MACROS_HEARTBEAT += -DENABLE_ROLLFORWARD
+else
+	MACROS_HEARTBEAT += -DDISABLE_ROLLFORWARD
+endif
+
 # macros used for taskparts runtime
 TASKPARTS_PLATFORM ?= -DTASKPARTS_POSIX -DTASKPARTS_X64
 TASKPARTS_FLAGS = \
