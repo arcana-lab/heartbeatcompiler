@@ -214,7 +214,7 @@ int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t startIter0, uint64_t maxI
     }
 
 #if defined(ENABLE_ROLLFORWARD)
-    __rf_handle_wrapper(rc, cxts, LEVEL_ONE, leftoverTasks, leafTasks, startIter0, maxIter0, uint64_t(low - 1), maxIter);
+    __rf_handle_wrapper(rc, cxts, LEVEL_ONE, leftoverTasks, leafTasks, startIter0, maxIter0, startIter, maxIter);
 #else
     rc = loop_handler(cxts, LEVEL_ONE, leftoverTasks, leafTasks, startIter0, maxIter0, startIter, maxIter);
 #endif
