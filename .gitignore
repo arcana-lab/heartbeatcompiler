@@ -1,12 +1,25 @@
 .vscode/
 
-compiler/runtime/
-compiler/src/build/
+compiler/runtime
+compiler/src/build
 compiler/src/compile_commands.json
 
-manual_transformation/runtime/
+manual_transformation/runtime
+manual_transformation/heartbeat-linux
+manual_transformation/rollforward
 manual_transformation/tests/*/Makefile
 manual_transformation/benchmarks/*/Makefile
-manual_transformation/benchmarks/*/test_correctness.sh
+manual_transformation/benchmarks/*/loop_handler.hpp
+manual_transformation/benchmarks/*/eval
 
 manual_transformation/pythonVirtualEnv
+manual_transformation/benchmarks/results
+manual_transformation/benchmarks/plots
+manual_transformation/benchmarks/*/barplotSpeedup.py
+manual_transformation/benchmarks/barplotSpeedup.py
+manual_transformation/benchmarks/barplotMetric.py
+
+manual_transformation/benchmarks/spmv/*.dat
+
+manual_transformation/benchmarks/*/generate_code.sh
+manual_transformation/benchmarks/*/code_*.hpp
