@@ -133,7 +133,11 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t startIter, uint64_t maxIt
       break;
     }
 
+#if defined(ENABLE_ROLLFORWARD)
+    __rf_handle_wrapper(rc, cxts, LEVEL_ZERO, leftoverTasks, nullptr, (uint64_t)(low - 1), maxIter, 0, 0);
+#else
     rc = loop_handler(cxts, LEVEL_ZERO, leftoverTasks, nullptr, (uint64_t)(low - 1), maxIter, 0, 0);
+#endif
     if (rc > 0) {
       break;
     }
@@ -150,7 +154,11 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t startIter, uint64_t maxIt
       continue;
     }
 
+#if defined(ENABLE_ROLLFORWARD)
+    __rf_handle_wrapper(rc, cxts, LEVEL_ZERO, leftoverTasks, nullptr, startIter, maxIter, 0, 0);
+#else
     rc = loop_handler(cxts, LEVEL_ZERO, leftoverTasks, nullptr, startIter, maxIter, 0, 0);
+#endif
     if (rc > 0) {
       maxIter = startIter + 1;
     }
@@ -187,7 +195,11 @@ int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t startIter0, uint64_t maxI
       break;
     }
 
+#if defined(ENABLE_ROLLFORWARD)
+    __rf_handle_wrapper(rc, cxts, LEVEL_ONE, leftoverTasks, leafTasks, startIter0, maxIter0, uint64_t(low - 1), maxIter);
+#else
     rc = loop_handler(cxts, LEVEL_ONE, leftoverTasks, leafTasks, startIter0, maxIter0, uint64_t(low - 1), maxIter);
+#endif
     if (rc > 0) {
       break;
     }
@@ -200,7 +212,12 @@ int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t startIter0, uint64_t maxI
         std::min(SUB(dist, vertices, from, (int)startIter),
                 SUB(dist, vertices, from, via) + SUB(dist, vertices, via, (int)startIter));
     }
+
+#if defined(ENABLE_ROLLFORWARD)
+    __rf_handle_wrapper(rc, cxts, LEVEL_ONE, leftoverTasks, leafTasks, startIter0, maxIter0, uint64_t(low - 1), maxIter);
+#else
     rc = loop_handler(cxts, LEVEL_ONE, leftoverTasks, leafTasks, startIter0, maxIter0, startIter, maxIter);
+#endif
     if (rc > 0) {
       maxIter = startIter + 1;
     }

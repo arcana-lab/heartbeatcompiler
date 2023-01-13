@@ -24,21 +24,36 @@ ifeq ($(TEST_CORRECTNESS), true)
 	MACROS += -DTEST_CORRECTNESS
 endif
 
+# whether to enable the rollforward compilation
+# options: true, false
+ENABLE_ROLLFORWARD ?= false
+ifeq ($(ENABLE_ROLLFORWARD), true)
+	CXX = g++
+	MACROS_HEARTBEAT += -DENABLE_ROLLFORWARD
+else
+	MACROS_HEARTBEAT += -DDISABLE_ROLLFORWARD
+endif
+
 # include benchmark specific settings
 benchmark = $(notdir $(shell pwd))
 -include $(benchmark).config
 
 FLAGS = --std=c++17
-OPTS = -O3 -march=native -fno-vectorize -fno-slp-vectorize
+OPTS = -O3 -march=native
+ifeq ($(CXX), clang++)
+	OPTS += -fno-vectorize -fno-slp-vectorize
+else ifeq ($(CXX), g++)
+	OPTS += -fno-tree-vectorize
+endif
 LIBS = -lm -lstdc++
 
 # ======================
 # Baseline
 # ======================
-MACROS_BASELINE = $(MACROS)
-FLAGS_BASELINE = $(FLAGS)
-OPTS_BASLINE = $(OPTS)
-LIBS_BASELINE = $(LIBS)
+MACROS_BASELINE += $(MACROS)
+FLAGS_BASELINE += $(FLAGS)
+OPTS_BASLINE += $(OPTS)
+LIBS_BASELINE += $(LIBS)
 
 baseline: baseline.cpp
 	$(CXX) $(MACROS_BASELINE) $(FLAGS_BASELINE) $(OPTS_BASLINE) $^ -o $@ $(LIBS_BASELINE)
@@ -52,9 +67,12 @@ run_baseline: baseline
 OPENCILK_COMPILER ?= /nfs-scratch/yso0488/opencilk/build/bin/bin/opencilk++
 
 MACROS_OPENCILK += $(MACROS) -DUSE_OPENCILK
-FLAGS_OPENCILK = $(FLAGS) -fopencilk
-OPTS_OPENCILK = $(OPTS)
-LIBS_OPENCILK = $(LIBS)
+FLAGS_OPENCILK += $(FLAGS) -fopencilk
+OPTS_OPENCILK += $(OPTS)
+ifneq ($(CXX), clang++)
+	OPTS_OPENCILK += -fno-vectorize -fno-slp-vectorize
+endif
+LIBS_OPENCILK += $(LIBS)
 
 opencilk: opencilk.cpp
 	$(OPENCILK_COMPILER) $(MACROS_OPENCILK) $(FLAGS_OPENCILK) $(OPTS_OPENCILK) $^ -o $@ $(LIBS_OPENCILK)
@@ -65,10 +83,10 @@ run_opencilk: opencilk
 # ======================
 # OpenMP
 # ======================
-MACROS_OPENMP = $(MACROS) -DUSE_OPENMP
-FLAGS_OPENMP = $(FLAGS) -fopenmp
-OPTS_OPENMP = $(OPTS)
-LIBS_OPENMP = $(LIBS) -fopenmp
+MACROS_OPENMP += $(MACROS) -DUSE_OPENMP
+FLAGS_OPENMP += $(FLAGS) -fopenmp
+OPTS_OPENMP += $(OPTS)
+LIBS_OPENMP += $(LIBS) -fopenmp
 
 OMP_SCHEDULE ?= STATIC
 ifeq ($(OMP_SCHEDULE), STATIC)
@@ -92,6 +110,11 @@ CPU_BASE_FREQUENCY_KHZ ?= 2800000
 TASKPARTS_PATH ?= ../../runtime
 TASKPARTS_INCLUDE_PATH = $(TASKPARTS_PATH)/include
 TASKPARTS_INCLUDES = $(TASKPARTS_INCLUDE_PATH) $(HWLOC_INCLUDE_PATH)
+ROLLFORWARD_PATH ?= ../../rollforward/src
+ROLLFORWARD_INCLUDE = $(ROLLFORWARD_PATH)/x64
+ROLLFORWARD_SEPARATOR = -DTASKPARTS_TPALRTS
+TPAL_PATH = $(TASKPARTS_PATH)/benchmark/tpal
+TPALXX = $(TPAL_PATH)/tpal++
 
 MACROS_HEARTBEAT += $(MACROS)
 
@@ -143,20 +166,10 @@ else
 	MACROS_HEARTBEAT += -DLEFTOVER_UNSPLITTABLE
 endif
 
-# whether to enable the rollforward compilation
-# options: true, false
-ENABLE_ROLLFORWARD ?= false
-ifeq ($(ENABLE_ROLLFORWARD), true)
-	MACROS_HEARTBEAT += -DENABLE_ROLLFORWARD
-else
-	MACROS_HEARTBEAT += -DDISABLE_ROLLFORWARD
-endif
-
 # macros used for taskparts runtime
 TASKPARTS_PLATFORM ?= -DTASKPARTS_POSIX -DTASKPARTS_X64
 TASKPARTS_FLAGS = \
 	$(TASKPARTS_PLATFORM) \
-	-DTASKPARTS_TPALRTS \
 	-DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING \
 	-DTASKPARTS_STATS \
 	# -DTASKPARTS_LOG
@@ -164,7 +177,8 @@ MACROS_HEARTBEAT += $(TASKPARTS_FLAGS)
 
 FLAGS_HEARTBEAT = \
 	$(FLAGS) \
-	-I $(TASKPARTS_INCLUDES)
+	-I $(TASKPARTS_INCLUDES) \
+	-I $(ROLLFORWARD_INCLUDE)
 
 OPTS_HEARTBEAT = \
 	$(OPTS) \
@@ -205,7 +219,12 @@ run_heartbeat_branches: heartbeat_branches
 # ======================
 heartbeat_versioning: heartbeat.cpp
 	make code_generation
-	$(CXX) -DHEARTBEAT_VERSIONING $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $< -o $@ $(LIBS_HEARTBEAT)
+ifeq ($(ENABLE_ROLLFORWARD), true)
+	mkdir bin ;
+	ROLLFORWARD_PATH=$(ROLLFORWARD_PATH) CXX=$(CXX) $(TPALXX) $(CXX) -DHEARTBEAT_VERSIONING $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $^ $(ROLLFORWARD_SEPARATOR) -o $@ $(LIBS_HEARTBEAT)
+else
+	$(CXX) -DHEARTBEAT_VERSIONING $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $^ $(ROLLFORWARD_SEPARATOR) -o $@ $(LIBS_HEARTBEAT)
+endif
 
 run_heartbeat_versioning: heartbeat_versioning
 	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY_KHZ); ./$<
@@ -217,14 +236,15 @@ condor:
 	cd eval ; condor_submit job.con ;
 
 condor_clean:
-	cd eval ; rm -f condor.* ;
+	cd eval ; rm -rf condor.* ;
 
 # ======================
 # Other
 # ======================
 clean:
-	rm -f baseline opencilk openmp ;
-	rm -f heartbeat_branches heartbeat_versioning ;
-	rm -f code_*.hpp ;
+	rm -rf baseline opencilk openmp ;
+	rm -rf heartbeat_branches heartbeat_versioning ;
+	rm -rf bin ;
+	rm -rf code_*.hpp ;
 
 .PHONY: clean

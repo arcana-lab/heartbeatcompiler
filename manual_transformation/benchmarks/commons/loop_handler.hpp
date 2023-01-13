@@ -138,6 +138,7 @@ int64_t loop_handler(
   return 0;
 #endif
 
+#if !defined(ENABLE_ROLLFORWARD)
   /*
    * Determine whether to promote since last promotion
    */
@@ -165,6 +166,7 @@ int64_t loop_handler(
   pthread_spin_unlock(&lock);
 #endif
   p = n;
+#endif
 
   /*
    * Decide the splitting level
@@ -275,6 +277,18 @@ int64_t loop_handler(
    */
   return receivingLevel - splittingLevel + 1;
 }
+
+#if defined(ENABLE_ROLLFORWARD)
+extern "C" void rollforward_handler_annotation __rf_handle_wrapper(
+  int64_t &rc,
+  uint64_t *cxts,
+  uint64_t receivingLevel,
+  #include "code_loop_handler_signature.hpp"
+) {
+  rc = loop_handler(cxts, receivingLevel, leftoverTasks, leafTasks, s0, m0, s1, m1);
+  rollbackward
+}
+#endif
 
 #endif
 
