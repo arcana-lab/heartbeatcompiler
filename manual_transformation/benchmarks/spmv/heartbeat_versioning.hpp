@@ -128,7 +128,7 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t myIndex, uint64_t startIt
       y[low] = r + redArrLiveOut0Loop1[0 * CACHELINE];
     }
     // exit the chunk execution when either
-    // 1. heartbeat promotion happens at a higher nested level and in the process of returnning
+    // 1. heartbeat promotion happens at a higher nested level and in the process of returning
     // 2. all iterations are finished
     if (rc > 0 || low == maxIter) {
       break;
@@ -208,13 +208,12 @@ int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t myIndex, uint64_t startIt
 #endif
 
   // reduction
-  if (rc == 0) { // no heartbeat promotion happens or splittingLevel > myLevel
-    redArrLiveOut0[myIndex * CACHELINE] += r_private;
-  } else if (rc == 1) { // splittingLevel == myLevel
+  if (rc == 1) { // splittingLevel == myLevel
     redArrLiveOut0[myIndex * CACHELINE] += r_private + redArrLiveOut0Kids[0 * CACHELINE] + redArrLiveOut0Kids[1 * CACHELINE];
-  } else {
-    assert(rc > 1); // splittingLevel < myLevel
+  } else if (rc > 1) { // splittingLevel < myLevel
     redArrLiveOut0[myIndex * CACHELINE] += r_private + redArrLiveOut0Kids[0 * CACHELINE];
+  } else { // no heartbeat promotion happens or splittingLevel > myLevel
+    redArrLiveOut0[myIndex * CACHELINE] += r_private;
   }
 
   // reset live-out environment
