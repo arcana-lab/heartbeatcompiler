@@ -1,0 +1,71 @@
+CC = clang
+CXX = clang++
+
+FLAGS = --std=c++17
+OPTS = -O3 -march=native -fno-vectorize -fno-slp-vectorize
+LIBS = -lm -lstdc++
+
+INPUT = 100 100
+
+# ======================
+# Baseline
+# ======================
+MACROS_BASELINE += $(MACROS) -DUSE_BASELINE
+FLAGS_BASELINE += $(FLAGS)
+OPTS_BASELINE += $(OPTS)
+LIBS_BASELINE += $(LIBS)
+
+baseline: test.cpp
+	$(CXX) $(MACROS_BASELINE) $(FLAGS_BASELINE) $(OPTS_BASELINE) $^ -o $@ $(LIBS_BASELINE)
+
+run_baseline: baseline
+	./$^ $(INPUT)
+
+# ======================
+# Heartbeat
+# ======================
+TASKPARTS_PATH ?= ../../../manual_transformation/runtime
+TASKPARTS_INCLUDE_PATH = $(TASKPARTS_PATH)/include
+TASKPARTS_INCLUDES = $(TASKPARTS_INCLUDE_PATH)
+
+MACROS_HEARTBEAT += $(MACROS) -DUSE_HEARTBEAT \
+										-DTASKPARTS_POSIX \
+										-DTASKPARTS_X64 \
+										-DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING \
+										-DTASKPARTS_STATS \
+										-DTASKPARTS_TPALRTS
+
+FLAGS_HEARTBEAT += $(FLAGS) \
+									 -O1 -Xclang -disable-llvm-passes -emit-llvm \
+									 -I $(TASKPARTS_INCLUDES)
+
+OPTS_HEARTBEAT += $(OPTS) \
+									-fno-stack-protector \
+									-fno-asynchronous-unwind-tables \
+									-fomit-frame-pointer
+
+LIBS_HEARTBEAT += $(LIBS) \
+									-pthread
+
+heartbeat: heartbeat.bc
+	$(CXX) $(OPTS_HEARTBEAT) $^ -o $@ $(LIBS_HEARTBEAT)
+
+heartbeat.bc: test_normalized.bc
+	noelle-parallel-load -noelle-verbose=2 -load ~/CAT/lib/HeartBeat.so -heartbeat $^ -o $@
+	llvm-dis $@
+
+test_normalized.bc: test.bc
+	noelle-norm $^ -o $@
+	llvm-dis $@
+
+test.bc: test.cpp
+	$(CXX) $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) -c $^ -o $@
+	llvm-dis $@
+
+run_heartbeat: heartbeat
+	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=2800000 ; ./$^ $(INPUT)
+
+clean:
+	rm -rf baseline ;
+	rm -rf test.bc test_normalized.bc heartbeat.bc *.ll ;
+	rm -rf heartbeat ;
