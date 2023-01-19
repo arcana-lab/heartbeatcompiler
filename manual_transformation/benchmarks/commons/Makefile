@@ -47,6 +47,14 @@ else ifeq ($(CXX), g++)
 endif
 LIBS = -lm -lstdc++
 
+ifeq (, $(shell which jemalloc-config))
+	CUSTOM_MALLOC =
+else
+	JEMALLOCLD = $(shell jemalloc-config --libdir)
+	JEMALLOCLS = $(shell jemalloc-config --libs)
+	CUSTOM_MALLOC = -L$(JEMALLOCLD) -Wl,-rpath,$(JEMALLOCLD) $(JEMALLOCLS) -ljemalloc
+endif
+
 # ======================
 # Baseline
 # ======================
@@ -72,7 +80,9 @@ OPTS_OPENCILK += $(OPTS)
 ifneq ($(CXX), clang++)
 	OPTS_OPENCILK += -fno-vectorize -fno-slp-vectorize
 endif
-LIBS_OPENCILK += $(LIBS)
+LIBS_OPENCILK += \
+	$(LIBS) \
+	$(CUSTOM_MALLOC) # needs to go last, or else it won't be used
 
 opencilk: opencilk.cpp
 	$(OPENCILK_COMPILER) $(MACROS_OPENCILK) $(FLAGS_OPENCILK) $(OPTS_OPENCILK) $^ -o $@ $(LIBS_OPENCILK)
@@ -185,14 +195,6 @@ OPTS_HEARTBEAT = \
 	-fno-stack-protector \
 	-fno-asynchronous-unwind-tables \
 	-fomit-frame-pointer
-
-ifeq (, $(shell which jemalloc-config))
-	CUSTOM_MALLOC =
-else
-	JEMALLOCLD = $(shell jemalloc-config --libdir)
-	JEMALLOCLS = $(shell jemalloc-config --libs)
-	CUSTOM_MALLOC = -L$(JEMALLOCLD) -Wl,-rpath,$(JEMALLOCLD) $(JEMALLOCLS) -ljemalloc
-endif
 
 LIBS_HEARTBEAT = \
 	-pthread \
