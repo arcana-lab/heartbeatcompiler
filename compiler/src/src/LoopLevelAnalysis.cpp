@@ -2,7 +2,12 @@
 
 using namespace llvm::noelle;
 
-void HeartBeat::performLoopLevelAnalysis(Noelle &noelle, const std::set<LoopDependenceInfo *> &selectedLoop) {
+void HeartBeat::performLoopLevelAnalysis (
+  Noelle &noelle,
+  const std::set<LoopDependenceInfo *> &heartbeatLoops
+) {
+
+  errs() << this->outputPrefix << "Loop level analysis starts\n";
 
   auto callGraph = noelle.getFunctionsManager()->getProgramCallGraph();
   assert(callGraph != nullptr && "Program call graph is not found");
@@ -12,7 +17,7 @@ void HeartBeat::performLoopLevelAnalysis(Noelle &noelle, const std::set<LoopDepe
    */
   std::unordered_map<LoopDependenceInfo *, CallGraphFunctionNode *> loopToCallGraphNode;
   std::unordered_map<CallGraphFunctionNode *, LoopDependenceInfo *> callGraphNodeToLoop;
-  for (auto ldi : selectedLoop) {
+  for (auto ldi : heartbeatLoops) {
     auto loopStructure = ldi->getLoopStructure();
     assert(loopStructure != nullptr && "LoopStructure not found");
     auto loopFunction = loopStructure->getFunction();
@@ -23,12 +28,13 @@ void HeartBeat::performLoopLevelAnalysis(Noelle &noelle, const std::set<LoopDepe
 
     loopToCallGraphNode[ldi] = callGraphNode;
     callGraphNodeToLoop[callGraphNode] = ldi;
+    this->functionToLoop[loopFunction] = ldi;
   }
 
   /*
    * Go through each loop to determine its level and root loop
    */
-  for (auto ldi : selectedLoop) {
+  for (auto ldi : heartbeatLoops) {
     /*
      * The level and root loop has already been determined
      */
@@ -37,7 +43,7 @@ void HeartBeat::performLoopLevelAnalysis(Noelle &noelle, const std::set<LoopDepe
       /*
        * Print result
        */
-      errs() << ldi->getLoopStructure()->getFunction()->getName() << " of level " << this->loopToLevel[ldi] << ", and root loop " << this->loopToRoot[ldi]->getLoopStructure()->getFunction()->getName() << "\n";
+      errs() << this->outputPrefix << ldi->getLoopStructure()->getFunction()->getName() << " of level " << this->loopToLevel[ldi] << ", and root loop " << this->loopToRoot[ldi]->getLoopStructure()->getFunction()->getName() << "\n";
       continue;
     }
 
@@ -49,10 +55,24 @@ void HeartBeat::performLoopLevelAnalysis(Noelle &noelle, const std::set<LoopDepe
     /*
      * Print result
      */
-    errs() << ldi->getLoopStructure()->getFunction()->getName() << " of level " << this->loopToLevel[ldi] << ", and root loop " << this->loopToRoot[ldi]->getLoopStructure()->getFunction()->getName() << "\n";
+    errs() << this->outputPrefix << ldi->getLoopStructure()->getFunction()->getName() << " of level " << this->loopToLevel[ldi] << ", and root loop " << this->loopToRoot[ldi]->getLoopStructure()->getFunction()->getName() << "\n";
   }
 
-  assert(selectedLoop.size() == this->loopToLevel.size() && selectedLoop.size() == this->loopToRoot.size() && "Number of loop information recorded doen't match");
+  assert(heartbeatLoops.size() == this->loopToLevel.size() && heartbeatLoops.size() == this->loopToRoot.size() && "Number of loop information recorded doen't match");
+
+  /*
+   * Determine numLevels
+   */
+  uint64_t highestLevel = 0;
+  for (auto pair : this->loopToLevel) {
+    if (pair.second > highestLevel) {
+      highestLevel = pair.second;
+    }
+  }
+  this->numLevels = highestLevel + 1;
+  errs() << this->outputPrefix << "numLevels: " << this->numLevels << "\n";
+
+  errs() << this->outputPrefix << "Loop level analysis completes\n";
 
   return;
 }
@@ -61,7 +81,8 @@ void HeartBeat::setLoopLevelAndRoot(
     LoopDependenceInfo *ldi,
     std::unordered_map<LoopDependenceInfo *, CallGraphFunctionNode *> &loopToCallGraphNode,
     std::unordered_map<CallGraphFunctionNode *, LoopDependenceInfo *> &callGraphNodeToLoop,
-    llvm::noelle::CallGraph &callGraph) {
+    llvm::noelle::CallGraph &callGraph
+) {
 
   auto calleeNode = loopToCallGraphNode[ldi];
   assert(calleeNode != nullptr && "Callee node not found for loop");

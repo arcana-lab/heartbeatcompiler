@@ -1,29 +1,39 @@
 #include "HeartBeatTask.hpp"
 #include "HeartBeatTransformation.hpp"
-#include "noelle/core/Reduction.hpp"
+#include "noelle/core/BinaryReductionSCC.hpp"
 
 using namespace llvm;
 using namespace llvm::noelle;
 
 HeartBeatTransformation::HeartBeatTransformation (
-  Noelle &noelle
-  ) : 
-    DOALL{noelle}
-  , n{noelle} 
-{
+  Noelle &noelle,
+  LoopDependenceInfo *ldi,
+  bool containsLiveOut,
+  std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel
+) : DOALL{noelle},
+    ldi{ldi},
+    n{noelle},
+    containsLiveOut{containsLiveOut},
+    loopToLevel{loopToLevel} {
 
   /*
-   * Create the task signature
+   * Create the slice task signature
    */
   auto tm = noelle.getTypesManager();
-  auto funcArgTypes = ArrayRef<Type *>({
-    tm->getIntegerType(64),
-    tm->getIntegerType(64),
-    tm->getVoidPointerType(), // pointer to all live-in variables environment
-    tm->getVoidPointerType(), // pointer to all reducible live-out variables array environment
-    tm->getIntegerType(64)
-  });
-  this->taskSignature = FunctionType::get(tm->getVoidType(), funcArgTypes, false);
+  std::vector<Type *> sliceTaskSignatureTypes;
+  sliceTaskSignatureTypes.push_back(tm->getVoidPointerType());  // pointer to compressed environment
+  if (containsLiveOut) {
+    sliceTaskSignatureTypes.push_back(tm->getIntegerType(64));  // index variable
+  }
+  // loop level starts from 0, so +1 here
+  for (auto i = 0; i < loopToLevel[ldi] + 1; i++) {
+    sliceTaskSignatureTypes.push_back(tm->getIntegerType(64));  // startIter
+    sliceTaskSignatureTypes.push_back(tm->getIntegerType(64));  // maxIter
+  }
+
+  this->sliceTaskSignature = FunctionType::get(tm->getIntegerType(64), ArrayRef<Type *>(sliceTaskSignatureTypes), false);
+
+  errs() << "create function signature for slice task " << ldi->getLoopStructure()->getFunction()->getName() << ": " << *(this->sliceTaskSignature) << "\n";
 
   return ;
 }
@@ -31,7 +41,7 @@ HeartBeatTransformation::HeartBeatTransformation (
 bool HeartBeatTransformation::apply (
   LoopDependenceInfo *loop,
   Heuristics *h
-  ){
+) {
 
   /*
    * Set the number of cores we target
@@ -56,13 +66,15 @@ bool HeartBeatTransformation::apply (
    * Fetch the environment of the loop.
    */
   auto loopEnvironment = loop->getEnvironment();
-  loopEnvironment->printEnvironmentInfo();
 
   /*
    * Generate an empty task for the heartbeat execution.
    */
-  auto hbTask = new HeartBeatTask(this->taskSignature, *program);
-  this->addPredecessorAndSuccessorsBasicBlocksToTasks(loop, { hbTask });
+  auto hbTask = new HeartBeatTask(this->sliceTaskSignature, *program);
+  this->addPredecessorAndSuccessorsBasicBlocksToTasks(
+    loop,
+    { hbTask }
+  );
 
   /*
    * Allocate memory for all environment variables
@@ -414,7 +426,7 @@ void HeartBeatTransformation::setReducableVariablesToBeginAtIdentityValue(LoopDe
     auto producer = environment->getProducer(envID);
     assert(producer != nullptr);
     auto producerSCC = sccdag->sccOfValue(producer);
-    auto reductionVar = static_cast<Reduction *>(sccManager->getSCCAttrs(producerSCC));
+    auto reductionVar = static_cast<BinaryReductionSCC *>(sccManager->getSCCAttrs(producerSCC));
     auto loopEntryProducerPHI = reductionVar->getPhiThatAccumulatesValuesBetweenLoopIterations();
     assert(loopEntryProducerPHI != nullptr);
 
@@ -481,7 +493,7 @@ void HeartBeatTransformation::generateCodeToStoreLiveOutVariables(LoopDependence
      */
     auto producerSCC = loopSCCDAG->sccOfValue(producer);
     auto reductionVariable =
-        static_cast<Reduction *>(sccManager->getSCCAttrs(producerSCC));
+        static_cast<BinaryReductionSCC *>(sccManager->getSCCAttrs(producerSCC));
     assert(reductionVariable != nullptr);
 
     // Reducible live-out initialization
@@ -566,7 +578,7 @@ BasicBlock * HeartBeatTransformation::performReductionAfterCallingLoopHandler(Lo
 
     auto producer = environment->getProducer(envID);
     auto producerSCC = loopSCCDAG->sccOfValue(producer);
-    auto producerSCCAttributes = static_cast<Reduction *>(sccManager->getSCCAttrs(producerSCC));
+    auto producerSCCAttributes = static_cast<BinaryReductionSCC *>(sccManager->getSCCAttrs(producerSCC));
     assert(producerSCCAttributes != nullptr);
 
     auto reducibleOperation = producerSCCAttributes->getReductionOperation();
@@ -731,7 +743,7 @@ BasicBlock * HeartBeatTransformation::performReductionWithInitialValueToAllReduc
     auto producer = environment->getProducer(envID);
     auto producerSCC = loopSCCDAG->sccOfValue(producer);
     auto producerSCCAttributes =
-        static_cast<Reduction *>(sccManager->getSCCAttrs(producerSCC));
+        static_cast<BinaryReductionSCC *>(sccManager->getSCCAttrs(producerSCC));
     assert(producerSCCAttributes != nullptr);
 
     /*

@@ -19,11 +19,17 @@
  *   }
  */
 
+/*
+ * Heartbeat Transformation
+ * - assumptions: one nested loop structure
+ * -              one loop at every level
+ */
+
 using namespace llvm ;
 using namespace llvm::noelle ;
 
 class HeartBeat : public ModulePass {
- public:
+  public:
     static char ID; 
 
     HeartBeat();
@@ -39,37 +45,78 @@ class HeartBeat : public ModulePass {
     StringRef functionSubString;
 
     /*
+     * Step 1: Identify all loops in functions starts with "HEARTBEAT_"
+     */
+    std::set<LoopDependenceInfo *> selectHeartbeatLoops (
+      Noelle &noelle,
+      const std::vector<LoopStructure *> *allLoops
+    );
+
+    /*
+     * Step 2
+     */
+    void performLoopLevelAnalysis (
+      Noelle &noelle,
+      const std::set<LoopDependenceInfo *> &heartbeatLoops
+    );
+
+    void setLoopLevelAndRoot (
+      LoopDependenceInfo *ldi,
+      std::unordered_map<LoopDependenceInfo *, CallGraphFunctionNode *> &loopToCallGraphNode,
+      std::unordered_map<CallGraphFunctionNode *, LoopDependenceInfo *> &callGraphNodeToLoop,
+      llvm::noelle::CallGraph &callGraph
+    );
+
+    /*
      * Results for loop-level analysis
      */
-    std::unordered_map<LoopDependenceInfo *, uint32_t> loopToLevel;
-    std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> loopToRoot; 
+    std::unordered_map<Function *, LoopDependenceInfo *> functionToLoop;
+    std::unordered_map<LoopDependenceInfo *, uint64_t> loopToLevel;
+    std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> loopToRoot;
+    uint64_t numLevels = 0;
 
+    /*
+     * Step 3
+     */
+    void handleLiveOut (
+      Noelle &noelle,
+      const std::set<LoopDependenceInfo *> &heartbeatLoops
+    );
+
+    bool containsLiveOut = false;
+
+    /*
+     * Step 4: Const live-in analysis
+     */
+    void performConstantLiveInAnalysis (
+      Noelle &noelle,
+      const std::set<LoopDependenceInfo *> &heartbeatLoops
+    );
+
+    void constantLiveInToLoop(
+      llvm::Argument &arg,
+      LoopDependenceInfo *ldi
+    );
+
+    bool isArgStartOrExitValue(
+      llvm::Argument &arg,
+      LoopDependenceInfo *ldi
+    );
+
+    std::unordered_map<LoopDependenceInfo *, std::unordered_set<uint64_t>> loopToArgNoOfConstantLiveIns;
+
+    /*
+     * Step 5: parallelize loops into heartbeat form
+     */
     bool parallelizeLoop (
       Noelle &noelle,
       LoopDependenceInfo *ldi
-      );
+    );
 
     bool createHeartBeatLoop (
       Noelle &noelle,
       LoopDependenceInfo *ldi,
       ParallelizationTechnique **usedTechnique
       );
-
-    std::set<LoopDependenceInfo *> selectLoopsToTransform (
-      Noelle &noelle,
-      const std::vector<LoopStructure *> &allLoops
-      );
-
-    void performLoopLevelAnalysis(
-      Noelle &noelle,
-      const std::set<LoopDependenceInfo *> &selectedLoops
-    );
-
-    void setLoopLevelAndRoot(
-      LoopDependenceInfo *ldi,
-      std::unordered_map<LoopDependenceInfo *, CallGraphFunctionNode *> &loopToCallGraphNode,
-      std::unordered_map<CallGraphFunctionNode *, LoopDependenceInfo *> &callGraphNodeToLoop,
-      llvm::noelle::CallGraph &callGraph
-    );
 
 };

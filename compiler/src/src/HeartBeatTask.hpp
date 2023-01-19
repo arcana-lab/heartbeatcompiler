@@ -18,9 +18,9 @@ class HeartBeatTask : public llvm::noelle::DOALLTask {
   public:
 
     HeartBeatTask (
-      FunctionType *taskSignature,
+      FunctionType *sliceTaskSignature,
       Module &M
-      );
+    );
 
     void extractFuncArgs () override ;
 

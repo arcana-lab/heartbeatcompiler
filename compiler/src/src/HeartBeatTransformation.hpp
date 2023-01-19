@@ -34,16 +34,22 @@ class HeartBeatTransformation : public DOALL {
      * Methods
      */
     HeartBeatTransformation (
-        Noelle &noelle
-        );
+      Noelle &noelle,
+      LoopDependenceInfo *ldi,
+      bool containsLiveOut,
+      std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel
+    );
 
     bool apply (
-        LoopDependenceInfo *LDI,
-        Heuristics *h
-        ) override ;
+      LoopDependenceInfo *ldi,
+      Heuristics *h
+    ) override ;
 
   protected:
     Noelle &n;
+    LoopDependenceInfo *ldi;
+    bool containsLiveOut;
+    std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel;
 
     /*
      * Helpers
@@ -65,4 +71,6 @@ class HeartBeatTransformation : public DOALL {
     void allocateEnvironmentArray(LoopDependenceInfo *LDI) override;
     void populateLiveInEnvironment(LoopDependenceInfo *LDI) override;
     BasicBlock * performReductionWithInitialValueToAllReducibleLiveOutVariables(LoopDependenceInfo *LDI);
+
+    FunctionType *sliceTaskSignature;
 };

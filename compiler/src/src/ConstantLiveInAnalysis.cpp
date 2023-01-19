@@ -1,0 +1,126 @@
+#include "Pass.hpp"
+
+using namespace llvm::noelle;
+
+void HeartBeat::performConstantLiveInAnalysis (
+  Noelle &noelle,
+  const std::set<LoopDependenceInfo *> &heartbeatLoops
+) {
+
+  errs() << this->outputPrefix << "Constant live-in analysis starts\n";
+
+  /*
+   * Find the function arguments list of the root loop
+   */
+  auto root_ldi = this->loopToRoot[*(heartbeatLoops.begin())];
+  auto root_ls = root_ldi->getLoopStructure();
+  auto root_fn = root_ls ->getFunction();
+  assert(root_fn->getName().contains(this->functionSubString) && "Root loop function doesn't start with HEARTBEAT_");
+
+  for (auto &arg : root_fn->args()) {
+    errs() << "======\n";
+    errs() << "perform constant live-in analysis of arg " << arg << ", of index " << arg.getArgNo() << "\n";
+    constantLiveInToLoop(arg, root_ldi);
+  }
+
+  errs() << "----------\n";
+  for (auto &pair : this->loopToArgNoOfConstantLiveIns) {
+    errs() << "" << pair.first->getLoopStructure()->getFunction()->getName() << "\n";
+    for (auto index : pair.second) {
+      errs() << "  " << index << ": " << *(root_fn->arg_begin() + index) << "\n";
+    }
+  }
+
+  errs() << this->outputPrefix << "Constant live-in analysis completes\n";
+  return ;
+}
+
+void HeartBeat::constantLiveInToLoop(llvm::Argument &arg, LoopDependenceInfo *ldi) {
+  auto fn = ldi->getLoopStructure()->getFunction();
+  errs() << "inside function " << fn->getName() << "\n";
+
+  if (arg.getNumUses() == 0) {
+    errs() << "edge case, should not take this branch as we have a dead argument supply to a function/loop\n";
+    return;
+  }
+
+  // known bug here, if the arg is used to compute the start or exit condition,
+  // then this is a const live-in to the loop
+  // however, the parent loop should be aware of the computation and set the
+  // start and exit condition correctly at the call site
+  auto ivManager = ldi->getInductionVariableManager();
+  auto ivAttr = ivManager->getLoopGoverningIVAttribution(*(ldi->getLoopStructure()));
+  auto iv = ivAttr->getInductionVariable();
+  auto startValue = iv.getStartValue();
+  auto exitValue = ivAttr->getExitConditionValue();
+
+  for (auto use_it = arg.use_begin() ; use_it != arg.use_end(); use_it++) {
+    auto arg_user = (*(use_it)).getUser();
+
+    errs() << "User of arg " << arg << ", " << *arg_user << "\n";
+
+    if (&arg == startValue || &arg == exitValue) {
+      // the logic to detecet whether a arg is start or exit condition
+      // shall be checked by caller (parent loop)
+      errs() << "  " << arg << " is either start/exit condition of the current loop\n";
+      continue;
+    }
+
+    /*
+     * If an argument is used inside a loop and through a call to another
+     * heartbeat function, it depends on whether this arg is acted as
+     * a start/exit condition value in the callee function
+     */
+    if (auto callInst = dyn_cast<CallInst>(arg_user)) {
+      auto callee = callInst->getCalledFunction();
+
+      if (callee->getName().contains(this->functionSubString)) {  // this is call to an outlined heartbeat loop
+        auto callee_ldi = this->functionToLoop[callee];
+        // to get the index of arg in the callInst
+        // https://llvm.org/doxygen/InstrTypes_8h_source.html#l01382
+        auto callInst_index = &(*use_it) - callInst->arg_begin();
+        // to get the corresponding arg in callee
+        // https://llvm.org/doxygen/Function_8h_source.html#l00784
+        auto callee_arg_it = callee->arg_begin() + callInst_index;
+
+        errs() << "  " << arg << " is passed through a call to another heartbeat function: " << callee->getName() << "\n";
+        errs() << "    index at caller: " << callInst_index << "\n";
+        errs() << "    arg at callee: " << *callee_arg_it << "\n";
+
+        if (isArgStartOrExitValue(*callee_arg_it, callee_ldi)) {
+          this->loopToArgNoOfConstantLiveIns[ldi].insert(arg.getArgNo());
+          errs() << "arg " << arg << " is a const live-in to function " << fn->getName() << "\n";
+        }
+
+        constantLiveInToLoop(*callee_arg_it, callee_ldi);
+
+      } else {  // not a call to an outlined heartbeat loop, the arg is a const live-in for the current loop
+        this->loopToArgNoOfConstantLiveIns[ldi].insert(arg.getArgNo());
+        errs() << "arg " << arg << " is a const live-in to function " << fn->getName() << "\n";
+      }
+    } else {  // user is not a call inst, start, nor exit condition value
+              // this arg is a constant live-in
+      this->loopToArgNoOfConstantLiveIns[ldi].insert(arg.getArgNo());
+      errs() << "arg " << arg << " is a const live-in to function " << fn->getName() << "\n";
+    }
+  }
+
+  return;
+}
+
+bool HeartBeat::isArgStartOrExitValue(llvm::Argument &arg, LoopDependenceInfo *ldi) {
+  auto ls = ldi->getLoopStructure();
+
+  auto ivManager = ldi->getInductionVariableManager();
+  auto ivAttr = ivManager->getLoopGoverningIVAttribution(*ls);
+  auto iv = ivAttr->getInductionVariable();
+
+  auto startValue = iv.getStartValue();
+  auto exitValue = ivAttr->getExitConditionValue();
+
+  if (&arg == startValue || &arg == exitValue) {
+    return true;
+  }
+
+  return false;
+}

@@ -20,32 +20,35 @@ bool HeartBeat::runOnModule (Module &M) {
   errs() << this->outputPrefix << "Start\n";
 
   /*
-   * Fetch NOELLE.
+   * Fetch NOELLE and select heartbeat loops
    */
-  auto& noelle = getAnalysis<Noelle>();
-
-  /*
-   * Fetch all program loops
-   */
-  auto loops = noelle.getLoopStructures();
-  errs() << this->outputPrefix << "  There are " << loops->size() << " loops in the program\n";
-
-  /*
-   * Select the loops to parallelize
-   */
-  auto selectedLoops = this->selectLoopsToTransform(noelle, *loops);
-  errs() << this->outputPrefix << "    " << selectedLoops.size() << " loops will be parallelized\n";
+  auto &noelle = getAnalysis<Noelle>();
+  auto allLoops = noelle.getLoopStructures();
+  auto heartbeatLoops = this->selectHeartbeatLoops(noelle, allLoops);
+  errs() << this->outputPrefix << heartbeatLoops.size() << " loops will be parallelized\n";
+  for (auto selectedLoop : heartbeatLoops) {
+    errs() << this->outputPrefix << selectedLoop->getLoopStructure()->getFunction()->getName() << "\n";
+  }
 
   /*
    * Determine the level of the targeted heartbeat loop, and the root loop for each targeted loop
    */
-  this->performLoopLevelAnalysis(noelle, selectedLoops);
-  errs() << this->outputPrefix << "Loop level analysis completed\n";
+  this->performLoopLevelAnalysis(noelle, heartbeatLoops);
+
+  /*
+   * Determine if any heartbeat loop contains live-out variables
+   */
+  this->handleLiveOut(noelle, heartbeatLoops);
+
+  /*
+   * Constant live-in analysis to determine the set of constant live-ins of each loop
+   */
+  this->performConstantLiveInAnalysis(noelle, heartbeatLoops);
 
   /*
    * Parallelize the selected loop.
    */
-  for (auto loop : selectedLoops){
+  for (auto loop : heartbeatLoops){
     modified |= this->parallelizeLoop(noelle, loop);
   }
   if (modified){
