@@ -9,12 +9,14 @@ HeartBeatTransformation::HeartBeatTransformation (
   Noelle &noelle,
   LoopDependenceInfo *ldi,
   bool containsLiveOut,
-  std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel
+  std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel,
+  std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns
 ) : DOALL{noelle},
     ldi{ldi},
     n{noelle},
     containsLiveOut{containsLiveOut},
-    loopToLevel{loopToLevel} {
+    loopToLevel{loopToLevel},
+    loopToSkippedLiveIns{loopToSkippedLiveIns} {
 
   /*
    * Create the slice task signature
@@ -68,13 +70,31 @@ bool HeartBeatTransformation::apply (
   auto loopEnvironment = loop->getEnvironment();
 
   /*
+   * Print original function
+   */
+  errs() << "original function:" << *loopFunction << "\n";
+  errs() << "pre-header:" << *(ls->getPreHeader()) << "\n";
+  errs() << "header:" << *(ls->getHeader()) << "\n";
+  errs() << "first body:" << *(ls->getFirstLoopBasicBlockAfterTheHeader()) << "\n";
+  errs() << "latches:";
+  for (auto bb : ls->getLatches()) {
+    errs() << *bb;
+  }
+  errs() << "exits:";
+  for (auto bb : ls->getLoopExitBasicBlocks()) {
+    errs() << *bb;
+  }
+
+  /*
    * Generate an empty task for the heartbeat execution.
    */
   auto hbTask = new HeartBeatTask(this->sliceTaskSignature, *program);
+  errs() << "initial task body:" << *(hbTask->getTaskBody()) << "\n";
   this->addPredecessorAndSuccessorsBasicBlocksToTasks(
     loop,
     { hbTask }
   );
+  errs() << "task after adding predecessor and successors bb:" << *(hbTask->getTaskBody()) << "\n";
 
   /*
    * Allocate memory for all environment variables
@@ -85,8 +105,13 @@ bool HeartBeatTransformation::apply (
     }
     return true;
   };
-  auto shouldThisVariableBeSkipped = [](uint32_t variableID, bool isLiveOut) -> bool { 
-    return false; 
+  auto shouldThisVariableBeSkipped = [&](uint32_t variableID, bool isLiveOut) -> bool {
+    // if a variable is a skipped live-in, then skip it here
+    if (this->loopToSkippedLiveIns[this->ldi].find(loopEnvironment->getProducer(variableID)) != this->loopToSkippedLiveIns[this->ldi].end()) {
+      errs() << "skip " << *(loopEnvironment->getProducer(variableID)) << " of id " << variableID << "\n";
+      return true;
+    }
+    return false;
   };
   this->initializeEnvironmentBuilder(loop, isReducible, shouldThisVariableBeSkipped);
 
@@ -317,9 +342,11 @@ bool HeartBeatTransformation::apply (
   return true;
 }
 
-void HeartBeatTransformation::initializeEnvironmentBuilder(LoopDependenceInfo *LDI, 
+void HeartBeatTransformation::initializeEnvironmentBuilder(
+  LoopDependenceInfo *LDI, 
   std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeReduced,
-  std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeSkipped) {
+  std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeSkipped
+) {
 
   auto environment = LDI->getEnvironment();
   assert(environment != nullptr);
@@ -332,6 +359,7 @@ void HeartBeatTransformation::initializeEnvironmentBuilder(LoopDependenceInfo *L
   }
 
   auto program = this->noelle.getProgram();
+  // envBuilder is a field in ParallelizationTechnique
   this->envBuilder = new HeartBeatLoopEnvironmentBuilder(program->getContext(),
                                                          environment,
                                                          shouldThisVariableBeReduced,

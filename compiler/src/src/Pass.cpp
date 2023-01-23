@@ -48,9 +48,10 @@ bool HeartBeat::runOnModule (Module &M) {
   /*
    * Parallelize the selected loop.
    */
-  for (auto loop : heartbeatLoops){
-    modified |= this->parallelizeLoop(noelle, loop);
-  }
+  // for (auto loop : heartbeatLoops) {
+  //   modified |= this->parallelizeLoop(noelle, loop);
+  // }
+  this->parallelizeLoop(noelle, this->rootLoop);
   if (modified){
     errs() << this->outputPrefix << "  The code has been modified\n";
   }

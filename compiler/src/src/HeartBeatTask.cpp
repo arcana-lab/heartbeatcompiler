@@ -16,12 +16,8 @@ using namespace llvm::noelle;
 HeartBeatTask::HeartBeatTask (
   FunctionType *taskSignature,
   Module &M
-  )
-  :
-    DOALLTask{taskSignature, M}
-  , maxGIV{nullptr}
-  {
-
+) : DOALLTask{taskSignature, M},
+    maxGIV{nullptr} {
   return ;
 }
 

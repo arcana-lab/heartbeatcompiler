@@ -37,7 +37,8 @@ class HeartBeatTransformation : public DOALL {
       Noelle &noelle,
       LoopDependenceInfo *ldi,
       bool containsLiveOut,
-      std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel
+      std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel,
+      std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns
     );
 
     bool apply (
@@ -50,6 +51,7 @@ class HeartBeatTransformation : public DOALL {
     LoopDependenceInfo *ldi;
     bool containsLiveOut;
     std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel;
+    std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns;
 
     /*
      * Helpers

@@ -72,6 +72,12 @@ void HeartBeat::performLoopLevelAnalysis (
   this->numLevels = highestLevel + 1;
   errs() << this->outputPrefix << "numLevels: " << this->numLevels << "\n";
 
+  /*
+   * Determine root loop
+   */
+  this->rootLoop = (*(this->loopToRoot.begin())).second;
+  errs() << this->outputPrefix << "root loop in function: " << this->rootLoop->getLoopStructure()->getFunction()->getName() << "\n";
+
   errs() << this->outputPrefix << "Loop level analysis completes\n";
 
   return;

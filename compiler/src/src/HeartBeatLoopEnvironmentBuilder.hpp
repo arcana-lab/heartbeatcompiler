@@ -97,4 +97,6 @@ private:
 
   std::vector<Type *> singleEnvTypes;
   std::vector<Type *> reducibleEnvTypes;
+
+  uint64_t valuesInCacheLine;
 };

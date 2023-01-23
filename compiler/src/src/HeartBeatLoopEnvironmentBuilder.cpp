@@ -9,7 +9,7 @@ HeartBeatLoopEnvironmentBuilder::HeartBeatLoopEnvironmentBuilder(
   std::function<bool(uint32_t variableID, bool isLiveOut)>
       shouldThisVariableBeSkipped,
   uint64_t reducerCount,
-  uint64_t numberOfUsers) 
+  uint64_t numberOfUsers)
   : LoopEnvironmentBuilder{ cxt } {
 
   assert(environment != nullptr);
@@ -39,6 +39,15 @@ HeartBeatLoopEnvironmentBuilder::HeartBeatLoopEnvironmentBuilder(
 
   if (environment->getExitBlockID() >= 0) {
     singleVars.insert(environment->getExitBlockID());
+  }
+
+  errs() << "live-ins with their ID and value\n";
+  for (auto singleVarID : singleVars) {
+    errs() << singleVarID << ": " << *(environment->getProducer(singleVarID)) << "\n";
+  }
+  errs() << "live-outs with their ID and value\n";
+  for (auto reducibleVarID : reducibleVars) {
+    errs() << reducibleVarID << ": " << *(environment->getProducer(reducibleVarID)) << "\n";
   }
 
   this->initializeBuilder(environment->getTypesOfEnvironmentLocations(),
@@ -82,19 +91,19 @@ void HeartBeatLoopEnvironmentBuilder::initializeBuilder(
   this->reducibleEnvArrayType = nullptr;
 
   for (uint32_t i = 0; i < singleVarIDs.size(); i++) {
-    auto varID = this->singleEnvIDToIndex[i];
-    this->singleEnvTypes.push_back(varTypes.at(varID));
+    auto index = this->singleEnvIDToIndex[i];
+    this->singleEnvTypes.push_back(varTypes.at(index));
   }
   for (uint32_t i = 0; i < reducibleVarIDs.size(); i++) {
-    auto varID = this->reducibleEnvIDToIndex[i];
-    this->reducibleEnvTypes.push_back(varTypes.at(varID));
+    auto index = this->reducibleEnvIDToIndex[i];
+    this->reducibleEnvTypes.push_back(varTypes.at(index));
   }
   assert(this->singleEnvTypes.size() + this->reducibleEnvTypes.size() == this->envSize && "Environment size doesn't match\n");
 
-  auto valuesInCacheLine = Architecture::getCacheLineBytes() / sizeof(int64_t);
+  this->valuesInCacheLine = Architecture::getCacheLineBytes() / sizeof(int64_t);
   auto int64 = IntegerType::get(this->CXT, 64);
-  this->singleEnvArrayType = ArrayType::get(int64, singleVarIDs.size() * valuesInCacheLine);
-  this->reducibleEnvArrayType = ArrayType::get(int64, reducibleVarIDs.size() * valuesInCacheLine);
+  this->singleEnvArrayType = ArrayType::get(int64, singleVarIDs.size() * this->valuesInCacheLine);
+  this->reducibleEnvArrayType = ArrayType::get(int64, reducibleVarIDs.size() * this->valuesInCacheLine);
 
   for (auto envID : singleVarIDs) {
     auto envIndex = this->singleEnvIDToIndex[envID];

@@ -17,17 +17,27 @@ void HeartBeat::performConstantLiveInAnalysis (
   auto root_fn = root_ls ->getFunction();
   assert(root_fn->getName().contains(this->functionSubString) && "Root loop function doesn't start with HEARTBEAT_");
 
+  auto arg_index = 0;
   for (auto &arg : root_fn->args()) {
     errs() << "======\n";
     errs() << "perform constant live-in analysis of arg " << arg << ", of index " << arg.getArgNo() << "\n";
-    constantLiveInToLoop(arg, root_ldi);
+    constantLiveInToLoop(arg, arg_index, root_ldi);
+    arg_index++;
   }
 
-  errs() << "----------\n";
-  for (auto &pair : this->loopToArgNoOfConstantLiveIns) {
-    errs() << "" << pair.first->getLoopStructure()->getFunction()->getName() << "\n";
-    for (auto index : pair.second) {
-      errs() << "  " << index << ": " << *(root_fn->arg_begin() + index) << "\n";
+  errs() << "---------- Skipped live-ins\n";
+  for (auto &loop_pair : this->loopToSkippedLiveIns) {
+    errs() << loop_pair.first->getLoopStructure()->getFunction()->getName() << "\n";
+    for (auto skipped_val : loop_pair.second) {
+      errs() << "  " << *skipped_val << "\n";
+    }
+  }
+
+  errs() << "---------- Constant live-ins\n";
+  for (auto &loop_pair : this->loopToConstantLiveIns) {
+    errs() << loop_pair.first->getLoopStructure()->getFunction()->getName() << "\n";
+    for (auto pair : loop_pair.second) {
+      errs() << "  constant live-in: " << *pair.first << ", index at root loop: " << pair.second << "\n";
     }
   }
 
@@ -35,9 +45,13 @@ void HeartBeat::performConstantLiveInAnalysis (
   return ;
 }
 
-void HeartBeat::constantLiveInToLoop(llvm::Argument &arg, LoopDependenceInfo *ldi) {
+void HeartBeat::constantLiveInToLoop(llvm::Argument &arg, int arg_index, LoopDependenceInfo *ldi) {
   auto fn = ldi->getLoopStructure()->getFunction();
   errs() << "inside function " << fn->getName() << "\n";
+
+  auto arg_val = static_cast<Value *>(&arg);
+  this->loopToSkippedLiveIns[ldi].insert(arg_val);
+  errs() << "adding " << *arg_val << " to " << fn->getName() << " skippedLiveIns\n";
 
   if (arg.getNumUses() == 0) {
     errs() << "edge case, should not take this branch as we have a dead argument supply to a function/loop\n";
@@ -88,20 +102,20 @@ void HeartBeat::constantLiveInToLoop(llvm::Argument &arg, LoopDependenceInfo *ld
         errs() << "    arg at callee: " << *callee_arg_it << "\n";
 
         if (isArgStartOrExitValue(*callee_arg_it, callee_ldi)) {
-          this->loopToArgNoOfConstantLiveIns[ldi].insert(arg.getArgNo());
-          errs() << "arg " << arg << " is a const live-in to function " << fn->getName() << "\n";
+          this->loopToConstantLiveIns[ldi][static_cast<Value *>(&arg)] = arg_index;
+          errs() << "arg " << arg << " is a const live-in to function " << fn->getName() << ", arg_index is " << arg_index << "\n";
         }
 
-        constantLiveInToLoop(*callee_arg_it, callee_ldi);
+        constantLiveInToLoop(*callee_arg_it, arg_index, callee_ldi);
 
       } else {  // not a call to an outlined heartbeat loop, the arg is a const live-in for the current loop
-        this->loopToArgNoOfConstantLiveIns[ldi].insert(arg.getArgNo());
-        errs() << "arg " << arg << " is a const live-in to function " << fn->getName() << "\n";
+        this->loopToConstantLiveIns[ldi][static_cast<Value *>(&arg)] = arg_index;
+        errs() << "arg " << arg << " is a const live-in to function " << fn->getName() << ", arg_index is " << arg_index << "\n";
       }
     } else {  // user is not a call inst, start, nor exit condition value
               // this arg is a constant live-in
-      this->loopToArgNoOfConstantLiveIns[ldi].insert(arg.getArgNo());
-      errs() << "arg " << arg << " is a const live-in to function " << fn->getName() << "\n";
+      this->loopToConstantLiveIns[ldi][static_cast<Value *>(&arg)] = arg_index;
+      errs() << "arg " << arg << " is a const live-in to function " << fn->getName() << ", arg_index is " << arg_index << "\n";
     }
   }
 

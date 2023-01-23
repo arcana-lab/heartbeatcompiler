@@ -73,6 +73,7 @@ class HeartBeat : public ModulePass {
     std::unordered_map<Function *, LoopDependenceInfo *> functionToLoop;
     std::unordered_map<LoopDependenceInfo *, uint64_t> loopToLevel;
     std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> loopToRoot;
+    LoopDependenceInfo *rootLoop = nullptr;
     uint64_t numLevels = 0;
 
     /*
@@ -95,6 +96,7 @@ class HeartBeat : public ModulePass {
 
     void constantLiveInToLoop(
       llvm::Argument &arg,
+      int arg_index,
       LoopDependenceInfo *ldi
     );
 
@@ -103,7 +105,8 @@ class HeartBeat : public ModulePass {
       LoopDependenceInfo *ldi
     );
 
-    std::unordered_map<LoopDependenceInfo *, std::unordered_set<uint64_t>> loopToArgNoOfConstantLiveIns;
+    std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> loopToSkippedLiveIns;
+    std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> loopToConstantLiveIns;
 
     /*
      * Step 5: parallelize loops into heartbeat form
