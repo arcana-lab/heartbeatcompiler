@@ -105,8 +105,14 @@ class HeartBeat : public ModulePass {
       LoopDependenceInfo *ldi
     );
 
+    void createConstantLiveInsGlobalPointer(
+      Noelle &noelle
+    );
+
     std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> loopToSkippedLiveIns;
     std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> loopToConstantLiveIns;
+    std::unordered_set<int> constantLiveInsArgIndex;
+    std::unordered_map<int, int> constantLiveInsArgIndexToIndex;
 
     /*
      * Step 5: parallelize loops into heartbeat form

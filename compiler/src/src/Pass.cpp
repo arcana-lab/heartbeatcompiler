@@ -46,6 +46,11 @@ bool HeartBeat::runOnModule (Module &M) {
   this->performConstantLiveInAnalysis(noelle, heartbeatLoops);
 
   /*
+   * Create constant live-ins global pointer
+   */
+  this->createConstantLiveInsGlobalPointer(noelle);
+
+  /*
    * Parallelize the selected loop.
    */
   // for (auto loop : heartbeatLoops) {

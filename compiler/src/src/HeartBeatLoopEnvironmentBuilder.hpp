@@ -15,8 +15,11 @@ public:
         shouldThisVariableBeReduced,
     std::function<bool(uint32_t variableID, bool isLiveOut)>
         shouldThisVariableBeSkipped,
+    std::function<bool(uint32_t variableID, bool isLiveOut)>
+        isConstantLiveInVariable,
     uint64_t reducerCount,
-    uint64_t numberOfUsers);
+    uint64_t numberOfUsers,
+    uint64_t numLevels);
 
   inline uint32_t getSingleEnvironmentSize() { return this->singleEnvIDToIndex.size(); };
 
@@ -25,6 +28,8 @@ public:
   inline ArrayType * getSingleEnvironmentArrayType() { return this->singleEnvArrayType; };
 
   inline ArrayType * getReducibleEnvironmentArrayType() { return this->reducibleEnvArrayType; };
+
+  inline ArrayType * getContextArrayType() { return this->contextArrayType; };
 
   bool hasVariableBeenReduced(uint32_t id) const override;
 
@@ -76,8 +81,8 @@ private:
                          const std::set<uint32_t> &singleVarIDs,
                          const std::set<uint32_t> &reducibleVarIDs,
                          uint64_t reducerCount,
-                         uint64_t numberOfUsers) override;
-  void createUsers(uint32_t numUsers) override;
+                         uint64_t numberOfUsers);
+  void createUsers(uint32_t numUsers);
 
   std::unordered_map<uint32_t, uint32_t> singleEnvIDToIndex;
   std::unordered_map<uint32_t, uint32_t> reducibleEnvIDToIndex;
@@ -98,5 +103,8 @@ private:
   std::vector<Type *> singleEnvTypes;
   std::vector<Type *> reducibleEnvTypes;
 
+  uint64_t numLevels;
   uint64_t valuesInCacheLine;
+  ArrayType *contextArrayType;
+  std::set<uint32_t> constantVars;
 };

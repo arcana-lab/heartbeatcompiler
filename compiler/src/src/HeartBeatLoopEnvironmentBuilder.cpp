@@ -8,15 +8,24 @@ HeartBeatLoopEnvironmentBuilder::HeartBeatLoopEnvironmentBuilder(
       shouldThisVariableBeReduced,
   std::function<bool(uint32_t variableID, bool isLiveOut)>
       shouldThisVariableBeSkipped,
+  std::function<bool(uint32_t variableID, bool isLiveOut)>
+      isConstantLiveInVariable,
   uint64_t reducerCount,
-  uint64_t numberOfUsers)
-  : LoopEnvironmentBuilder{ cxt } {
+  uint64_t numberOfUsers,
+  uint64_t numLevels)
+  : LoopEnvironmentBuilder{ cxt },
+    numLevels { numLevels },
+    constantVars {} {
 
   assert(environment != nullptr);
 
   std::set<uint32_t> singleVars;
   std::set<uint32_t> reducibleVars;
   for (auto liveInVariableID : environment->getEnvIDsOfLiveInVars()) {
+    if (isConstantLiveInVariable(liveInVariableID, false)) {
+      this->constantVars.insert(liveInVariableID);
+      continue;
+    }
     if (shouldThisVariableBeSkipped(liveInVariableID, false)) {
       continue;
     }
@@ -41,6 +50,10 @@ HeartBeatLoopEnvironmentBuilder::HeartBeatLoopEnvironmentBuilder(
     singleVars.insert(environment->getExitBlockID());
   }
 
+  errs() << "constant live-ins with their ID and value\n";
+  for (auto constantVarID : constantVars) {
+    errs() << constantVarID << ": " << *(environment->getProducer(constantVarID)) << "\n";
+  }
   errs() << "live-ins with their ID and value\n";
   for (auto singleVarID : singleVars) {
     errs() << singleVarID << ": " << *(environment->getProducer(singleVarID)) << "\n";
@@ -65,7 +78,7 @@ void HeartBeatLoopEnvironmentBuilder::initializeBuilder(
   const std::set<uint32_t> &reducibleVarIDs,
   uint64_t reducerCount,
   uint64_t numberOfUsers) {
-  
+
   uint32_t index = 0;
   for (auto singleVarID : singleVarIDs) {
     this->singleEnvIDToIndex[singleVarID] = index;
@@ -101,9 +114,14 @@ void HeartBeatLoopEnvironmentBuilder::initializeBuilder(
   assert(this->singleEnvTypes.size() + this->reducibleEnvTypes.size() == this->envSize && "Environment size doesn't match\n");
 
   this->valuesInCacheLine = Architecture::getCacheLineBytes() / sizeof(int64_t);
+
   auto int64 = IntegerType::get(this->CXT, 64);
   this->singleEnvArrayType = ArrayType::get(int64, singleVarIDs.size() * this->valuesInCacheLine);
   this->reducibleEnvArrayType = ArrayType::get(int64, reducibleVarIDs.size() * this->valuesInCacheLine);
+
+  auto int8 = IntegerType::get(this->CXT, 8);
+  auto int8_ptr = PointerType::getUnqual(int8);
+  this->contextArrayType = ArrayType::get(int8_ptr, this->numLevels * this->valuesInCacheLine);
 
   for (auto envID : singleVarIDs) {
     auto envIndex = this->singleEnvIDToIndex[envID];
@@ -121,7 +139,7 @@ void HeartBeatLoopEnvironmentBuilder::initializeBuilder(
 
 void HeartBeatLoopEnvironmentBuilder::createUsers(uint32_t numUsers) {
   for (auto i = 0; i < numUsers; i++) {
-    this->envUsers.push_back(new HeartBeatLoopEnvironmentUser(this->singleEnvIDToIndex, this->reducibleEnvIDToIndex));
+    this->envUsers.push_back(new HeartBeatLoopEnvironmentUser(this->singleEnvIDToIndex, this->reducibleEnvIDToIndex, this->constantVars));
   }
 }
 

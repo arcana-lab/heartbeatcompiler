@@ -1,6 +1,7 @@
 #include "HeartBeatTask.hpp"
 #include "HeartBeatTransformation.hpp"
 #include "noelle/core/BinaryReductionSCC.hpp"
+#include "noelle/core/Architecture.hpp"
 
 using namespace llvm;
 using namespace llvm::noelle;
@@ -8,15 +9,24 @@ using namespace llvm::noelle;
 HeartBeatTransformation::HeartBeatTransformation (
   Noelle &noelle,
   LoopDependenceInfo *ldi,
+  uint64_t numLevels,
   bool containsLiveOut,
   std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel,
-  std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns
+  std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns,
+  std::unordered_map<int, int> &constantLiveInsArgIndexToIndex,
+  std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns
 ) : DOALL{noelle},
     ldi{ldi},
     n{noelle},
+    numLevels{numLevels},
     containsLiveOut{containsLiveOut},
     loopToLevel{loopToLevel},
-    loopToSkippedLiveIns{loopToSkippedLiveIns} {
+    loopToSkippedLiveIns{loopToSkippedLiveIns},
+    constantLiveInsArgIndexToIndex{constantLiveInsArgIndexToIndex},
+    loopToConstantLiveIns{loopToConstantLiveIns} {
+
+  // set cacheline element size
+  this->valuesInCacheLine = Architecture::getCacheLineBytes() / sizeof(int64_t);
 
   /*
    * Create the slice task signature
@@ -88,7 +98,7 @@ bool HeartBeatTransformation::apply (
   /*
    * Generate an empty task for the heartbeat execution.
    */
-  auto hbTask = new HeartBeatTask(this->sliceTaskSignature, *program);
+  auto hbTask = new HeartBeatTask(this->sliceTaskSignature, *program, this->loopToLevel[this->ldi], this->containsLiveOut);
   errs() << "initial task body:" << *(hbTask->getTaskBody()) << "\n";
   this->addPredecessorAndSuccessorsBasicBlocksToTasks(
     loop,
@@ -113,12 +123,21 @@ bool HeartBeatTransformation::apply (
     }
     return false;
   };
-  this->initializeEnvironmentBuilder(loop, isReducible, shouldThisVariableBeSkipped);
+  auto isConstantLiveInVariable = [&](uint32_t variableID, bool isLiveOut) -> bool {
+    auto envProducer = loopEnvironment->getProducer(variableID);
+    if (this->loopToConstantLiveIns[this->ldi].find(envProducer) != this->loopToConstantLiveIns[this->ldi].end()) {
+      errs() << "constant live-in " << *envProducer << " of id " << variableID << "\n";
+      return true;
+    }
+    return false;
+  };
+  this->initializeEnvironmentBuilder(loop, isReducible, shouldThisVariableBeSkipped, isConstantLiveInVariable);
 
   /*
-   * Clone loop into the single task used by DOALL
+   * Clone loop into the single task used by HeartBeat
    */
   this->cloneSequentialLoop(loop, 0);
+  errs() << "task after cloning sequential loop: " << *(hbTask->getTaskBody()) << "\n";
 
   /*
    * Load all loop live-in values at the entry point of the task.
@@ -131,6 +150,7 @@ bool HeartBeatTransformation::apply (
     envUser->addLiveOut(envID);
   }
   this->generateCodeToLoadLiveInVariables(loop, 0);
+  errs() << "task after loading live-in variables: " << *(hbTask->getTaskBody()) << "\n";
 
   /*
    * Clone memory objects that are not blocked by RAW data dependences
@@ -139,6 +159,7 @@ bool HeartBeatTransformation::apply (
   if (ltm->isOptimizationEnabled(LoopDependenceInfoOptimization::MEMORY_CLONING_ID)) {
     this->cloneMemoryLocationsLocallyAndRewireLoop(loop, 0);
   }
+  errs() << "task after cloning memory objects: " << *(hbTask->getTaskBody()) << "\n";
 
   /*
    * Fix the data flow within the parallelized loop by redirecting operands of
@@ -146,11 +167,13 @@ bool HeartBeatTransformation::apply (
    * they still refer to the original loop's instructions.
    */
   this->adjustDataFlowToUseClones(loop, 0);
+  errs() << "task after fixing data flow: " << *(hbTask->getTaskBody()) << "\n";
 
   /*
    * Handle the reduction variables.
    */
   this->setReducableVariablesToBeginAtIdentityValue(loop, 0);
+  errs() << "task after seting reducible variables: " << *(hbTask->getTaskBody()) << "\n";
 
   /*
    * Add the jump from the entry of the function after loading all live-ins to the header of the cloned loop.
@@ -345,7 +368,8 @@ bool HeartBeatTransformation::apply (
 void HeartBeatTransformation::initializeEnvironmentBuilder(
   LoopDependenceInfo *LDI, 
   std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeReduced,
-  std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeSkipped
+  std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeSkipped,
+  std::function<bool(uint32_t variableID, bool isLiveOut)> isConstantLiveInVariable
 ) {
 
   auto environment = LDI->getEnvironment();
@@ -364,8 +388,10 @@ void HeartBeatTransformation::initializeEnvironmentBuilder(
                                                          environment,
                                                          shouldThisVariableBeReduced,
                                                          shouldThisVariableBeSkipped,
+                                                         isConstantLiveInVariable,
                                                          this->numTaskInstances,
-                                                         this->tasks.size());
+                                                         this->tasks.size(),
+                                                         this->numLevels);
   this->initializeLoopEnvironmentUsers();
 
   return;
@@ -382,24 +408,64 @@ void HeartBeatTransformation::initializeLoopEnvironmentUsers() {
 
     auto entryBlock = task->getEntry();
     IRBuilder<> entryBuilder{ entryBlock };
-    
-    // Don't load from the environment pointer if the size is 
+
+    // Create a bitcast instruction from i8* pointer to context array type
+    auto contextBitcastInst = entryBuilder.CreateBitCast(
+      task->getContextArg(),
+      PointerType::getUnqual(envBuilder->getContextArrayType()),
+      "heartbeat.context_array.pointer"
+    );
+
+    // Calculate the base index of my context
+    auto int64 = IntegerType::get(entryBuilder.getContext(), 64);
+    auto myLevelIndexV = cast<Value>(ConstantInt::get(int64, this->loopToLevel[this->ldi] * 8));
+
+    // Don't load from the environment pointer if the size is
     // 0 for either single or reducible environment
     if (envBuilder->getSingleEnvironmentSize() > 0) {
-      auto singleEnvironmentBitcastInst = entryBuilder.CreateBitCast(
-        task->getSingleEnvironment(),
+      auto myLiveInEnvGEPInst = entryBuilder.CreateInBoundsGEP(
+        (Value *)contextBitcastInst,
+        ArrayRef<Value *>({ myLevelIndexV, cast<Value>(ConstantInt::get(int64, 0)) }),
+        "heartbeat.live_in_env.gep"
+      );
+      auto liveInEnvBitcastInst = entryBuilder.CreateBitCast(
+        cast<Value>(myLiveInEnvGEPInst),
         PointerType::getUnqual(envBuilder->getSingleEnvironmentArrayType()),
-        "heartbeat.single_environment_variable.pointer");
-      envUser->setSingleEnvironmentArray(singleEnvironmentBitcastInst);
+        "heartbeat.live_in_env.pointer"
+      );
+      envUser->setSingleEnvironmentArray(liveInEnvBitcastInst);
+    }
+    if (envBuilder->getReducibleEnvironmentSize() > 0) {
+      auto myLiveOutEnvGEPInst = entryBuilder.CreateInBoundsGEP(
+        (Value *)contextBitcastInst,
+        ArrayRef<Value *>({ myLevelIndexV, cast<Value>(ConstantInt::get(int64, 1)) }),
+        "heartbeat.live_out_env.gep"
+      );
+      auto liveOutEnvBitcastInst = entryBuilder.CreateBitCast(
+        cast<Value>(myLiveOutEnvGEPInst),
+        PointerType::getUnqual(envBuilder->getReducibleEnvironmentArrayType()),
+        "heartbeat.live_out_env.pointer"
+      );
+      envUser->setReducibleEnvironmentArray(liveOutEnvBitcastInst);
     }
 
-    if (envBuilder->getReducibleEnvironmentSize() > 0) {
-      auto reducibleEnvironmentBitcastInst = entryBuilder.CreateBitCast(
-        task->getReducibleEnvironment(),
-        PointerType::getUnqual(envBuilder->getReducibleEnvironmentArrayType()),
-        "heartbeat.reducible_environment_variable.pointer");
-      envUser->setReducibleEnvironmentArray(reducibleEnvironmentBitcastInst);
-    }
+    // // Don't load from the environment pointer if the size is
+    // // 0 for either single or reducible environment
+    // if (envBuilder->getSingleEnvironmentSize() > 0) {
+    //   auto singleEnvironmentBitcastInst = entryBuilder.CreateBitCast(
+    //     task->getSingleEnvironment(),
+    //     PointerType::getUnqual(envBuilder->getSingleEnvironmentArrayType()),
+    //     "heartbeat.single_environment_variable.pointer");
+    //   envUser->setSingleEnvironmentArray(singleEnvironmentBitcastInst);
+    // }
+
+    // if (envBuilder->getReducibleEnvironmentSize() > 0) {
+    //   auto reducibleEnvironmentBitcastInst = entryBuilder.CreateBitCast(
+    //     task->getReducibleEnvironment(),
+    //     PointerType::getUnqual(envBuilder->getReducibleEnvironmentArrayType()),
+    //     "heartbeat.reducible_environment_variable.pointer");
+    //   envUser->setReducibleEnvironmentArray(reducibleEnvironmentBitcastInst);
+    // }
   }
 
   return;
@@ -411,6 +477,53 @@ void HeartBeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceIn
   auto envUser = (HeartBeatLoopEnvironmentUser *)this->envBuilder->getUser(taskIndex);
 
   IRBuilder<> builder{ task->getEntry() };
+
+  // Cast constLiveInsPointer to its correct type
+  auto constantLiveInsPointerGlobal = this->noelle.getProgram()->getNamedGlobal("constantLiveInsPointer");
+  assert(constantLiveInsPointerGlobal != nullptr);
+  errs() << "constant live-ins pointer " << *constantLiveInsPointerGlobal << "\n";
+  auto constantLiveInsLoadInst = builder.CreateLoad(
+    constantLiveInsPointerGlobal,
+    "heartbeat.constant_live_in_pointer.pointer"
+  );
+  auto constantLiveInsArrayBitCastInst = builder.CreateBitCast(
+    cast<Value>(constantLiveInsLoadInst),
+    PointerType::getUnqual(ArrayType::get(builder.getInt64Ty(), this->constantLiveInsArgIndexToIndex.size())),
+    "heartbeat.constant_live_in_array.pointer"
+  );
+
+  // Load constant live-in variables
+  for (const auto constEnvID : envUser->getEnvIDsOfConstantLiveInVars()) {
+    auto producer = env->getProducer(constEnvID);
+    errs() << "constEnvID: " << constEnvID << ", value: " << *producer << "\n";
+    // get the index of constant live-in in the array
+    auto arg_index = this->loopToConstantLiveIns[this->ldi][producer];
+    auto const_index = this->constantLiveInsArgIndexToIndex[arg_index];
+    auto int64 = builder.getInt64Ty();
+    auto zeroV = cast<Value>(ConstantInt::get(int64, 0));
+    auto const_index_V = cast<Value>(ConstantInt::get(int64, const_index));
+    // create gep in to the constant live-in
+    auto constLiveInGEPInst = builder.CreateInBoundsGEP(
+      cast<Value>(constantLiveInsArrayBitCastInst),
+      ArrayRef<Value *>({ zeroV, const_index_V })
+    );
+
+    // cast to the correct type of constant variable
+    auto constLiveInPointerInst = builder.CreateBitCast(
+      constLiveInGEPInst, 
+      PointerType::getUnqual(producer->getType())
+    );
+
+    // load from casted instruction
+    auto constLiveInLoadInst = builder.CreateLoad(
+      constLiveInPointerInst,
+      std::string{ "heartbeat.constant_live_in_"}.append(std::to_string(const_index)).append(".variable")
+    );
+
+    task->addLiveIn(producer, constLiveInLoadInst);
+  }
+
+  // Load live-in variables pointer, then load from the pointer to get the live-in variable
   for (auto envID : envUser->getEnvIDsOfLiveInVars()) {
     auto producer = env->getProducer(envID);
     auto envPointer = envUser->createSingleEnvironmentVariablePointer(builder, envID, producer->getType());

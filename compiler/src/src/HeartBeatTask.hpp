@@ -19,16 +19,27 @@ class HeartBeatTask : public llvm::noelle::DOALLTask {
 
     HeartBeatTask (
       FunctionType *sliceTaskSignature,
-      Module &M
+      Module &M,
+      uint64_t level,
+      bool containsLiveOut
     );
 
     void extractFuncArgs () override ;
 
-    inline Value * getSingleEnvironment() { return this->singleEnvArg; };
-    inline Value * getReducibleEnvironment() { return this->reducibleEnvArg; };
+    // inline Value * getSingleEnvironment() { return this->singleEnvArg; };
+    // inline Value * getReducibleEnvironment() { return this->reducibleEnvArg; };
+    inline Value * getContextArg() { return this->contextArg; };
 
   protected:
-    Value *singleEnvArg;
-    Value *reducibleEnvArg;
-    Value *maxGIV;
+    uint64_t level;
+    bool containsLiveOut;
+
+    Value *contextArg;
+    Value *myIndexArg;
+    std::vector<Value *> iterationsVector;
+    Value *startIterationArg;
+    Value *maxiterationArg;
+    // Value *singleEnvArg;
+    // Value *reducibleEnvArg;
+    // Value *maxGIV;
 };

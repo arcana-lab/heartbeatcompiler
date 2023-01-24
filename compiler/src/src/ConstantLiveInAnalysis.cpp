@@ -41,6 +41,15 @@ void HeartBeat::performConstantLiveInAnalysis (
     }
   }
 
+  errs() << "----------\n";
+  errs() << "there are " << this->constantLiveInsArgIndex.size() << " constant live-ins\n";
+  uint64_t index = 0;
+  for (auto argIndex : this->constantLiveInsArgIndex) {
+    errs() << argIndex << " has index " << index << " when loading from constnatLiveIns pointer\n";
+    this->constantLiveInsArgIndexToIndex[argIndex] = index;
+    index++;
+  }
+
   errs() << this->outputPrefix << "Constant live-in analysis completes\n";
   return ;
 }
@@ -103,6 +112,7 @@ void HeartBeat::constantLiveInToLoop(llvm::Argument &arg, int arg_index, LoopDep
 
         if (isArgStartOrExitValue(*callee_arg_it, callee_ldi)) {
           this->loopToConstantLiveIns[ldi][static_cast<Value *>(&arg)] = arg_index;
+          this->constantLiveInsArgIndex.insert(arg_index);
           errs() << "arg " << arg << " is a const live-in to function " << fn->getName() << ", arg_index is " << arg_index << "\n";
         }
 
@@ -110,11 +120,13 @@ void HeartBeat::constantLiveInToLoop(llvm::Argument &arg, int arg_index, LoopDep
 
       } else {  // not a call to an outlined heartbeat loop, the arg is a const live-in for the current loop
         this->loopToConstantLiveIns[ldi][static_cast<Value *>(&arg)] = arg_index;
+        this->constantLiveInsArgIndex.insert(arg_index);
         errs() << "arg " << arg << " is a const live-in to function " << fn->getName() << ", arg_index is " << arg_index << "\n";
       }
     } else {  // user is not a call inst, start, nor exit condition value
               // this arg is a constant live-in
       this->loopToConstantLiveIns[ldi][static_cast<Value *>(&arg)] = arg_index;
+      this->constantLiveInsArgIndex.insert(arg_index);
       errs() << "arg " << arg << " is a const live-in to function " << fn->getName() << ", arg_index is " << arg_index << "\n";
     }
   }
@@ -137,4 +149,20 @@ bool HeartBeat::isArgStartOrExitValue(llvm::Argument &arg, LoopDependenceInfo *l
   }
 
   return false;
+}
+
+void HeartBeat::createConstantLiveInsGlobalPointer(Noelle &noelle) {
+  auto M = noelle.getProgram();
+  IRBuilder<> builder { M->getContext() };
+
+  M->getOrInsertGlobal("constantLiveInsPointer", builder.getInt8PtrTy());
+  
+  auto constantLiveInsGlobalPointer = M->getNamedGlobal("constantLiveInsPointer");
+  constantLiveInsGlobalPointer->setLinkage(GlobalValue::CommonLinkage);
+  constantLiveInsGlobalPointer->setInitializer(Constant::getNullValue(builder.getInt8PtrTy()));
+  constantLiveInsGlobalPointer->setAlignment(8);
+
+  errs() << "create constant live-ins global pointer in the module " << *constantLiveInsGlobalPointer << "\n";
+
+  return;
 }

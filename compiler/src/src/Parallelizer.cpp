@@ -8,7 +8,16 @@ bool HeartBeat::parallelizeLoop (
   LoopDependenceInfo *ldi
 ) {
   errs() << "Start to parallelize loop in function " << ldi->getLoopStructure()->getFunction()->getName() << "\n";
-  HeartBeatTransformation HB(noelle, ldi, this->containsLiveOut, this->loopToLevel, this->loopToSkippedLiveIns);
+  HeartBeatTransformation HB(
+    noelle,
+    ldi,
+    this->numLevels,
+    this->containsLiveOut,
+    this->loopToLevel,
+    this->loopToSkippedLiveIns,
+    this->constantLiveInsArgIndexToIndex,
+    this->loopToConstantLiveIns
+  );
 
   /*
    * Check if the loop is a DOALL

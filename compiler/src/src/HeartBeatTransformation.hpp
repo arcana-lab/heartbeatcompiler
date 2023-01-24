@@ -36,9 +36,12 @@ class HeartBeatTransformation : public DOALL {
     HeartBeatTransformation (
       Noelle &noelle,
       LoopDependenceInfo *ldi,
+      uint64_t numLevels,
       bool containsLiveOut,
       std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel,
-      std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns
+      std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns,
+      std::unordered_map<int, int> &constantLiveInsArgIndexToIndex,
+      std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns
     );
 
     bool apply (
@@ -49,9 +52,13 @@ class HeartBeatTransformation : public DOALL {
   protected:
     Noelle &n;
     LoopDependenceInfo *ldi;
+    uint64_t numLevels;
     bool containsLiveOut;
     std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel;
     std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns;
+    std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns;
+    std::unordered_map<int, int> &constantLiveInsArgIndexToIndex;
+    uint64_t valuesInCacheLine;
 
     /*
      * Helpers
@@ -63,7 +70,8 @@ class HeartBeatTransformation : public DOALL {
   private:
     void initializeEnvironmentBuilder(LoopDependenceInfo *LDI, 
                                       std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeReduced,
-                                      std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeSkipped) override;
+                                      std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeSkipped,
+                                      std::function<bool(uint32_t variableID, bool isLiveOut)> isConstantLiveInVariable);
     void initializeLoopEnvironmentUsers() override;
     void generateCodeToLoadLiveInVariables(LoopDependenceInfo *LDI, int taskIndex) override;
     void setReducableVariablesToBeginAtIdentityValue(LoopDependenceInfo *LDI, int taskIndex) override;

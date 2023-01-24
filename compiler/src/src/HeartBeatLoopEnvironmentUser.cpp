@@ -1,10 +1,14 @@
 #include "HeartBeatLoopEnvironmentUser.hpp"
 #include "noelle/core/Architecture.hpp"
 
-HeartBeatLoopEnvironmentUser::HeartBeatLoopEnvironmentUser(std::unordered_map<uint32_t, uint32_t> &singleEnvIDToIndex, std::unordered_map<uint32_t, uint32_t> &reducibleEnvIDToIndex)
+HeartBeatLoopEnvironmentUser::HeartBeatLoopEnvironmentUser(
+  std::unordered_map<uint32_t, uint32_t> &singleEnvIDToIndex,
+  std::unordered_map<uint32_t, uint32_t> &reducibleEnvIDToIndex,
+  std::set<uint32_t> &constLiveInIDs)
   : LoopEnvironmentUser{ *(new std::unordered_map<uint32_t, uint32_t>()) },
     singleEnvIDToIndex { singleEnvIDToIndex },
-    reducibleEnvIDToIndex { reducibleEnvIDToIndex } {
+    reducibleEnvIDToIndex { reducibleEnvIDToIndex },
+    constLiveInIDs{ constLiveInIDs } {
   singleEnvIndexToPtr.clear();
   reducibleEnvIndexToPtr.clear();
 
@@ -78,4 +82,8 @@ Instruction * HeartBeatLoopEnvironmentUser::getEnvPtr(uint32_t id) {
   }
 
   return ptr;
+}
+
+iterator_range<std::set<uint32_t>::iterator> HeartBeatLoopEnvironmentUser::getEnvIDsOfConstantLiveInVars() {
+  return make_range(this->constLiveInIDs.begin(), this->constLiveInIDs.end());
 }
