@@ -29,6 +29,7 @@ class HeartBeatTask : public llvm::noelle::DOALLTask {
     // inline Value * getSingleEnvironment() { return this->singleEnvArg; };
     // inline Value * getReducibleEnvironment() { return this->reducibleEnvArg; };
     inline Value * getContextArg() { return this->contextArg; };
+    inline Value * getMyIndexArg() { return this->myIndexArg; };
 
   protected:
     uint64_t level;

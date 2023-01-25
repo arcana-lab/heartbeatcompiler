@@ -36,6 +36,16 @@ public:
 
   iterator_range<std::set<uint32_t>::iterator> getEnvIDsOfConstantLiveInVars(void);
 
+  inline void setLiveOutEnvBitcastInst(Value *liveOutEnvBitcastInst) { this->liveOutEnvBitcastInst = liveOutEnvBitcastInst; };
+  inline Value * getLiveOutEnvBitcastInst() { return this->liveOutEnvBitcastInst; };
+
+  inline void resetReducibleEnvironmentArray(IRBuilder<> &builder) {
+    builder.CreateStore(
+      this->liveOutEnvBitcastInst,
+      this->reducibleEnvArray
+    );
+  }
+
 private:
   std::unordered_map<uint32_t, uint32_t> &singleEnvIDToIndex;
   std::unordered_map<uint32_t, uint32_t> &reducibleEnvIDToIndex;
@@ -46,5 +56,5 @@ private:
   Value *reducibleEnvArray;
 
   std::set<uint32_t> &constLiveInIDs;
-
+  Value *liveOutEnvBitcastInst;
 };

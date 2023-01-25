@@ -43,22 +43,48 @@ void HeartBeatLoopEnvironmentUser::createReducableEnvPtr(IRBuilder<> builder, ui
     abort();
   }
 
+  errs() << "reducible environment array (array that stores the reduction array for all live-outs): " << *reducibleEnvArray << "\n";
+
   assert(this->reducibleEnvIDToIndex.find(envID) != this->reducibleEnvIDToIndex.end() && "The reducible environment variable is not included in the user\n");
   auto envIndex = this->reducibleEnvIDToIndex[envID];
+  errs() << "live-out index in the live-out environment array: " << envIndex << "\n";
 
   auto valuesInCacheLine = Architecture::getCacheLineBytes() / sizeof(int64_t);
   auto int64 = IntegerType::get(builder.getContext(), 64);
   auto zeroV = cast<Value>(ConstantInt::get(int64, 0));
   auto envIndV = cast<Value>(ConstantInt::get(int64, envIndex * valuesInCacheLine));
-  auto envReduceGEP = builder.CreateInBoundsGEP(this->reducibleEnvArray, ArrayRef<Value *>({ zeroV, envIndV }));
+  auto envReduceGEP = builder.CreateInBoundsGEP(
+    this->reducibleEnvArray,
+    ArrayRef<Value *>({ zeroV, envIndV }),
+    std::string("reductionArrayLiveOut_").append(std::to_string(envIndex)).append("_Ptr")
+  );
 
-  auto arrPtr = PointerType::getUnqual(ArrayType::get(int64, reducerCount * valuesInCacheLine));
-  auto envReducePtr = builder.CreateBitCast(envReduceGEP, PointerType::getUnqual(arrPtr));
-  auto reducibleArrayPtr = builder.CreateLoad(envReducePtr);
+  auto envReducePtr = builder.CreateBitCast(
+    envReduceGEP,
+    PointerType::getUnqual(PointerType::getUnqual(ArrayType::get(int64, reducerCount * valuesInCacheLine))),
+    std::string("reductionArrayLiveOut_").append(std::to_string(envIndex)).append("_PtrCasted")
+  );
+  auto reducibleArrayPtr = builder.CreateLoad(
+    envReducePtr,
+    std::string("reductionArrayLiveOut_").append(std::to_string(envIndex))
+  );
 
-  auto reduceIndAlignedV = builder.CreateMul(reducerIndV, ConstantInt::get(int64, valuesInCacheLine));
-  auto envGEP = builder.CreateInBoundsGEP(reducibleArrayPtr, ArrayRef<Value *>({ zeroV, reduceIndAlignedV }));
-  auto envPtr = builder.CreateBitCast(envGEP, PointerType::getUnqual(type));
+  auto reduceIndAlignedV = builder.CreateMul(
+    reducerIndV,
+    ConstantInt::get(int64, valuesInCacheLine),
+    std::string("reductionArrayLiveOut_").append(std::to_string(envIndex)).append("_index")
+  );
+  auto envGEP = builder.CreateInBoundsGEP(
+    reducibleArrayPtr,
+    ArrayRef<Value *>({ zeroV, reduceIndAlignedV }),
+    std::string("liveOut_").append(std::to_string(envIndex)).append("_Ptr")
+  );
+  auto envPtr = builder.CreateBitCast(
+    envGEP,
+    PointerType::getUnqual(type),
+    std::string("liveOut_").append(std::to_string(envIndex)).append("_PtrCasted")
+  );
+  errs() << "reducible variable pointer (envPtr): " << *envPtr << "\n";
 
   this->reducibleEnvIndexToPtr[envIndex] = cast<Instruction>(envPtr);
 

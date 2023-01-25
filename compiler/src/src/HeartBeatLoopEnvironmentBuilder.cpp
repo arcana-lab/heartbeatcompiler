@@ -169,8 +169,18 @@ void HeartBeatLoopEnvironmentBuilder::allocateNextLevelReducibleEnvironmentArray
   if (this->getReducibleEnvironmentSize() > 0) {
     auto int8 = IntegerType::get(builder.getContext(), 8);
     auto int8_ptr = PointerType::getUnqual(int8);
-    this->reducibleEnvArrayNextLevel = builder.CreateAlloca(this->reducibleEnvArrayType, nullptr, "heartbeat.reducible_environment_variable_next_level");
-    this->reducibleEnvArrayInt8PtrNextLevel = cast<Value>(builder.CreateBitCast(this->reducibleEnvArrayNextLevel, int8_ptr));
+    this->reducibleEnvArrayNextLevel = builder.CreateAlloca(
+      this->reducibleEnvArrayType,
+      nullptr,
+      "liveOutEnvForKids"
+    );
+
+    auto envUser = (HeartBeatLoopEnvironmentUser *)this->getUser(0);
+    builder.CreateStore(
+      envUser->getLiveOutEnvBitcastInst(),
+      this->reducibleEnvArrayNextLevel
+    );
+    // this->reducibleEnvArrayInt8PtrNextLevel = cast<Value>(builder.CreateBitCast(this->reducibleEnvArrayNextLevel, int8_ptr));
   }
   
   return;
@@ -207,7 +217,11 @@ void HeartBeatLoopEnvironmentBuilder::generateNextLevelReducibleEnvironmentVaria
     auto valuesInCacheLine = Architecture::getCacheLineBytes() / sizeof(int64_t);
     auto reducerArrType = ArrayType::get(int64, this->numReducers * valuesInCacheLine);
 
-    auto reduceArrAlloca = builder.CreateAlloca(reducerArrType, nullptr, "heartbeat.reduction_array_for_next_level_tasks");
+    auto reduceArrAlloca = builder.CreateAlloca(
+      reducerArrType,
+      nullptr,
+      std::string("reductionArrayLiveOut_").append(std::to_string(0)).append("_ForKids")
+    );
     this->envIndexToVectorOfReducableVarNextLevel[envIndex] = reduceArrAlloca;
 
     auto reduceArrPtrType = PointerType::getUnqual(reduceArrAlloca->getType());
