@@ -9,7 +9,8 @@ class HeartBeatLoopEnvironmentUser : public LoopEnvironmentUser {
 
 public:
   HeartBeatLoopEnvironmentUser(std::unordered_map<uint32_t, uint32_t> &singleEnvIDToIndex,
-                               std::unordered_map<uint32_t, uint32_t> &reducibleEnvIDToIndex);
+                               std::unordered_map<uint32_t, uint32_t> &reducibleEnvIDToIndex,
+                               std::set<uint32_t> &constantVars);
 
   inline void setSingleEnvironmentArray(Value *singleEnvArray) { this->singleEnvArray = singleEnvArray; };
   
@@ -33,6 +34,18 @@ public:
   
   Instruction * getEnvPtr(uint32_t id) override;
 
+  iterator_range<std::set<uint32_t>::iterator> getEnvIDsOfConstantLiveInVars(void);
+
+  inline void setLiveOutEnvBitcastInst(Value *liveOutEnvBitcastInst) { this->liveOutEnvBitcastInst = liveOutEnvBitcastInst; };
+  inline Value * getLiveOutEnvBitcastInst() { return this->liveOutEnvBitcastInst; };
+
+  inline void resetReducibleEnvironmentArray(IRBuilder<> &builder) {
+    builder.CreateStore(
+      this->reducibleEnvArray,
+      this->liveOutEnvBitcastInst
+    );
+  }
+
 private:
   std::unordered_map<uint32_t, uint32_t> &singleEnvIDToIndex;
   std::unordered_map<uint32_t, uint32_t> &reducibleEnvIDToIndex;
@@ -42,4 +55,6 @@ private:
   Value *singleEnvArray;
   Value *reducibleEnvArray;
 
+  std::set<uint32_t> &constLiveInIDs;
+  Value *liveOutEnvBitcastInst;
 };
