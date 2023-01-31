@@ -1,4 +1,7 @@
-// #include "loop_handler.hpp"
+#if defined(USE_HEARTBEAT)
+#include "loop_handler.hpp"
+// #include "loop_handler_temp.hpp"
+#endif
 #include <iostream>
 #include <cstdlib>
 #include <cstdint>
@@ -23,6 +26,8 @@ uint64_t HEARTBEAT_loop1(char **a, uint64_t i, uint64_t low2, uint64_t high2) {
 
   return r;
 }
+
+bool runHeartbeat = true;
 
 int main(int argc, char *argv[]) {
   if (argc < 3) {
@@ -49,7 +54,9 @@ int main(int argc, char *argv[]) {
     }
   }
 #elif defined(USE_HEARTBEAT)
-  r = HEARTBEAT_loop0(a, 0, n1, 0, n2);
+  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
+    r = HEARTBEAT_loop0(a, 0, n1, 0, n2);
+  });
 #endif
 
   // finishup

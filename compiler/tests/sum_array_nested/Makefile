@@ -37,6 +37,7 @@ MACROS_HEARTBEAT += $(MACROS) -DUSE_HEARTBEAT \
 
 FLAGS_HEARTBEAT += $(FLAGS) \
 									 -O1 -Xclang -disable-llvm-passes -emit-llvm \
+									 -fno-stack-protector -fno-asynchronous-unwind-tables -fomit-frame-pointer \
 									 -I $(TASKPARTS_INCLUDES)
 
 OPTS_HEARTBEAT += $(OPTS) \
@@ -44,8 +45,18 @@ OPTS_HEARTBEAT += $(OPTS) \
 									-fno-asynchronous-unwind-tables \
 									-fomit-frame-pointer
 
-LIBS_HEARTBEAT += $(LIBS) \
-									-pthread
+ifeq (, $(shell which jemalloc-config))
+	CUSTOM_MALLOC =
+else
+	JEMALLOCLD = $(shell jemalloc-config --libdir)
+	JEMALLOCLS = $(shell jemalloc-config --libs)
+	CUSTOM_MALLOC = -L$(JEMALLOCLD) -Wl,-rpath,$(JEMALLOCLD) $(JEMALLOCLS) -ljemalloc
+endif
+
+LIBS_HEARTBEAT = \
+	-pthread \
+	$(HWLOC_LIBRARY_PATH) \
+	$(CUSTOM_MALLOC) # needs to go last, or else it won't be used
 
 heartbeat: heartbeat.bc
 	$(CXX) $(OPTS_HEARTBEAT) $^ -o $@ $(LIBS_HEARTBEAT)
@@ -59,6 +70,7 @@ test_normalized.bc: test.bc
 	llvm-dis $@
 
 test.bc: test.cpp
+	./generate_code.sh `cat level.config` `cat live_out.config`
 	$(CXX) $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) -c $^ -o $@
 	llvm-dis $@
 
@@ -69,3 +81,4 @@ clean:
 	rm -rf baseline ;
 	rm -rf test.bc test_normalized.bc heartbeat.bc *.ll ;
 	rm -rf heartbeat ;
+	rm -rf code_* ;
