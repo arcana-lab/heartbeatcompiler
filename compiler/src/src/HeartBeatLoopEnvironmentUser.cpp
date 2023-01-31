@@ -95,6 +95,11 @@ Instruction * HeartBeatLoopEnvironmentUser::getEnvPtr(uint32_t id) {
 
   assert((this->singleEnvIDToIndex.find(id) != this->singleEnvIDToIndex.end() || this->reducibleEnvIDToIndex.find(id) != this->reducibleEnvIDToIndex.end()) && "The environment variable is not included in the user\n");
 
+  errs() << "inside HeartBeatLoopEnvironmentUser::getEnvPtr\n";
+  for (auto pair : this->reducibleEnvIDToIndex) {
+    errs() << pair.first << ", " << pair.second << "\n";
+  }
+
   Instruction *ptr = nullptr;
   if (this->liveInIDs.find(id) != this->liveInIDs.end()) {
     auto ind = this->singleEnvIDToIndex[id];

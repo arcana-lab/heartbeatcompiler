@@ -53,12 +53,48 @@ bool HeartBeat::runOnModule (Module &M) {
   /*
    * Parallelize the selected loop.
    */
-  // for (auto loop : heartbeatLoops) {
-  //   modified |= this->parallelizeLoop(noelle, loop);
-  // }
-  this->parallelizeLoop(noelle, this->rootLoop);
+  this->parallelizeRootLoop(noelle, this->rootLoop);
   if (modified){
-    errs() << this->outputPrefix << "  The code has been modified\n";
+    errs() << this->outputPrefix << "  The root loop has been modified\n";
+  }
+
+  for (auto loop : heartbeatLoops) {
+    if (loop == this->rootLoop) {
+      // root loop has already been parallelized, skip it
+      continue;
+    } else {
+      modified |= this->parallelizeNestedLoop(noelle, loop);
+    }
+  }
+
+  errs() << "parallelization completed!\n";
+  errs() << "original root loop after parallelization" << *(this->rootLoop->getLoopStructure()->getFunction()) << "\n";
+  errs() << "cloned root loop after parallelization" << *(this->loopToHeartBeatTransformation[rootLoop]->getHeartBeatTask()->getTaskBody()) << "\n";
+  for (auto pair : this->loopToHeartBeatTransformation) {
+    if (pair.first == this->rootLoop) {
+      continue;
+    }
+    errs() << "cloned loop of level " << this->loopToLevel[pair.first] << *(pair.second->getHeartBeatTask()->getTaskBody()) << "\n";
+  }
+
+  // now we've created all the heartbeat loops, it's time to create the leftover tasks per gap between heartbeat loops
+  modified |= createLeftoverTasks(noelle, heartbeatLoops);
+
+  // all leftover tasks have been created, need to fix the call to loop_handler to use the leftoverTasks global
+  for (auto pair : this->loopToHeartBeatTransformation) {
+    auto callInst = cast<CallInst>(pair.second->getCallToLoopHandler());
+
+    IRBuilder<> builder{ callInst };
+    auto leftoverTasksGEP = builder.CreateInBoundsGEP(
+      noelle.getProgram()->getNamedGlobal("leftoverTasks"),
+      ArrayRef<Value *>({
+        builder.getInt64(0),
+        builder.getInt64(0)
+      })
+    );
+
+    callInst->setArgOperand(2, leftoverTasksGEP);
+    errs() << "updated loop_handler function in loop level " << this->loopToLevel[pair.first] << *callInst << "\n";
   }
 
   errs() << this->outputPrefix << "Exit\n";

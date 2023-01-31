@@ -78,6 +78,13 @@ void HeartBeat::performLoopLevelAnalysis (
   this->rootLoop = (*(this->loopToRoot.begin())).second;
   errs() << this->outputPrefix << "root loop in function: " << this->rootLoop->getLoopStructure()->getFunction()->getName() << "\n";
 
+  /*
+   * Caller information
+   */
+  for (auto pair : this->loopToCallerLoop) {
+    errs() << "loopFunction: " << pair.first->getLoopStructure()->getFunction()->getName() << " and caller function: " << pair.second->getLoopStructure()->getFunction()->getName() << "\n";
+  }
+
   errs() << this->outputPrefix << "Loop level analysis completes\n";
 
   return;
@@ -109,6 +116,7 @@ void HeartBeat::setLoopLevelAndRoot(
   if (!callerFunction->getName().contains(this->functionSubString)) {
     assert(this->loopToLevel.find(ldi) == this->loopToLevel.end() && this->loopToRoot.find(ldi) == this->loopToRoot.end() && "The root loop has already been set before");
     this->loopToLevel[ldi] = 0;
+    this->levelToLoop[0] = ldi;
     this->loopToRoot[ldi] = ldi;
 
     return;
@@ -120,6 +128,10 @@ void HeartBeat::setLoopLevelAndRoot(
    */
   auto callerLDI = callGraphNodeToLoop[callerNode];
   assert(callerLDI != nullptr && "Caller loop hasn't been set yet");
+  
+  // set the caller loop for this loop
+  assert(this->loopToCallerLoop.find(ldi) == this->loopToCallerLoop.end() && "assumption is that heartbeat loop can only be called from only one caller\n"); 
+  this->loopToCallerLoop[ldi] = callerLDI;
 
   /*
    * Information for the parent loop hasn't been recorded yet
@@ -133,6 +145,7 @@ void HeartBeat::setLoopLevelAndRoot(
    * We are the nested loop and already have the parent loop information recorded
    */
   this->loopToLevel[ldi] = this->loopToLevel[callerLDI] + 1;
+  this->levelToLoop[this->loopToLevel[callerLDI] + 1] = ldi;
   this->loopToRoot[ldi] = this->loopToRoot[callerLDI];
 
   return;

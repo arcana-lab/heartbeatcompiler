@@ -1,5 +1,6 @@
 #pragma once
 
+#include "HeartBeatTransformation.hpp"
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Support/raw_ostream.h"
@@ -72,7 +73,9 @@ class HeartBeat : public ModulePass {
      */
     std::unordered_map<Function *, LoopDependenceInfo *> functionToLoop;
     std::unordered_map<LoopDependenceInfo *, uint64_t> loopToLevel;
+    std::unordered_map<uint64_t, LoopDependenceInfo *> levelToLoop;
     std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> loopToRoot;
+    std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> loopToCallerLoop;
     LoopDependenceInfo *rootLoop = nullptr;
     uint64_t numLevels = 0;
 
@@ -115,9 +118,27 @@ class HeartBeat : public ModulePass {
     std::unordered_map<int, int> constantLiveInsArgIndexToIndex;
 
     /*
-     * Step 5: parallelize loops into heartbeat form
+     * Step 5: parallelize root loop into heartbeat form
      */
-    bool parallelizeLoop (
+    bool parallelizeRootLoop (
+      Noelle &noelle,
+      LoopDependenceInfo *ldi
+    );
+
+    void linkTransformedLoopToOriginalFunction(
+      BasicBlock *originalPreHeader,
+      BasicBlock *startOfParLoopInOriginalFunc,
+      BasicBlock *endOfParLoopInOriginalFunc,
+      Value *envArray,
+      Value *envIndexForExitVariable,
+      std::vector<BasicBlock *> &loopExitBlocks,
+      llvm::noelle::TypesManager *tm,
+      Noelle &noelle);
+
+    /*
+     * Step 6: parallelize all nested loops under the root loop
+     */
+    bool parallelizeNestedLoop (
       Noelle &noelle,
       LoopDependenceInfo *ldi
     );
@@ -127,5 +148,17 @@ class HeartBeat : public ModulePass {
       LoopDependenceInfo *ldi,
       ParallelizationTechnique **usedTechnique
       );
+
+    std::unordered_map<LoopDependenceInfo *, HeartBeatTransformation *> loopToHeartBeatTransformation;
+
+    /*
+     * Step 7: create leftover tasks
+     */
+    bool createLeftoverTasks(
+      Noelle &noelle,
+      std::set<LoopDependenceInfo *> &heartbeatLoops
+    );
+
+    std::vector<Constant *> leftoverTasks;
 
 };

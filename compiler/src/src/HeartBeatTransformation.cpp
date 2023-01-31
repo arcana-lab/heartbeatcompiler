@@ -14,7 +14,9 @@ HeartBeatTransformation::HeartBeatTransformation (
   std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel,
   std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns,
   std::unordered_map<int, int> &constantLiveInsArgIndexToIndex,
-  std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns
+  std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns,
+  std::unordered_map<LoopDependenceInfo *, HeartBeatTransformation *> &loopToHeartBeatTransformation,
+  std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop
 ) : DOALL{noelle},
     ldi{ldi},
     n{noelle},
@@ -23,7 +25,10 @@ HeartBeatTransformation::HeartBeatTransformation (
     loopToLevel{loopToLevel},
     loopToSkippedLiveIns{loopToSkippedLiveIns},
     constantLiveInsArgIndexToIndex{constantLiveInsArgIndexToIndex},
-    loopToConstantLiveIns{loopToConstantLiveIns} {
+    loopToConstantLiveIns{loopToConstantLiveIns},
+    hbTask{nullptr},
+    loopToHeartBeatTransformation{loopToHeartBeatTransformation},
+    loopToCallerLoop{loopToCallerLoop} {
 
   // set cacheline element size
   this->valuesInCacheLine = Architecture::getCacheLineBytes() / sizeof(int64_t);
@@ -98,7 +103,10 @@ bool HeartBeatTransformation::apply (
   /*
    * Generate an empty task for the heartbeat execution.
    */
-  auto hbTask = new HeartBeatTask(this->sliceTaskSignature, *program, this->loopToLevel[this->ldi], this->containsLiveOut);
+  this->hbTask = new HeartBeatTask(this->sliceTaskSignature, *program, this->loopToLevel[this->ldi], this->containsLiveOut,
+    std::string("HEARTBEAT_loop").append(std::to_string(this->loopToLevel[ldi])).append("_slice")
+  );
+  // hbTask->getTaskBody()->setName(std::string("HEARTBEAT_loop").append(std::to_string(this->loopToLevel[ldi])).append("_slice"));
   errs() << "initial task body:" << *(hbTask->getTaskBody()) << "\n";
   this->addPredecessorAndSuccessorsBasicBlocksToTasks(
     loop,
@@ -193,6 +201,10 @@ bool HeartBeatTransformation::apply (
    * outer loop might affect the values stored
    */
   this->generateCodeToStoreLiveOutVariables(loop, 0);
+  errs() << "live out id to accumulated private copy\n";
+  for (auto pair : this->liveOutVariableToAccumulatedPrivateCopy) {
+    errs() << "id: " << pair.first << ": " << *(pair.second) << "\n";
+  }
   errs() << "task after store live-out variables " << *(hbTask->getTaskBody()) << "\n";
 
   /*
@@ -206,164 +218,501 @@ bool HeartBeatTransformation::apply (
    */
   auto loopHandlerFunction = program->getFunction("loop_handler");
   assert(loopHandlerFunction != nullptr);
+  errs() << "loop_handler function" << *loopHandlerFunction << "\n";
 
   /*
-   * Create a new basic block to invoke the loop handler
-   *
-   * Step 1: fetch the variable that holds the current loop-governing IV value
+   * Create a new bb to invoke the loop handler after the body, and a new basic block to modify the exit condition
    */
+  this->loopHandlerBlock = BasicBlock::Create(hbTask->getTaskBody()->getContext(), "loop_handler_block", hbTask->getTaskBody());
+  this->modifyExitConditionBlock = BasicBlock::Create(hbTask->getTaskBody()->getContext(), "modify_exit_condition", hbTask->getTaskBody());
+  
+  auto bbs = ls->getLatches();
+  assert(bbs.size() == 1 && "assumption: only has one latch of the loop\n");
+  auto latchBB = *(bbs.begin());
+  auto latchBBClone = hbTask->getCloneOfOriginalBasicBlock(latchBB);
+  auto bodyBB = latchBB->getSinglePredecessor();
+  auto bodyBBClone = hbTask->getCloneOfOriginalBasicBlock(bodyBB);
+  assert(bodyBB != nullptr && "latch doesn't have a single predecessor\n");
+
+  // modify the bodyBB to jump to the loop_handler block
+  IRBuilder<> bodyBuilder{ bodyBBClone };
+  auto bodyTerminator = bodyBBClone->getTerminator();
+  bodyBuilder.SetInsertPoint(bodyTerminator);
+  bodyBuilder.CreateBr(
+    loopHandlerBlock
+  );
+  bodyTerminator->eraseFromParent();
+
+  // modify the exit condition block to jump to the latch block
+  IRBuilder<> exitConditionBlockBuilder { modifyExitConditionBlock };
+  exitConditionBlockBuilder.CreateBr(
+    latchBBClone
+  );
+  errs() << "task after creating two new basic blocks and fixing control flow" << *(hbTask->getTaskBody()) << "\n";
+
+  /*
+   * Modify the exit condition inside the exit condition block
+   * also add a phi node in the to use the incoming value from this block
+   */
+  // step one, add a phi node inside the header for the exitCondition
   auto GIV_attr = loop->getLoopGoverningIVAttribution();
   assert(GIV_attr != nullptr);
   assert(GIV_attr->isSCCContainingIVWellFormed());
-  auto currentIVValue = GIV_attr->getValueToCompareAgainstExitConditionValue();
-  assert(currentIVValue != nullptr);
-  auto cloneCurrentIVValue = this->fetchClone(currentIVValue);
-  assert(cloneCurrentIVValue != nullptr);
+  // get the exit condition value
+  auto originalExitConditionValue = GIV_attr->getExitConditionValue();
+  errs() << "original exit condition value " << *originalExitConditionValue << "\n";
+  // add a phi node representing the new exit conditio value
+  auto headerBB = ls->getHeader();
+  auto headerBBClone = hbTask->getCloneOfOriginalBasicBlock(headerBB);
+  auto firstNonPhiInst = headerBBClone->getFirstNonPHI();
+  IRBuilder<> headerBuilder{ headerBBClone };
+  headerBuilder.SetInsertPoint(firstNonPhiInst);
+  auto exitConditionPhiInst = headerBuilder.CreatePHI(
+    originalExitConditionValue->getType(),
+    1,
+    "exitCondition"
+  );
+  // store this exitConditionPhiInstruction in the corresponding hbTask
+  this->hbTask->setMaxIteration(exitConditionPhiInst);
+  exitConditionPhiInst->addIncoming(
+    originalExitConditionValue,
+    hbTask->getEntry()
+  );
+  // maxIter = startIter + 1
+  auto IV = GIV_attr->getInductionVariable().getLoopEntryPHI();
+  auto IVClone = cast<PHINode>(hbTask->getCloneOfOriginalInstruction(IV));
+  // store the currentIVPhiInstruction in the corresponding hbTask
+  this->hbTask->setCurrentIteration(IVClone);
+  errs() << "induction variable: " << *IVClone << "\n";
+  exitConditionBlockBuilder.SetInsertPoint(modifyExitConditionBlock->getTerminator());
+  auto newExitCondtionInst = exitConditionBlockBuilder.CreateAdd(
+    IVClone,
+    ConstantInt::get(originalExitConditionValue->getType(), 1),
+    "newExitCondition"
+  );
+  // create a phi at the latch for the exit condition
+  IRBuilder<> latchBuilder { &*(latchBBClone->begin()) };
+  auto exitConditionUpdatedInst = latchBuilder.CreatePHI(
+    originalExitConditionValue->getType(),
+    2,
+    "exitConditionUpdated"
+  );
+  exitConditionUpdatedInst->addIncoming(
+    exitConditionPhiInst,
+    loopHandlerBlock
+  );
+  exitConditionUpdatedInst->addIncoming(
+    newExitCondtionInst,
+    modifyExitConditionBlock
+  );
+  exitConditionPhiInst->addIncoming(
+    exitConditionUpdatedInst,
+    latchBBClone
+  );
+  // last step is to update the icmp instrution in the loop header to use the exitCondition phi instruction
+  auto GIVCmpInst = GIV_attr->getHeaderCompareInstructionToComputeExitCondition();
+  auto GIVCmpInstClone = hbTask->getCloneOfOriginalInstruction(GIVCmpInst);
+  errs() << "cmp inst to determine whether continue execution of the loop: " << *GIVCmpInstClone << "\n";
+  cast<CmpInst>(GIVCmpInstClone)->setOperand(1, exitConditionPhiInst);
+  errs() << "task after adjusting the exit condition value" << *(hbTask->getTaskBody()) << "\n";
 
   /*
-   * Step 2: fetch the first instruction of the body of the loop in the task.
+   * Call the loop_hander in the loop_handler block and compare the return code
+   * to decide whether need to modify the exit condition
    */
-  auto bodyBB = ls->getFirstLoopBasicBlockAfterTheHeader();
-  assert(bodyBB != nullptr);
-  auto entryBodyInst = bodyBB->getFirstNonPHI();
-  auto entryBodyInstInTask = hbTask->getCloneOfOriginalInstruction(entryBodyInst);
-  assert(entryBodyInstInTask != nullptr);
-  auto entryBodyInTask = entryBodyInstInTask->getParent();
-
-  /*
-   * Step 3: call the loop handler
-   */
-  IRBuilder<> bbBuilder(entryBodyInstInTask);
-  auto argIter = hbTask->getTaskBody()->arg_begin();
-  auto firstIterationValue = &*(argIter++);
-  auto lastIterationValue = &*(argIter++);
-  auto singleEnvPtr = &*(argIter++);
-  auto reducibleEnvPtr = &*(argIter++);
-  auto taskID = &*(argIter++);
-  auto hbEnvBuilder = (HeartBeatLoopEnvironmentBuilder *)this->envBuilder;
-  auto callToHandler = cast<CallInst>(bbBuilder.CreateCall(loopHandlerFunction, ArrayRef<Value *>({
-    bbBuilder.CreateZExtOrTrunc(cloneCurrentIVValue, firstIterationValue->getType()),
-    lastIterationValue,
-    singleEnvPtr,
-    // if there's no reducible live-out environment, which means the next level reducible environment won't be allocated
-    // use the original reducible environment instead
-    hbEnvBuilder->getReducibleEnvironmentSize() > 0 ? hbEnvBuilder->getNextLevelEnvironmentArrayVoidPtr() : reducibleEnvPtr,
-    taskID,
-    hbTask->getTaskBody()
-        })));
-
-  /*
-   * Split the body basic block
-   *
-   * From 
-   * -------
-   * | PHI                        |
-   * | %Y = call loop_handler()   |
-   * | A                          | 
-   * | br X                       |
-   *
-   * to
-   * ------------------------------------
-   * | PHI                              |
-   * | %Y = call loop_handler()         |
-   * | %Y2 = icmp %Y, 0                 |
-   * | br %Y2 normalBody RET            |
-   * ------------------------------------
-   *
-   * ---normalBody ---
-   * | A   |
-   * | br X|
-   * -------
-   */
-  auto bottomHalfBB = entryBodyInTask->splitBasicBlock(callToHandler->getNextNode());
-  auto addedFakeTerminatorOfEntryBodyInTask = entryBodyInTask->getTerminator();
-  IRBuilder<> topHalfBuilder(entryBodyInTask);
-  auto typeManager = noelle.getTypesManager();
-  auto const0 = ConstantInt::get(typeManager->getIntegerType(32), 0);
-  auto cmpInst = cast<Instruction>(topHalfBuilder.CreateICmpEQ(callToHandler, const0));
-  auto exitBasicBlockInTask = hbTask->getExit();
-  auto condBr = topHalfBuilder.CreateCondBr(cmpInst, bottomHalfBB, exitBasicBlockInTask);
-  addedFakeTerminatorOfEntryBodyInTask->eraseFromParent();
-
-  /*
-   * Create the bitcast instructions at the entry block of the task to match the type of the GIV
-   */
-  IRBuilder<> entryTaskBuilder{ hbTask->getEntry() };
-  entryTaskBuilder.SetInsertPoint(&(*hbTask->getEntry()->begin()));
-  auto firstIterationValueCasted = entryTaskBuilder.CreateZExtOrTrunc(firstIterationValue, cloneCurrentIVValue->getType());
-  auto lastIterationValueCasted = entryTaskBuilder.CreateZExtOrTrunc(lastIterationValue, cloneCurrentIVValue->getType());
-
-  /*
-   * Adjust the first starting value of the loop-governing IV to use the first parameter of the task.
-   */
-  auto& GIV = GIV_attr->getInductionVariable();
-  auto originalPHI = GIV.getLoopEntryPHI();
-  auto clonePHI = cast<PHINode>(this->fetchClone(originalPHI));
-  assert(clonePHI != nullptr);
-  clonePHI->setIncomingValueForBlock(hbTask->getEntry(), firstIterationValueCasted);
-
-  /*
-   * Adjust the exit condition value of the loop-governing IV to use the second parameter of the task.
-   *
-   * Step 1: find the Use of the exit value used in the compare instruction of the loop-governing IV.
-   */
-  auto LGIV_cmpInst = GIV_attr->getHeaderCompareInstructionToComputeExitCondition();
-  auto LGIV_lastValue = GIV_attr->getExitConditionValue();
-  auto LGIV_currentValue = GIV_attr->getValueToCompareAgainstExitConditionValue();
-  int32_t operandNumber = -1;
-  for (auto &use: LGIV_currentValue->uses()){
-    auto user = use.getUser();
-    auto userInst = dyn_cast<Instruction>(user);
-    if (userInst == nullptr){
-      continue ;
-    }
-    if (userInst == LGIV_cmpInst){
-
-      /*
-       * We found the Use we are interested.
-       */
-      switch (use.getOperandNo()){
-        case 0:
-          operandNumber = 1;
-          break ;
-        case 1:
-          operandNumber = 0;
-          break ;
-        default:
-          abort();
-      }
-      break ;
-    }
+  IRBuilder<> loopHandlerBuilder{ loopHandlerBlock };
+  // create the vector to represent arguments
+  std::vector<Value *> loopHandlerParameters{ hbTask->getContextArg(),
+                                              loopHandlerBuilder.getInt64(this->loopToLevel[loop]),
+                                              nullptr // pointer to leftover tasks, change this value later
+                                            };
+  // copy the parent loop's start/max iteration
+  for (auto i = 0; i < this->loopToLevel[loop]; i++) {
+    loopHandlerParameters.push_back(hbTask->getIterationsVector()[i * 2]);
+    loopHandlerParameters.push_back(hbTask->getIterationsVector()[i * 2 + 1]);
   }
-  assert(operandNumber != -1);
-  auto cloneCmpInst = cast<CmpInst>(this->fetchClone(LGIV_cmpInst));
-  auto cloneLastValue = this->fetchClone(LGIV_lastValue);
-  auto cloneCurrentValue = cast<Instruction>(this->fetchClone(LGIV_currentValue));
-  cloneCmpInst->setOperand(operandNumber, lastIterationValueCasted);
+  // push the current start/max iteration
+  loopHandlerParameters.push_back(hbTask->getCurrentIteration());
+  loopHandlerParameters.push_back(hbTask->getMaxIteration());
+  // supply 0 as start/max iteration for the rest of levels
+  for (auto i = this->loopToLevel[loop] + 1; i <= this->numLevels - 1; i++) {
+    loopHandlerParameters.push_back(loopHandlerBuilder.getInt64(0));
+    loopHandlerParameters.push_back(loopHandlerBuilder.getInt64(0));
+  }
 
-  /*
-   * Create reduction loop here
-   * 1. changes, after calling the loop_handler and exit, instead of going to the exitBB directly,
-   * go to the reduction body first, reduce on the next-level array and store the final result into
-   * the heartbeat.environment_variable.live_out.reducible.update_private_copy
-   * 2. The initial value is not the identity value but the correspoinding phi node value from the
-   * clone loop body if the loop_handler function wasn't invoked
-   */
-  auto tm = this->n.getTypesManager();
-  auto numOfReducer = ConstantInt::get(tm->getIntegerType(32), this->numTaskInstances);
-  auto afterReductionBBAfterCallingLoopHandler = this->performReductionAfterCallingLoopHandler(loop, 0, callToHandler->getParent(), cmpInst, bottomHalfBB, numOfReducer);
+  auto callToHandler = loopHandlerBuilder.CreateCall(
+    loopHandlerFunction,
+    ArrayRef<Value *>({
+      loopHandlerParameters
+    }),
+    "loop_handler_return_code"
+  );
+  // cache this call to loop_handler
+  this->callToLoopHandler = callToHandler;
+
+  // if (rc > 0) {
+  //   modify exit condition
+  //   goto latch
+  // } else {
+  //   goto latch
+  // }
+  auto cmpInst = loopHandlerBuilder.CreateICmpSGT(
+    callToHandler,
+    ConstantInt::get(loopHandlerBuilder.getInt64Ty(), 0)
+  );
+  auto condBr = loopHandlerBuilder.CreateCondBr(
+    cmpInst,
+    modifyExitConditionBlock,
+    latchBBClone
+  );
+  errs() << "task after invoking loop_handler function and checking return code" << *(hbTask->getTaskBody()) << "\n";
+
+  // /*
+  //  * Create a new basic block to invoke the loop handler
+  //  *
+  //  * Step 1: fetch the variable that holds the current loop-governing IV value
+  //  */
+  // auto GIV_attr = loop->getLoopGoverningIVAttribution();
+  // assert(GIV_attr != nullptr);
+  // assert(GIV_attr->isSCCContainingIVWellFormed());
+  // auto currentIVValue = GIV_attr->getValueToCompareAgainstExitConditionValue();
+  // assert(currentIVValue != nullptr);
+  // auto cloneCurrentIVValue = this->fetchClone(currentIVValue);
+  // errs() << "cloned current IV value " << *cloneCurrentIVValue << "\n";
+  // assert(cloneCurrentIVValue != nullptr);
+
+  // /*
+  //  * Step 2: fetch the first instruction of the body of the loop in the task.
+  //  */
+  // auto bodyBB = ls->getFirstLoopBasicBlockAfterTheHeader();
+  // assert(bodyBB != nullptr);
+  // auto entryBodyInst = bodyBB->getFirstNonPHI();
+  // auto entryBodyInstInTask = hbTask->getCloneOfOriginalInstruction(entryBodyInst);
+  // assert(entryBodyInstInTask != nullptr);
+  // auto entryBodyInTask = entryBodyInstInTask->getParent();
+
+  // /*
+  //  * Step 3: call the loop handler
+  //  */
+  // IRBuilder<> bbBuilder(entryBodyInstInTask);
+  // auto argIter = hbTask->getTaskBody()->arg_begin();
+  // auto firstIterationValue = &*(argIter++);
+  // auto lastIterationValue = &*(argIter++);
+  // auto singleEnvPtr = &*(argIter++);
+  // auto reducibleEnvPtr = &*(argIter++);
+  // auto taskID = &*(argIter++);
+  // auto hbEnvBuilder = (HeartBeatLoopEnvironmentBuilder *)this->envBuilder;
+  // auto callToHandler = cast<CallInst>(bbBuilder.CreateCall(loopHandlerFunction, ArrayRef<Value *>({
+  //   bbBuilder.CreateZExtOrTrunc(cloneCurrentIVValue, firstIterationValue->getType()),
+  //   lastIterationValue,
+  //   singleEnvPtr,
+  //   // if there's no reducible live-out environment, which means the next level reducible environment won't be allocated
+  //   // use the original reducible environment instead
+  //   hbEnvBuilder->getReducibleEnvironmentSize() > 0 ? hbEnvBuilder->getNextLevelEnvironmentArrayVoidPtr() : reducibleEnvPtr,
+  //   taskID,
+  //   hbTask->getTaskBody()
+  //       })));
+
+  // /*
+  //  * Split the body basic block
+  //  *
+  //  * From 
+  //  * -------
+  //  * | PHI                        |
+  //  * | %Y = call loop_handler()   |
+  //  * | A                          | 
+  //  * | br X                       |
+  //  *
+  //  * to
+  //  * ------------------------------------
+  //  * | PHI                              |
+  //  * | %Y = call loop_handler()         |
+  //  * | %Y2 = icmp %Y, 0                 |
+  //  * | br %Y2 normalBody RET            |
+  //  * ------------------------------------
+  //  *
+  //  * ---normalBody ---
+  //  * | A   |
+  //  * | br X|
+  //  * -------
+  //  */
+  // auto bottomHalfBB = entryBodyInTask->splitBasicBlock(callToHandler->getNextNode());
+  // auto addedFakeTerminatorOfEntryBodyInTask = entryBodyInTask->getTerminator();
+  // IRBuilder<> topHalfBuilder(entryBodyInTask);
+  // auto typeManager = noelle.getTypesManager();
+  // auto const0 = ConstantInt::get(typeManager->getIntegerType(32), 0);
+  // auto cmpInst = cast<Instruction>(topHalfBuilder.CreateICmpEQ(callToHandler, const0));
+  // auto exitBasicBlockInTask = hbTask->getExit();
+  // auto condBr = topHalfBuilder.CreateCondBr(cmpInst, bottomHalfBB, exitBasicBlockInTask);
+  // addedFakeTerminatorOfEntryBodyInTask->eraseFromParent();
+
+  // /*
+  //  * Create the bitcast instructions at the entry block of the task to match the type of the GIV
+  //  */
+  // IRBuilder<> entryTaskBuilder{ hbTask->getEntry() };
+  // entryTaskBuilder.SetInsertPoint(&(*hbTask->getEntry()->begin()));
+  // auto firstIterationValueCasted = entryTaskBuilder.CreateZExtOrTrunc(firstIterationValue, cloneCurrentIVValue->getType());
+  // auto lastIterationValueCasted = entryTaskBuilder.CreateZExtOrTrunc(lastIterationValue, cloneCurrentIVValue->getType());
+
+  // /*
+  //  * Adjust the first starting value of the loop-governing IV to use the first parameter of the task.
+  //  */
+  // auto& GIV = GIV_attr->getInductionVariable();
+  // auto originalPHI = GIV.getLoopEntryPHI();
+  // auto clonePHI = cast<PHINode>(this->fetchClone(originalPHI));
+  // assert(clonePHI != nullptr);
+  // clonePHI->setIncomingValueForBlock(hbTask->getEntry(), firstIterationValueCasted);
+
+  // /*
+  //  * Adjust the exit condition value of the loop-governing IV to use the second parameter of the task.
+  //  *
+  //  * Step 1: find the Use of the exit value used in the compare instruction of the loop-governing IV.
+  //  */
+  // auto LGIV_cmpInst = GIV_attr->getHeaderCompareInstructionToComputeExitCondition();
+  // auto LGIV_lastValue = GIV_attr->getExitConditionValue();
+  // auto LGIV_currentValue = GIV_attr->getValueToCompareAgainstExitConditionValue();
+  // int32_t operandNumber = -1;
+  // for (auto &use: LGIV_currentValue->uses()){
+  //   auto user = use.getUser();
+  //   auto userInst = dyn_cast<Instruction>(user);
+  //   if (userInst == nullptr){
+  //     continue ;
+  //   }
+  //   if (userInst == LGIV_cmpInst){
+
+  //     /*
+  //      * We found the Use we are interested.
+  //      */
+  //     switch (use.getOperandNo()){
+  //       case 0:
+  //         operandNumber = 1;
+  //         break ;
+  //       case 1:
+  //         operandNumber = 0;
+  //         break ;
+  //       default:
+  //         abort();
+  //     }
+  //     break ;
+  //   }
+  // }
+  // assert(operandNumber != -1);
+  // auto cloneCmpInst = cast<CmpInst>(this->fetchClone(LGIV_cmpInst));
+  // auto cloneLastValue = this->fetchClone(LGIV_lastValue);
+  // auto cloneCurrentValue = cast<Instruction>(this->fetchClone(LGIV_currentValue));
+  // cloneCmpInst->setOperand(operandNumber, lastIterationValueCasted);
+
+  // Adjust the start and max value of the loop-goverining IV to use the corresponding startIter
+  auto iterationsVector = hbTask->getIterationsVector();
+  auto startIter = iterationsVector[this->loopToLevel[this->ldi] * 2 + 0];
+  errs() << "startIter: " << *startIter << "\n";
+  auto maxIter = iterationsVector[this->loopToLevel[this->ldi] * 2 + 1];
+  errs() << "maxIter: " << *maxIter << "\n";
+  IVClone->setIncomingValueForBlock(hbTask->getEntry(), startIter);
+  exitConditionPhiInst->setIncomingValueForBlock(hbTask->getEntry(), maxIter);
+
+  errs() << "task after using start/max iterations from the argument" << *(hbTask->getTaskBody()) << "\n";
+
+  // /*
+  //  * Create reduction loop here
+  //  * 1. changes, after calling the loop_handler and exit, instead of going to the exitBB directly,
+  //  * go to the reduction body first, reduce on the next-level array and store the final result into
+  //  * the heartbeat.environment_variable.live_out.reducible.update_private_copy
+  //  * 2. The initial value is not the identity value but the correspoinding phi node value from the
+  //  * clone loop body if the loop_handler function wasn't invoked
+  //  */
+  // auto tm = this->n.getTypesManager();
+  // auto numOfReducer = ConstantInt::get(tm->getIntegerType(32), this->numTaskInstances);
+  // auto afterReductionBBAfterCallingLoopHandler = this->performReductionAfterCallingLoopHandler(loop, 0, callToHandler->getParent(), cmpInst, bottomHalfBB, numOfReducer);
   
-  IRBuilder<> afterReductionBB{ afterReductionBBAfterCallingLoopHandler };
-  if (afterReductionBBAfterCallingLoopHandler->getTerminator() == nullptr) {
-    afterReductionBB.CreateBr(exitBasicBlockInTask);
-  }
+  // IRBuilder<> afterReductionBB{ afterReductionBBAfterCallingLoopHandler };
+  // if (afterReductionBBAfterCallingLoopHandler->getTerminator() == nullptr) {
+  //   afterReductionBB.CreateBr(exitBasicBlockInTask);
+  // }
 
-  this->tasks[0]->getTaskBody()->print(errs() << "Final Task\n");
+  // assumption: for now, only dealing with loops that have a single exitBlock
+  assert(ls->getLoopExitBasicBlocks().size() == 1 && "loop has multiple exit blocks\n");
+
+  // step 1: create a phi node to determine the return code of the loop
+  // this return code needs to be created inside the header
+  headerBuilder.SetInsertPoint(&*(headerBBClone->begin()));
+  this->returnCodePhiInst = cast<PHINode>(headerBuilder.CreatePHI(
+    headerBuilder.getInt64Ty(),
+    2,
+    "returnCode"
+  ));
+  this->returnCodePhiInst->addIncoming(
+    ConstantInt::get(headerBuilder.getInt64Ty(), 0),
+    hbTask->getEntry()
+  );
+  this->returnCodePhiInst->addIncoming(
+    callToHandler,
+    latchBBClone
+  );
+
+  auto exitBB = *(ls->getLoopExitBasicBlocks().begin());
+  auto exitBBClone = hbTask->getCloneOfOriginalBasicBlock(exitBB);
+  auto exitBBTerminator = exitBBClone->getTerminator();
+  IRBuilder<> exitBBBuilder{ exitBBClone };
+  exitBBBuilder.SetInsertPoint(exitBBTerminator);
+  // this->returnCodePhiInst = cast<PHINode>(exitBBBuilder.CreatePHI(
+  //   exitBBBuilder.getInt64Ty(),
+  //   1,
+  //   "returnCode"
+  // ));
+  // this->returnCodePhiInst->addIncoming(
+  //   ConstantInt::get(exitBBBuilder.getInt64Ty(), 0),
+  //   hbTask->getEntry()
+  // );
+
+  // the following code does the following things
+  // initialize the private copy of the reduction array and handles the reduction based on the return code
+  // if (rc == 1) { // splittingLevel == myLevel
+  //   redArrLiveOut0[myIndex * CACHELINE] += r_private + redArrLiveOut0Kids[0 * CACHELINE] + redArrLiveOut0Kids[1 * CACHELINE];
+  // } else if (rc > 1) { // splittingLevel < myLevel
+  //   redArrLiveOut0[myIndex * CACHELINE] += r_private + redArrLiveOut0Kids[0 * CACHELINE];
+  // } else { // no heartbeat promotion happens or splittingLevel > myLevel
+  //   redArrLiveOut0[myIndex * CACHELINE] += r_private;
+  // }
+  // step 2: create 3 basic blocks to do the reduction
+  auto exitBlock = hbTask->getExit();
+  // first block
+  auto hbReductionBlock = BasicBlock::Create(this->noelle.getProgramContext(), "HB_Reduction_Block", hbTask->getTaskBody());
+  IRBuilder<> hbReductionBlockBuilder{ hbReductionBlock };
+  auto hbReductionBlockBrInst = hbReductionBlockBuilder.CreateBr(exitBlock);
+  hbReductionBlockBuilder.SetInsertPoint(hbReductionBlockBrInst);
+  // second block
+  auto leftoverReductionBlock = BasicBlock::Create(this->noelle.getProgramContext(), "Leftover_Reduction_Block", hbTask->getTaskBody());
+  IRBuilder<> leftoverReductionBlockBuilder { leftoverReductionBlock };
+  auto leftoverReductionBlockBrInst = leftoverReductionBlockBuilder.CreateBr(exitBlock);
+  leftoverReductionBlockBuilder.SetInsertPoint(leftoverReductionBlockBrInst);
+  // third block
+  auto secondCheckBlock = BasicBlock::Create(this->noelle.getProgramContext(), "Second_Check_Block", hbTask->getTaskBody());
+  IRBuilder<> secondCheckBlockBuilder { secondCheckBlock };
+  auto secondCheckCmpInst = secondCheckBlockBuilder.CreateICmpSGT(
+    this->returnCodePhiInst,
+    ConstantInt::get(secondCheckBlockBuilder.getInt64Ty(), 1)
+  );
+  auto secondCheckCondBr = secondCheckBlockBuilder.CreateCondBr(
+    secondCheckCmpInst,
+    leftoverReductionBlock,
+    exitBlock
+  );
+  // conditions from the loop exit block
+  auto exitBBCmpInst = exitBBBuilder.CreateICmpEQ(
+    this->returnCodePhiInst,
+    ConstantInt::get(secondCheckBlockBuilder.getInt64Ty(), 1)
+  );
+  auto exitBBCondBr = exitBBBuilder.CreateCondBr(
+    exitBBCmpInst,
+    hbReductionBlock,
+    secondCheckBlock
+  );
+  exitBBTerminator->eraseFromParent();
+  errs() << "task after adding three reduction blocks: " << *(hbTask->getTaskBody()) << "\n";
+
+  // do the final reduction and store into reduction array for all live-outs
+  for (auto liveOutEnvID : envUser->getEnvIDsOfLiveOutVars()) {
+    auto reductionArrayForKids = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getLiveOutReductionArray(liveOutEnvID);
+    errs() << "reduction array for liveOutEnv id: " << liveOutEnvID << " " << *reductionArrayForKids << "\n";
+
+    auto int64 = IntegerType::get(this->noelle.getProgramContext(), 64);
+    auto zeroV = cast<Value>(ConstantInt::get(int64, 0));
+    auto privateAccumulatedValue = this->liveOutVariableToAccumulatedPrivateCopy[liveOutEnvID];
+
+    // heartbeat reduction [0] + [1]
+    auto firstElementPtr = hbReductionBlockBuilder.CreateInBoundsGEP(
+      reductionArrayForKids,
+      ArrayRef<Value *>({ zeroV, cast<Value>(ConstantInt::get(int64, 0 * this->valuesInCacheLine)) }),
+      "reductionArrayForKids_firstElement_Ptr"
+    );
+    auto firstElement = hbReductionBlockBuilder.CreateLoad(
+      privateAccumulatedValue->getType(),
+      firstElementPtr
+    );
+    auto secondElementPtr = hbReductionBlockBuilder.CreateInBoundsGEP(
+      reductionArrayForKids,
+      ArrayRef<Value *>({ zeroV, cast<Value>(ConstantInt::get(int64, 1 * this->valuesInCacheLine)) }),
+      "reductionArrayForKids_secondElement_Ptr"
+    );
+    auto secondElement = hbReductionBlockBuilder.CreateLoad(
+      privateAccumulatedValue->getType(),
+      secondElementPtr
+    );
+    auto firstAddInst = hbReductionBlockBuilder.CreateAdd(
+      privateAccumulatedValue,
+      firstElement
+    );
+    auto secondAddInst = hbReductionBlockBuilder.CreateAdd(
+      firstAddInst,
+      secondElement,
+      "reduction_result_for_heartbeat"
+    );
+
+    // leftover reduction [0]
+    auto firstElementLeftoverPtr = leftoverReductionBlockBuilder.CreateInBoundsGEP(
+      reductionArrayForKids,
+      ArrayRef<Value *>({ zeroV, cast<Value>(ConstantInt::get(int64, 0 * this->valuesInCacheLine)) }),
+      "reductionArrayForKids_firstElement_Ptr"
+    );
+    auto firstElementLeftover = leftoverReductionBlockBuilder.CreateLoad(
+      privateAccumulatedValue->getType(),
+      firstElementLeftoverPtr
+    );
+    auto firstAddLeftoverInst = leftoverReductionBlockBuilder.CreateAdd(
+      privateAccumulatedValue,
+      firstElementLeftover,
+      "reduction_result_for_leftover"
+    );
+
+    // store the final reduction result into upper level's reduction array
+    IRBuilder<> exitBlockBuilder{ exitBlock };
+    exitBlockBuilder.SetInsertPoint( exitBlock->getFirstNonPHI() );
+    // create phi to select from reduction result
+    auto reductionResultPHI = exitBlockBuilder.CreatePHI(
+      privateAccumulatedValue->getType(),
+      3,
+      "reductionResult"
+    );
+    // reductionResultPHI->addIncoming(privateAccumulatedValue, cast<Instruction>(privateAccumulatedValue)->getParent());
+    reductionResultPHI->addIncoming(privateAccumulatedValue, secondCheckBlock);
+    reductionResultPHI->addIncoming(secondAddInst, hbReductionBlock);
+    reductionResultPHI->addIncoming(firstAddLeftoverInst, leftoverReductionBlock);
+
+    exitBlockBuilder.CreateStore(
+      reductionResultPHI,
+      envUser->getEnvPtr(liveOutEnvID)
+    );
+  }
+  errs() << "task after doing reduction: " << *(hbTask->getTaskBody()) << "\n";
+
+  // Fix the return code to use rc - 1
+  IRBuilder<> exitBlockBuilder{ exitBlock };
+  exitBlockBuilder.SetInsertPoint( exitBlock->getTerminator() );
+  auto returnRCInst = exitBlockBuilder.CreateSub(
+    this->returnCodePhiInst,
+    ConstantInt::get(exitBlockBuilder.getInt64Ty(), 1)
+  );
+  // return this new inst
+  exitBlockBuilder.CreateRet(
+    returnRCInst
+  );
+  exitBlock->getTerminator()->eraseFromParent();
+
+  errs() << "task after changing the return value: " << *(hbTask->getTaskBody()) << "\n";
+  errs() << "original function:" << *loopFunction << "\n";
+
+  // this->tasks[0]->getTaskBody()->print(errs() << "Final Task\n");
 
   /*
    * Add the call to the function that includes the heartbeat loop from the pre-header of the original loop.
    */
-  this->invokeHeartBeatFunctionAsideOriginalLoop(loop);
+  if (this->loopToLevel[ldi] == 0) {  // the loop we're dealing with is a root loop, invoke this root loop in the original function
+    this->invokeHeartBeatFunctionAsideOriginalLoop(loop);
+  } else {
+    errs() << "the loop is not a root loop, need to invoke this loop from it's parent loop\n";
+    this->invokeHeartBeatFunctionAsideCallerLoop(loop);
+  }
 
   return true;
 }
@@ -413,7 +762,7 @@ void HeartBeatTransformation::initializeLoopEnvironmentUsers() {
     IRBuilder<> entryBuilder{ entryBlock };
 
     // Create a bitcast instruction from i8* pointer to context array type
-    auto contextBitcastInst = entryBuilder.CreateBitCast(
+    this->contextBitcastInst = entryBuilder.CreateBitCast(
       task->getContextArg(),
       PointerType::getUnqual(envBuilder->getContextArrayType()),
       "contextArrayCasted"
@@ -422,13 +771,18 @@ void HeartBeatTransformation::initializeLoopEnvironmentUsers() {
     // Calculate the base index of my context
     auto int64 = IntegerType::get(entryBuilder.getContext(), 64);
     auto myLevelIndexV = cast<Value>(ConstantInt::get(int64, this->loopToLevel[this->ldi] * 8));
+    auto zeroV = entryBuilder.getInt64(0);
 
     // Don't load from the environment pointer if the size is
     // 0 for either single or reducible environment
     if (envBuilder->getSingleEnvironmentSize() > 0) {
       auto liveInEnvPtrGEPInst = entryBuilder.CreateInBoundsGEP(
         (Value *)contextBitcastInst,
-        ArrayRef<Value *>({ myLevelIndexV, cast<Value>(ConstantInt::get(int64, 0)) }),
+        ArrayRef<Value *>({
+          zeroV,
+          ConstantInt::get(entryBuilder.getInt64Ty(), this->loopToLevel[this->ldi] * 8)
+        }),
+        // ArrayRef<Value *>({ myLevelIndexV, cast<Value>(ConstantInt::get(int64, 0)) }),
         "liveInEnvPtr"
       );
       auto liveInEnvBitcastInst = entryBuilder.CreateBitCast(
@@ -445,7 +799,11 @@ void HeartBeatTransformation::initializeLoopEnvironmentUsers() {
     if (envBuilder->getReducibleEnvironmentSize() > 0) {
       auto liveOutEnvPtrGEPInst = entryBuilder.CreateInBoundsGEP(
         (Value *)contextBitcastInst,
-        ArrayRef<Value *>({ myLevelIndexV, cast<Value>(ConstantInt::get(int64, 1)) }),
+        ArrayRef<Value *>({
+          zeroV,
+          ConstantInt::get(entryBuilder.getInt64Ty(), this->loopToLevel[this->ldi] * 8 + 1)
+        }),
+        // ArrayRef<Value *>({ myLevelIndexV, cast<Value>(ConstantInt::get(int64, 1)) }),
         "liveOutEnvPtr"
       );
       auto liveOutEnvBitcastInst = entryBuilder.CreateBitCast(
@@ -608,6 +966,12 @@ void HeartBeatTransformation::generateCodeToStoreLiveOutVariables(LoopDependence
   auto task = this->tasks[taskIndex];
   assert(task != nullptr);
 
+  // only proceed if we have a live-out environment
+  if (env->getLiveOutSize() <= 0) {
+    errs() << "loop doesn't have live-out environment, no need to store anything\n";
+    return;
+  }
+
   auto entryBlock = task->getEntry();
   assert(entryBlock != nullptr);
   auto entryTerminator = entryBlock->getTerminator();
@@ -657,6 +1021,8 @@ void HeartBeatTransformation::generateCodeToStoreLiveOutVariables(LoopDependence
 
     // Reducible live-out initialization
     auto identityV = reductionVariable->getIdentityValue();
+    // OPTIMIZATION: we might not need to initialize the live-out in the reduction array here
+    // can just store the final reduction result
     auto newStore = entryBuilder.CreateStore(identityV, envPtr);
     mm->addMetadata(newStore, "heartbeat.environment_variable.live_out.reducible.initialize_private_copy", std::to_string(envID));
 
@@ -679,15 +1045,16 @@ void HeartBeatTransformation::generateCodeToStoreLiveOutVariables(LoopDependence
       auto taskDS = this->noelle.getDominators(&taskFunction);
 
       auto insertBBs = this->determineLatestPointsToInsertLiveOutStore(LDI, taskIndex, producerClone, isReduced, *taskDS);
+      assert(insertBBs.size() == 1 && "found multiple insertion point for accumulated private copy, currently doesn't handle it\n");
       for (auto BB : insertBBs) {
         auto producerValueToStore = this->fetchOrCreatePHIForIntermediateProducerValueOfReducibleLiveOutVariable(LDI, taskIndex, envID, BB, *taskDS);
+        this->liveOutVariableToAccumulatedPrivateCopy[envID] = producerValueToStore;
+        // IRBuilder<> liveOutBuilder(BB);
+        // auto store = liveOutBuilder.CreateStore(producerValueToStore, envPtr);
+        // store->removeFromParent();
 
-        IRBuilder<> liveOutBuilder(BB);
-        auto store = liveOutBuilder.CreateStore(producerValueToStore, envPtr);
-        store->removeFromParent();
-
-        store->insertBefore(BB->getTerminator());
-        mm->addMetadata(store, "heartbeat.environment_variable.live_out.reducible.update_private_copy", std::to_string(envID));
+        // store->insertBefore(BB->getTerminator());
+        // mm->addMetadata(store, "heartbeat.environment_variable.live_out.reducible.update_private_copy", std::to_string(envID));
       }
 
       delete taskDS;
@@ -772,10 +1139,103 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
   LoopDependenceInfo *LDI
 ) {
 
+  // allocate constant live-ins array
+  auto loopStructure = LDI->getLoopStructure();
+  auto loopFunction = loopStructure->getFunction();
+  auto firstBB = loopFunction->begin();
+  auto firstI = firstBB->begin();
+  uint32_t reducerCount = 1;
+  IRBuilder<> builder{ &*firstI };
+  auto constantLiveIns = builder.CreateAlloca(
+    ArrayType::get(builder.getInt64Ty(), this->constantLiveInsArgIndexToIndex.size()),
+    nullptr,
+    "constantLiveIns"
+  );
+
+  // store constant live-ins array into global
+  auto constantLiveInsGlobal = this->noelle.getProgram()->getNamedGlobal("constantLiveInsPointer");
+  auto castInst = builder.CreateBitCast(
+    constantLiveIns,
+    PointerType::getUnqual(builder.getInt8Ty())
+  );
+  builder.CreateStore(
+    castInst,
+    constantLiveInsGlobal
+  );
+
+  // store the args into constant live-ins array
+  for (auto pair : this->constantLiveInsArgIndexToIndex) {
+    auto argIndex = pair.first;
+    auto arrayIndex = pair.second;
+    auto argV = cast<Value>(&*(loopFunction->arg_begin() + argIndex));
+
+    auto constantLiveInArray_element_ptr = builder.CreateInBoundsGEP(
+      constantLiveIns,
+      ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), 0), ConstantInt::get(builder.getInt64Ty(), arrayIndex) }),
+      std::string("constantLiveIn_").append(std::to_string(arrayIndex)).append("_Ptr")
+    );
+    auto constantLiveInArray_element_ptr_casted = builder.CreateBitCast(
+      constantLiveInArray_element_ptr,
+      PointerType::getUnqual(argV->getType()),
+      std::string("constantLiveIn_").append(std::to_string(arrayIndex)).append("_Ptr_casted")
+    );
+    builder.CreateStore(
+      argV,
+      constantLiveInArray_element_ptr_casted
+    );
+  }
+
+  // allocate context
+  auto contextArrayAlloca = builder.CreateAlloca(
+    // ArrayType::get(builder.getInt8PtrTy(), this->numLevels * this->valuesInCacheLine),
+    ArrayType::get(builder.getInt64Ty(), this->numLevels * this->valuesInCacheLine),
+    nullptr,
+    "contextArray"
+  );
+  auto contextArrayCasted = builder.CreateBitCast(
+    contextArrayAlloca,
+    builder.getInt8PtrTy(),
+    "contextArrayCasted"
+  );
+
   /*
    * Create the environment.
    */
   this->allocateEnvironmentArray(LDI);
+
+  // Store the live-in/live-out environment into the context
+  auto firstBBTerminator = &*firstBB->getTerminator();
+  builder.SetInsertPoint(firstBBTerminator);
+  if (((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentSize() > 0) {
+    errs() << "we have live-in environments" << "\n";
+    // auto liveInEnvCasted = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArrayPointer();
+    auto liveInEnv = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArray();
+    auto gepInst = builder.CreateInBoundsGEP(
+      contextArrayAlloca,
+      ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine), ConstantInt::get(builder.getInt64Ty(), 0 /* the index for storing live-in environment */) })
+    );
+    auto gepCasted = builder.CreateBitCast(
+      gepInst,
+      PointerType::getUnqual(liveInEnv->getType())
+    );
+    builder.CreateStore(liveInEnv, gepCasted);
+  }
+  if (((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentSize() > 0) {
+    errs() << "we have live-out environments" << "\n";
+    // auto liveOutEnvCasted = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArrayPointer();
+    auto liveOutEnv = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArray();
+    auto gepInst = builder.CreateInBoundsGEP(
+      contextArrayAlloca,
+      ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine), ConstantInt::get(builder.getInt64Ty(), 1 /* the index for storing live-out environment */) })
+    );
+    auto gepCasted = builder.CreateBitCast(
+      gepInst,
+      PointerType::getUnqual(liveOutEnv->getType())
+    );
+    builder.CreateStore(liveOutEnv, gepCasted);
+  }
+  errs() << "original function after allocating constantLiveIns, context and environment array" << *(LDI->getLoopStructure()->getFunction()) << "\n";
+
   this->populateLiveInEnvironment(LDI);
 
   /*
@@ -786,44 +1246,67 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
   assert(GIV_attr->isSCCContainingIVWellFormed());
   auto& GIV = GIV_attr->getInductionVariable();
   auto firstIterationGoverningIVValue = GIV.getStartValue();
+  errs() << "startIter: " << *firstIterationGoverningIVValue << "\n";
 
   /*
    * Fetch the last value of the loop-governing IV
    */
   auto lastIterationGoverningIVValue = GIV_attr->getExitConditionValue();
+  errs() << "maxIter: " << *lastIterationGoverningIVValue << "\n";
   auto currentIVValue = GIV_attr->getValueToCompareAgainstExitConditionValue();
+  errs() << "IV: " << *currentIVValue << "\n";
   
   /*
    * Fetch the pointer to the environment.
    */
   auto singleEnvPtr = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArrayPointer();
+  if (singleEnvPtr) {
+    errs() << "singleEnvPtr" << *singleEnvPtr << "\n";
+  }
   auto reducibleEnvPtr = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArrayPointer();
+  if (reducibleEnvPtr) {
+    errs() << "reducibleEnvPtr" << *reducibleEnvPtr << "\n";
+  }
 
-  /*
-   * Call the dispatcher function that will invoke the parallelized loop.
-   */
+  // /*
+  //  * Call the dispatcher function that will invoke the parallelized loop.
+  //  */
+  // IRBuilder<> doallBuilder(this->entryPointOfParallelizedLoop);
+  // auto program = this->n.getProgram();
+  // auto loopDispatcherFunction = program->getFunction("loop_dispatcher");
+  // assert(loopDispatcherFunction != nullptr);
+  // auto argIter = loopDispatcherFunction->arg_begin();
+  // auto firstIterationArgument = &*(argIter++);
+  // auto lastIteratioinArgument = &*(argIter++);
+  // auto taskBody = this->tasks[0]->getTaskBody();
+  // assert(taskBody != nullptr);
+  // auto hbEnvBuilder = (HeartBeatLoopEnvironmentBuilder *)this->envBuilder;
+  // doallBuilder.CreateCall(loopDispatcherFunction, ArrayRef<Value *>({
+  //   doallBuilder.CreateZExtOrTrunc(firstIterationGoverningIVValue, firstIterationArgument->getType()),
+  //   doallBuilder.CreateZExtOrTrunc(lastIterationGoverningIVValue, lastIteratioinArgument->getType()),
+  //   singleEnvPtr,
+  //   // Hacking for now, if there's no reducible environment, which won't be alloacted,
+  //   // then use the singleEnvPtr for valid code, this pointer won't get's loaded in the
+  //   // child since there's no reducible environment variables
+  //   // 
+  //   // Potential bug: handle the live-in is empty
+  //   hbEnvBuilder->getReducibleEnvironmentSize() > 0 ? reducibleEnvPtr : singleEnvPtr,
+  //   taskBody
+  // }));
+
+  // assumption: the root function is already invoked through the loop_dispatcher function
+  // all we need to do here is invoke the hbTask
   IRBuilder<> doallBuilder(this->entryPointOfParallelizedLoop);
-  auto program = this->n.getProgram();
-  auto loopDispatcherFunction = program->getFunction("loop_dispatcher");
-  assert(loopDispatcherFunction != nullptr);
-  auto argIter = loopDispatcherFunction->arg_begin();
-  auto firstIterationArgument = &*(argIter++);
-  auto lastIteratioinArgument = &*(argIter++);
-  auto taskBody = this->tasks[0]->getTaskBody();
-  assert(taskBody != nullptr);
-  auto hbEnvBuilder = (HeartBeatLoopEnvironmentBuilder *)this->envBuilder;
-  doallBuilder.CreateCall(loopDispatcherFunction, ArrayRef<Value *>({
-    doallBuilder.CreateZExtOrTrunc(firstIterationGoverningIVValue, firstIterationArgument->getType()),
-    doallBuilder.CreateZExtOrTrunc(lastIterationGoverningIVValue, lastIteratioinArgument->getType()),
-    singleEnvPtr,
-    // Hacking for now, if there's no reducible environment, which won't be alloacted,
-    // then use the singleEnvPtr for valid code, this pointer won't get's loaded in the
-    // child since there's no reducible environment variables
-    // 
-    // Potential bug: handle the live-in is empty
-    hbEnvBuilder->getReducibleEnvironmentSize() > 0 ? reducibleEnvPtr : singleEnvPtr,
-    taskBody
-  }));
+  doallBuilder.CreateCall(
+    this->tasks[0]->getTaskBody(),
+    ArrayRef<Value *>({
+      contextArrayCasted,
+      ConstantInt::get(doallBuilder.getInt64Ty(), 0),
+      firstIterationGoverningIVValue,
+      lastIterationGoverningIVValue
+    })
+  );
+  errs() << "original function after invoking call to hb loop" << *(LDI->getLoopStructure()->getFunction()) << "\n";
 
   /*
    * Propagate the last value of live-out variables to the code outside the parallelized loop.
@@ -832,6 +1315,7 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
 
   IRBuilder<> afterDOALLBuilder{ latestBBAfterDOALLCall };
   afterDOALLBuilder.CreateBr(this->exitPointOfParallelizedLoop);
+  errs() << "original function after propagating live-out variables with initial value" << *(LDI->getLoopStructure()->getFunction()) << "\n";
 
   return ;
 }
@@ -841,7 +1325,8 @@ void HeartBeatTransformation::allocateEnvironmentArray(LoopDependenceInfo *LDI) 
   auto loopFunction = loopStructure->getFunction();
 
   auto firstBB = loopFunction->begin();
-  auto firstI = firstBB->begin();
+  // auto firstI = firstBB->begin();
+  auto firstBBTerminator = (*firstBB).getTerminator();
 
   /*
    * The loop_dispatcher function will only invoke one instance (with the taskID = 0) of heartbeat loop,
@@ -852,7 +1337,20 @@ void HeartBeatTransformation::allocateEnvironmentArray(LoopDependenceInfo *LDI) 
    * ==> solution: use the initial value
    */
   uint32_t reducerCount = 1;
-  IRBuilder<> builder{ &*firstI };
+  IRBuilder<> builder{ firstBBTerminator };
+  ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->allocateSingleEnvironmentArray(builder);
+  ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->allocateReducibleEnvironmentArray(builder);
+  ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->generateEnvVariables(builder, reducerCount);
+}
+
+void HeartBeatTransformation::allocateEnvironmentArrayInCallerTask(HeartBeatTask *callerHBTask) {
+  auto callerFunction = callerHBTask->getTaskBody();
+
+  auto firstBB = callerFunction->begin();
+  auto firstBBTerminator = (*firstBB).getTerminator();
+
+  uint32_t reducerCount = 1;
+  IRBuilder<> builder{ firstBBTerminator };
   ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->allocateSingleEnvironmentArray(builder);
   ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->allocateReducibleEnvironmentArray(builder);
   ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->generateEnvVariables(builder, reducerCount);
@@ -981,4 +1479,283 @@ BasicBlock * HeartBeatTransformation::performReductionWithInitialValueToAllReduc
   delete afterReductionBuilder;
 
   return afterReductionB;
+}
+
+void HeartBeatTransformation::invokeHeartBeatFunctionAsideCallerLoop (
+  LoopDependenceInfo *LDI
+) {
+
+  auto calleeFunction = LDI->getLoopStructure()->getFunction();
+
+  auto callerLoop = this->loopToCallerLoop[LDI];
+  errs() << "caller function is " << callerLoop->getLoopStructure()->getFunction()->getName() << "\n";
+
+  auto callerHBTask = this->loopToHeartBeatTransformation[callerLoop]->getHeartBeatTask();
+  assert(callerHBTask != nullptr && "callerHBTask hasn't been generated\n");
+
+  // 2) find the call instruction inside the hbTask
+  CallInst *callToLoopInCallerInst;
+  for (auto &BB : *(callerHBTask->getTaskBody())) {
+    for (auto &I : BB) {
+      if (auto callInst = dyn_cast<CallInst>(&I)) {
+        if (callInst->getCalledFunction() == calleeFunction) {
+          callToLoopInCallerInst = callInst;
+          break;
+        }
+      }
+    }
+  }
+  errs() << "call to loop inside caller " << *callToLoopInCallerInst << "\n";
+  IRBuilder<> liveInEnvBuilder{ callToLoopInCallerInst };
+
+  // 3) build the live-in/out array inside the hbTask
+  this->allocateEnvironmentArrayInCallerTask(callerHBTask);
+  errs() << "callerTask after allocating environment for children" << *callerHBTask->getTaskBody() << "\n";
+
+  auto firstBB = &*(callerHBTask->getTaskBody()->begin());
+  IRBuilder<> builder { firstBB->getTerminator() };
+  auto zeroV = builder.getInt64(0);
+
+  // Store the live-in/live-out environment into the context
+  if (((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentSize() > 0) {
+    errs() << "we have live-in environments" << "\n";
+    // auto liveInEnvCasted = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArrayPointer();
+    auto liveInEnv = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArray();
+    auto gepInst = builder.CreateInBoundsGEP(
+      this->loopToHeartBeatTransformation[callerLoop]->getContextBitCastInst(),
+      ArrayRef<Value *>({
+        zeroV,
+        ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine)
+      })
+      // ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine), ConstantInt::get(builder.getInt64Ty(), 0 /* the index for storing live-in environment */) })
+    );
+    auto gepCasted = builder.CreateBitCast(
+      gepInst,
+      PointerType::getUnqual(liveInEnv->getType())
+    );
+    builder.CreateStore(liveInEnv, gepCasted);
+  }
+  if (((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentSize() > 0) {
+    errs() << "we have live-out environments" << "\n";
+    // auto liveOutEnvCasted = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArrayPointer();
+    auto liveOutEnv = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArray();
+    auto gepInst = builder.CreateInBoundsGEP(
+      this->loopToHeartBeatTransformation[callerLoop]->getContextBitCastInst(),
+      ArrayRef<Value *>({
+        zeroV,
+        ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine + 1)
+      })
+      // ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine), ConstantInt::get(builder.getInt64Ty(), 1 /* the index for storing live-out environment */) })
+    );
+    auto gepCasted = builder.CreateBitCast(
+      gepInst,
+      PointerType::getUnqual(liveOutEnv->getType())
+    );
+    builder.CreateStore(liveOutEnv, gepCasted);
+  }
+  errs() << "callerTask after storing live-in/out environment into context" << *callerHBTask->getTaskBody() << "\n";
+
+  // this->populateLiveInEnvironment(LDI);
+  // corretly let the callerHBTask to prepare the live-in environment
+  std::set<uint32_t> liveInArgumentIndexInOriginalFunction;
+  auto env = LDI->getEnvironment();
+  for (auto liveInID : env->getEnvIDsOfLiveInVars()) {
+    if (!((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->isIncludedEnvironmentVariable(liveInID)) {
+      continue;
+    }
+    errs() << "found a liveIn with ID: " << liveInID << "\n";
+    auto liveInValue = env->getProducer(liveInID);
+    assert(isa<Argument>(liveInValue) && "the liveIn variable in the original function is not passed as an argument\n");
+
+    // determine the index of this value in the caller argument
+    auto index = cast<Argument>(liveInValue)->getArgNo();
+    errs() << "liveIn and it's arg index in the function: " << index << "\n";
+
+    // we found a liveInVariable in the original callee, now we need to find it's corresponding value in the original caller
+    CallInst *callInstAtOriginalCaller;
+    for (auto &BB : *(callerLoop->getLoopStructure()->getFunction())) {
+      for (auto &I : BB) {
+        if (auto callInst = dyn_cast<CallInst>(&I)) {
+          if (callInst->getCalledFunction() == calleeFunction) {
+            callInstAtOriginalCaller = callInst;
+            errs() << "found the call in the original function to call callee function" << *callInst << "\n";
+            break;
+          }
+        }
+      }
+    }
+
+    auto callerParameter = callInstAtOriginalCaller->getArgOperand(index);
+    errs() << "found the paramenter at the original caller function: " << *callerParameter << "\n";
+
+    // now we found the orignal value corresponding to the live-in of the callee function,
+    // we then need to find it's clone and let the hbTask to prepare the liveIn environment
+    auto callerParameterClone = this->loopToHeartBeatTransformation[callerLoop]->getHeartBeatTask()->getCloneOfOriginalInstruction(cast<Instruction>(callerParameter));
+    errs() << "clone of the liveIn in caller's hbTask: " << *callerParameterClone << "\n";
+
+    // we finally found the correct liveIn in caller's hbTask, now let caller's hbTask to store the address of this liveIn
+    auto liveInEnvArray = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArray();
+    errs() << "liveInEnvArray: " << *liveInEnvArray << "\n";
+    auto liveInIndex = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getIndexOLiveIn(liveInID);
+    errs() << "liveInIndex: " << liveInIndex << "\n";
+
+    // gep in the liveInEnvArray
+    auto gepInst = liveInEnvBuilder.CreateInBoundsGEP(
+      liveInEnvArray,
+      ArrayRef<Value *>({
+        liveInEnvBuilder.getInt64(0),
+        liveInEnvBuilder.getInt64(liveInIndex),
+      })
+    );
+    liveInEnvBuilder.CreateStore(callerParameterClone, gepInst);
+  }
+  errs() << "callerTask after storing live-in variables" << *callerHBTask->getTaskBody() << "\n";
+
+  // okay, preparing the environment is done, now replace the call to original code in the caller hbTask
+  // to the callee's hbTask
+  // first thing: figuring out the global iteration state that needs to be passed
+  std::vector<Value *> parametersVec;
+  // 1) the context void pointer
+  parametersVec.push_back(callerHBTask->getContextArg());
+  // 2) myIndex if we contains live-out
+  if (this->hbTask->containsLiveOutOrNot()) {
+    parametersVec.push_back(liveInEnvBuilder.getInt64(0));
+  }
+  // push the global iterations state from 0 to myLevel - 2
+  auto iterationsVect = this->hbTask->getIterationsVector();
+  for (int64_t i = 0; i < (int64_t)this->hbTask->getLevel() - 2; i++) {
+    parametersVec.push_back(iterationsVect[i * 2]);     // startIter
+    parametersVec.push_back(iterationsVect[i * 2 + 1]); // maxIter
+  }
+  // 3) push the start/max iteration of the current loop
+  parametersVec.push_back(callerHBTask->getCurrentIteration());
+  parametersVec.push_back(callerHBTask->getMaxIteration());
+
+  // 4) till the final step to set the startIteration and maxIteration
+  //    for the nested loop
+  // algorithm, inspect the original callee function and check start/max iteration,
+  // if is a constantInt, use the constant int
+  // else must be a function argument (the assumption is start/max iteration can be simply retrieved and not formed in any complex computation)
+  auto GIV_attr = LDI->getLoopGoverningIVAttribution();
+  assert(GIV_attr != nullptr);
+  assert(GIV_attr->isSCCContainingIVWellFormed());
+  auto IV = GIV_attr->getValueToCompareAgainstExitConditionValue();
+  assert(isa<PHINode>(IV) && "the induction variable isn't a phi node\n");
+  errs() << "IV: " << *IV << "\n";
+  auto startIterationValue = cast<PHINode>(IV)->getIncomingValue(0);
+  assert(isa<ConstantInt>(startIterationValue) || isa<Argument>(startIterationValue) && "the startIteration value in the callee hbTask isn't either a constant or function argument");
+  if (isa<ConstantInt>(startIterationValue)) {
+    parametersVec.push_back(ConstantInt::get(startIterationValue->getType(), cast<ConstantInt>(startIterationValue)->getSExtValue()));
+  } else {  // it's an argument
+    // algorithm, we know the start iteration is passed through function argument
+    auto arg_index = cast<Argument>(startIterationValue)->getArgNo();
+    parametersVec.push_back(callToLoopInCallerInst->getArgOperand(arg_index));
+  }
+  auto maxIterationValue = GIV_attr->getExitConditionValue();
+  errs() << "maxIteration: " << *maxIterationValue << "\n";
+  assert(isa<ConstantInt>(maxIterationValue) || isa<Argument>(maxIterationValue) && "the maxIteration value in the callee hbTask isn't either a constant or function argument");
+  if (isa<ConstantInt>(maxIterationValue)) {
+    parametersVec.push_back(ConstantInt::get(maxIterationValue->getType(), cast<ConstantInt>(maxIterationValue)->getSExtValue()));
+  } else {
+    auto arg_index = cast<Argument>(maxIterationValue)->getArgNo();
+    parametersVec.push_back(callToLoopInCallerInst->getArgOperand(arg_index));
+  }
+
+  auto calleeHBTaskCallInst = liveInEnvBuilder.CreateCall(
+    this->hbTask->getTaskBody(),
+    ArrayRef<Value *>({
+      parametersVec
+    }),
+    "nested_loop_return_code"
+  );
+
+  // if the original callee function has a return value (assumption, can only have at most 1 return value as live-out)
+  // we then need to load this value from the reduction array and replace all uses of the original call
+  assert(env->getLiveOutSize() == 1 && " invoking a callee function that has multiple live-outs!\n");
+  auto liveOutID = *(env->getEnvIDsOfLiveOutVars().begin());
+  errs() << "liveOutID: " << liveOutID << "\n";
+  auto liveOutIndex = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getIndexOfLiveOut(liveOutID);
+  errs() << "liveOutIndex: " << liveOutIndex << "\n";
+  // now we have the index of the liveOutIndex, now load the result from the reductionArray allocated for the nest loop
+  auto liveOutResult = liveInEnvBuilder.CreateLoad(
+    ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleVariableOfIndexGivenEnvIndex(liveOutIndex, 0)
+  );
+
+  callToLoopInCallerInst->replaceAllUsesWith(liveOutResult);
+  callToLoopInCallerInst->eraseFromParent();
+
+  errs() << "callerTask after calling calleeHBTask" << *callerHBTask->getTaskBody() << "\n";
+
+  // now the call to the nested loop is done, we need to use the return code of the this call to
+  // decide whether to update the exitCondition
+  auto loopHandlerBlock = this->loopToHeartBeatTransformation[callerLoop]->getLoopHandlerBlock();
+  auto modifyExitConditionBlock = this->loopToHeartBeatTransformation[callerLoop]->getModifyExitConditionBlock();
+  auto preLoopHandlerBlock = loopHandlerBlock->getSinglePredecessor();
+  auto preTerminator = preLoopHandlerBlock->getTerminator();
+  liveInEnvBuilder.SetInsertPoint(preTerminator);
+
+  auto cmpInst = liveInEnvBuilder.CreateICmpSGT(
+    calleeHBTaskCallInst,
+    liveInEnvBuilder.getInt64(0)
+  );
+  liveInEnvBuilder.CreateCondBr(
+    cmpInst,
+    modifyExitConditionBlock,
+    loopHandlerBlock
+  );
+
+  // safe to erase this previous terminator
+  preTerminator->eraseFromParent();
+  errs() << "callerTask after conditional jumping after calling nested hbTask" << *callerHBTask->getTaskBody() << "\n";
+
+
+  // since now we have multiple return code to dealing with, adding phi to bbs
+  // 1. first phi is inserted inside the modify exit condition block
+  IRBuilder<> modifyExitConditionBlockBuilder{ &(*modifyExitConditionBlock->begin()) };
+  auto returnCodeTakenFromLoopHandlerBlockPhi = modifyExitConditionBlockBuilder.CreatePHI(
+    calleeHBTaskCallInst->getType(),
+    2,
+    "returnCodeTakenBothFromCallToNestedLoopAndLoopHandler"
+  );
+  returnCodeTakenFromLoopHandlerBlockPhi->addIncoming(
+    calleeHBTaskCallInst,
+    calleeHBTaskCallInst->getParent()
+  );
+  returnCodeTakenFromLoopHandlerBlockPhi->addIncoming(
+    this->loopToHeartBeatTransformation[callerLoop]->getCallToLoopHandler(),
+    loopHandlerBlock
+  );
+
+  // 2. in the latch block, create another phi, with incoming value either from previous created phi or simply the return code from loop_handler
+  auto latchBBs = callerLoop->getLoopStructure()->getLatches();
+  assert(latchBBs.size() == 1 && "assume there could only be one latch block\n");
+  auto latchBB = *(latchBBs.begin());
+  auto latchBBClone = callerHBTask->getCloneOfOriginalBasicBlock(latchBB);
+  errs() << "Clone of latchBB " << *latchBBClone << "\n";
+
+  IRBuilder<> latchBBBuilder{ &*(latchBBClone->begin()) };
+  auto returnCodeWithPotentialNoPromotionPhi = latchBBBuilder.CreatePHI(
+    calleeHBTaskCallInst->getType(),
+    2,
+    "returnCodeWithPotentialNoPromotionPhi"
+  );
+  returnCodeWithPotentialNoPromotionPhi->addIncoming(
+    returnCodeTakenFromLoopHandlerBlockPhi,
+    modifyExitConditionBlock
+  );
+  returnCodeWithPotentialNoPromotionPhi->addIncoming(
+    this->loopToHeartBeatTransformation[callerLoop]->getCallToLoopHandler(),
+    loopHandlerBlock
+  );
+
+  // 3. now found the original phi to determine the return code in the header
+  // and replace the incoming value from the latchBB to be the new phi value
+  auto originalReturnCodePhi = this->loopToHeartBeatTransformation[callerLoop]->getReturnCodePhiInst();
+  originalReturnCodePhi->setIncomingValueForBlock(
+    latchBBClone,
+    returnCodeWithPotentialNoPromotionPhi
+  );
+  errs() << "callerTask after fixing the phis to pass the return code value" << *callerHBTask->getTaskBody() << "\n";
+
+  return ;
 }

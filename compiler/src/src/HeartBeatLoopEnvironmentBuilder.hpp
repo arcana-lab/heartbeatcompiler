@@ -76,6 +76,33 @@ public:
   
   Value * getAccumulatedReducedEnvironmentVariable(uint32_t id) const override;
 
+  inline AllocaInst * getLiveOutReductionArray(uint32_t id) {
+    return this->envIndexToVectorOfReducableVarNextLevel[this->reducibleEnvIDToIndex[id]];
+  };
+
+  bool isConstantLiveIn(uint32_t id) {
+    return this->constantVars.find(id) != this->constantVars.end();
+  }
+
+  inline uint32_t getIndexOLiveIn(uint32_t id) {
+    assert(this->singleEnvIDToIndex.find(id) != this->singleEnvIDToIndex.end() && "liveIn variable is not included in the builder");
+    return this->singleEnvIDToIndex[id];
+  }
+
+  inline uint32_t getIndexOfLiveOut(uint32_t id) {
+    assert(this->reducibleEnvIDToIndex.find(id) != this->reducibleEnvIDToIndex.end() && "liveOut variable is not included in the builder");
+    return this->reducibleEnvIDToIndex[id];
+  }
+
+  inline Value * getSingleEnvironmentArray() { return this->singleEnvArray; };
+
+  inline Value * getReducibleEnvironmentArray() { return this->reducibleEnvArray; };
+
+  inline Value * getReducibleVariableOfIndexGivenEnvIndex(uint32_t index, uint64_t reducer_index) {
+    assert(this->envIndexToReducableVar.find(index) != this->envIndexToReducableVar.end() && "no reducible variable found at the given index");
+    return this->envIndexToReducableVar[index][reducer_index];
+  }
+
 private:
   void initializeBuilder(const std::vector<Type *> &varTypes,
                          const std::set<uint32_t> &singleVarIDs,

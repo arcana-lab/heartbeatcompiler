@@ -17,8 +17,9 @@ HeartBeatTask::HeartBeatTask (
   FunctionType *taskSignature,
   Module &M,
   uint64_t level,
-  bool containsLiveOut
-) : DOALLTask{taskSignature, M},
+  bool containsLiveOut,
+  std::string &name
+) : DOALLTask{taskSignature, M, name},
     // maxGIV{nullptr},
     level(level),
     containsLiveOut(containsLiveOut) {

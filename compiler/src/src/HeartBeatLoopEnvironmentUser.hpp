@@ -41,8 +41,8 @@ public:
 
   inline void resetReducibleEnvironmentArray(IRBuilder<> &builder) {
     builder.CreateStore(
-      this->liveOutEnvBitcastInst,
-      this->reducibleEnvArray
+      this->reducibleEnvArray,
+      this->liveOutEnvBitcastInst
     );
   }
 

@@ -24,6 +24,7 @@
 
 #include "HeartBeatLoopEnvironmentBuilder.hpp"
 #include "HeartBeatLoopEnvironmentUser.hpp"
+#include "HeartBeatTask.hpp"
 
 using namespace llvm::noelle;
 
@@ -41,13 +42,40 @@ class HeartBeatTransformation : public DOALL {
       std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel,
       std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns,
       std::unordered_map<int, int> &constantLiveInsArgIndexToIndex,
-      std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns
+      std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns,
+      std::unordered_map<LoopDependenceInfo *, HeartBeatTransformation *> &loopToHeartBeatTransformation,
+      std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop
     );
 
     bool apply (
       LoopDependenceInfo *ldi,
       Heuristics *h
     ) override ;
+
+    inline HeartBeatTask *getHeartBeatTask() {
+      assert(this->hbTask != nullptr && "hbTask hasn't been created yet\n");
+      return this->hbTask;
+    }
+
+    inline Value * getContextBitCastInst() {
+      return this->contextBitcastInst;
+    }
+
+    inline BasicBlock * getLoopHandlerBlock() {
+      return this->loopHandlerBlock;
+    }
+
+    inline BasicBlock * getModifyExitConditionBlock() {
+      return this->modifyExitConditionBlock;
+    }
+
+    inline CallInst * getCallToLoopHandler() {
+      return this->callToLoopHandler;
+    }
+
+    inline PHINode * getReturnCodePhiInst() {
+      return this->returnCodePhiInst;
+    }
 
   protected:
     Noelle &n;
@@ -67,6 +95,10 @@ class HeartBeatTransformation : public DOALL {
         LoopDependenceInfo *LDI
         );
 
+    void invokeHeartBeatFunctionAsideCallerLoop (
+        LoopDependenceInfo *LDI
+        );
+
   private:
     void initializeEnvironmentBuilder(LoopDependenceInfo *LDI, 
                                       std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeReduced,
@@ -79,8 +111,18 @@ class HeartBeatTransformation : public DOALL {
     void allocateNextLevelReducibleEnvironmentInsideTask(LoopDependenceInfo *LDI, int taskIndex);
     BasicBlock *performReductionAfterCallingLoopHandler(LoopDependenceInfo *LDI, int taskIndex, BasicBlock *loopHandlerBB, Instruction *cmpInst, BasicBlock *bottomHalfBB, Value *numOfReducerV);
     void allocateEnvironmentArray(LoopDependenceInfo *LDI) override;
+    void allocateEnvironmentArrayInCallerTask(HeartBeatTask *callerHBTask);
     void populateLiveInEnvironment(LoopDependenceInfo *LDI) override;
     BasicBlock * performReductionWithInitialValueToAllReducibleLiveOutVariables(LoopDependenceInfo *LDI);
 
     FunctionType *sliceTaskSignature;
+    PHINode *returnCodePhiInst;
+    std::unordered_map<uint32_t, Value *> liveOutVariableToAccumulatedPrivateCopy;
+    HeartBeatTask *hbTask;
+    std::unordered_map<LoopDependenceInfo *, HeartBeatTransformation *> &loopToHeartBeatTransformation;
+    std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop;
+    Value *contextBitcastInst;
+    BasicBlock *loopHandlerBlock;
+    BasicBlock *modifyExitConditionBlock;
+    CallInst *callToLoopHandler;
 };
