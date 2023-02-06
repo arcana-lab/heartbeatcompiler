@@ -17,9 +17,7 @@ using register_type = ulong_t*;
 
 #if defined(ENABLE_ROLLFORWARD)
 
-extern "C" {
-#include <rollforward.c>
-}
+#include <rollforward.h>
 
 #endif
 
