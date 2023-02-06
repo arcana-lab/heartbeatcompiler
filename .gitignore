@@ -10,6 +10,7 @@ manual_transformation/rollforward
 manual_transformation/tests/*/Makefile
 manual_transformation/benchmarks/*/Makefile
 manual_transformation/benchmarks/*/loop_handler.hpp
+manual_transformation/benchmarks/*/rollforward_handler.hpp
 manual_transformation/benchmarks/*/eval
 
 manual_transformation/pythonVirtualEnv
