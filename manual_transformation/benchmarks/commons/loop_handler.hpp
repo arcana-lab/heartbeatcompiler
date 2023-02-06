@@ -103,6 +103,10 @@ extern uint64_t numLevels;
 
 #elif defined(HEARTBEAT_VERSIONING)
 
+#include "code_loop_slice_declaration.hpp"
+
+#if !defined(LOOP_HANDLER_OPTIMIZED)
+
 /*
  * The benchmark-specific function to determine the leftover task to use
  * giving the splittingLevel and receivingLevel
@@ -116,10 +120,6 @@ uint64_t getLeftoverTaskIndex(uint64_t splittingLevel, uint64_t myLevel);
  * This function should be defined inside heartbeat_versioning.hpp
  */
 uint64_t getLeafTaskIndex(uint64_t myLevel);
-
-#if !defined(LOOP_HANDLER_OPTIMIZED)
-
-#include "code_loop_slice_declaration.hpp"
 
 /*
  * Generic loop_handler function for the versioning version

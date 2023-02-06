@@ -12,14 +12,12 @@
 #include <chrono>
 #endif
 
-using namespace sum_array;
-
 void loop_dispatcher(
-  void (*f)(char *, uint64_t, uint64_t, uint64_t &),
-  char *a,
+  void (*f)(double *, uint64_t, uint64_t, double &),
+  double *a,
   uint64_t low,
   uint64_t high,
-  uint64_t &result
+  double &result
 ) {
   taskparts::benchmark_nativeforkjoin([&] (auto sched) {
     (*f)(a, low, high, result);
@@ -55,7 +53,7 @@ int main() {
 #endif
   finishup();
 
-  printf("result=%lu\n", result);
+  printf("result=%f\n", result);
 #if defined(COLLECT_HEARTBEAT_POLLING_TIME)
   collect_heartbeat_polling_time_print();
 #endif

@@ -1,5 +1,7 @@
 #include "rollforward_handler.hpp"
 
+#define SUB(array, row_sz, i, j) (array[i * row_sz + j])
+
 #define CACHELINE     8
 #define LIVE_IN_ENV   0
 

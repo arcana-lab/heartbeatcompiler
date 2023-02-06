@@ -4,8 +4,6 @@
 #include <chrono>
 #endif
 
-using namespace sum_array;
-
 int main() {
   setup();
 
@@ -24,6 +22,6 @@ int main() {
 
   finishup();
   
-  printf("result=%lu\n", result);
+  printf("result=%f\n", result);
   return 0;
 }

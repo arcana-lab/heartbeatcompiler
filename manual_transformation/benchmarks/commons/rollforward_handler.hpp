@@ -4,12 +4,16 @@
 #include <cstdint>
 #include <algorithm>
 
+#if !defined(LOOP_HANDLER_OPTIMIZED)
+
 extern
 int64_t loop_handler(
   uint64_t *cxts,
   uint64_t receivingLevel,
   #include "code_loop_handler_signature.hpp"
 );
+
+#endif
 
 extern
 int64_t loop_handler_optimized(
@@ -20,6 +24,9 @@ int64_t loop_handler_optimized(
 );
 
 #if defined(ENABLE_ROLLFORWARD)
+
+#if !defined(LOOP_HANDLER_OPTIMIZED)
+
 void rollforward_handler_annotation __rf_handle_wrapper(
   int64_t &rc,
   uint64_t *cxts,
@@ -29,6 +36,8 @@ void rollforward_handler_annotation __rf_handle_wrapper(
   #include "code_loop_handler_invocation.hpp"
   rollbackward
 }
+
+#endif
 
 void rollforward_handler_annotation __rf_handle_optimized_wrapper(
   int64_t &rc,
