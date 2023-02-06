@@ -6,8 +6,6 @@
 #include <omp.h>
 #endif
 
-namespace sum_array_nested {
-
 #if defined(INPUT_BENCHMARKING)
   uint64_t n1 = 400000;
   uint64_t n2 = 400000;
@@ -82,6 +80,4 @@ uint64_t sum_array_nested_serial(char **a, uint64_t lo1, uint64_t hi1, uint64_t 
     }
   }
   return r;
-}
-
 }

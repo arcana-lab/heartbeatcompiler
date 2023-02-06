@@ -4,8 +4,6 @@
 #include <chrono>
 #endif
 
-using namespace mandelbrot;
-
 int main() {
   setup();
 

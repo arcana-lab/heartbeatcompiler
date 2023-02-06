@@ -4,8 +4,6 @@
 #include <chrono>
 #endif
 
-using namespace sum_array_nested;
-
 int main() {
   setup();
 

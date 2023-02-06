@@ -11,8 +11,6 @@
 #include <cstdio>
 #endif
 
-namespace mandelbrot {
-
 unsigned char *output = nullptr;
 double _mb_x0 = -2.5;
 double _mb_y0 = -0.875;
@@ -152,5 +150,3 @@ void test_correctness(unsigned char *output) {
   free(output2);
 }
 #endif
-
-}

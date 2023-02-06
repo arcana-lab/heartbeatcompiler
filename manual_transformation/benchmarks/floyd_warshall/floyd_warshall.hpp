@@ -16,8 +16,6 @@
 #define SUB(array, row_sz, i, j) (array[i * row_sz + j])
 #define INF INT_MAX-1
 
-namespace floyd_warshall {
-
 #if defined(INPUT_BENCHMARKING)
   int vertices = 5000;
 #elif defined(INPUT_TESTING)
@@ -135,5 +133,3 @@ void test_correctness(int *dist) {
   free(dist2);
 }
 #endif
-
-}

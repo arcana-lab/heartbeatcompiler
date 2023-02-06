@@ -11,8 +11,6 @@
 #include <chrono>
 #endif
 
-using namespace mandelbrot;
-
 void loop_dispatcher(
   void (*f)(double, double, double, double, int, int, int, unsigned char *&),
   double x0,

@@ -4,8 +4,6 @@
 #include <chrono>
 #endif
 
-using namespace floyd_warshall;
-
 int main() {
   setup();
 

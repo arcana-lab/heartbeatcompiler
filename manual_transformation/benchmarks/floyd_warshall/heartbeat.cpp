@@ -11,8 +11,6 @@
 #include <chrono>
 #endif
 
-using namespace floyd_warshall;
-
 void loop_dispatcher(
   void (*f)(int *, int),
   int *dist,

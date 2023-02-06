@@ -17,8 +17,6 @@
 #include <cstdio>
 #endif
 
-namespace spmv {
-
 #if defined(INPUT_BENCHMARKING)
   #if defined(SPMV_RANDOM)
     uint64_t n_bigrows = 20000000;
@@ -644,5 +642,3 @@ void test_correctness(double* y) {
   free(yref);
 }
 #endif
-
-}

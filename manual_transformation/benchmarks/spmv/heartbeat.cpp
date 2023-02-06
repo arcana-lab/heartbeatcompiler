@@ -11,8 +11,6 @@
 #include <chrono>
 #endif
 
-using namespace spmv;
-
 void loop_dispatcher(
   void (*f)(double *, uint64_t *, uint64_t *, double *, double *, uint64_t),
   double *val,

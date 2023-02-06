@@ -4,8 +4,6 @@
 #include <chrono>
 #endif
 
-using namespace spmv;
-
 int main() {
   setup();
 

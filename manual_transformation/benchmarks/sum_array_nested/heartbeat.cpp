@@ -12,8 +12,6 @@
 #include <chrono>
 #endif
 
-using namespace sum_array_nested;
-
 void loop_dispatcher(
   void (*f)(char **, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t &),
   char **a,
