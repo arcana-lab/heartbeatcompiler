@@ -13,6 +13,7 @@ path=../commons
 ./$path/generate_leftover_context_construction.sh                $handle_live_out > code_leftover_context_construction.hpp
 ./$path/generate_slice_task_invocation.sh                 $level $handle_live_out > code_slice_task_invocation.hpp
 ./$path/generate_leftover_task_invocation.sh              $level $handle_live_out > code_leftover_task_invocation.hpp
+./$path/generate_loop_handler_invocation.sh               $level                  > code_loop_handler_invocation.hpp
 ./$path/generate_optimized_loop_handler_signature.sh             $handle_live_out > code_optimized_loop_handler_signature.hpp
 ./$path/generate_optimized_slice_context_construction.sh         $handle_live_out > code_optimized_slice_context_construction.hpp
 ./$path/generate_optimized_leaf_task_invocation.sh               $handle_live_out > code_optimized_leaf_task_invocation.hpp

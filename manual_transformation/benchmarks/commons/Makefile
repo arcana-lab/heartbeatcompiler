@@ -118,13 +118,12 @@ run_openmp: openmp
 # ======================
 CPU_BASE_FREQUENCY_KHZ ?= 2800000
 TASKPARTS_PATH ?= ../../runtime
-TASKPARTS_INCLUDE_PATH = $(TASKPARTS_PATH)/include
-TASKPARTS_INCLUDES = $(TASKPARTS_INCLUDE_PATH) $(HWLOC_INCLUDE_PATH)
+TASKPARTS_INCLUDE = $(TASKPARTS_PATH)/include
+TASKPARTS_INCLUDES = $(TASKPARTS_INCLUDE) $(HWLOC_INCLUDE_PATH)
+ROLLFORWARDXX_PATH = $(TASKPARTS_PATH)/benchmark/tpal
+ROLLFORWARDXX = $(ROLLFORWARDXX_PATH)/rollforward++
 ROLLFORWARD_PATH ?= ../../rollforward/src
 ROLLFORWARD_INCLUDE = $(ROLLFORWARD_PATH)/x64
-ROLLFORWARD_SEPARATOR = -DTASKPARTS_TPALRTS
-TPAL_PATH = $(TASKPARTS_PATH)/benchmark/tpal
-TPALXX = $(TPAL_PATH)/tpal++
 
 MACROS_HEARTBEAT += $(MACROS)
 
@@ -180,9 +179,12 @@ endif
 TASKPARTS_PLATFORM ?= -DTASKPARTS_POSIX -DTASKPARTS_X64
 TASKPARTS_FLAGS = \
 	$(TASKPARTS_PLATFORM) \
-	-DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING \
+	-DTASKPARTS_TPALRTS \
 	-DTASKPARTS_STATS \
 	# -DTASKPARTS_LOG
+ifeq ($(ENABLE_ROLLFORWARD), false)
+	TASKPARTS_FLAGS += -DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING
+endif
 MACROS_HEARTBEAT += $(TASKPARTS_FLAGS)
 
 FLAGS_HEARTBEAT = \
@@ -219,17 +221,35 @@ run_heartbeat_branches: heartbeat_branches
 # ======================
 # Heartbeat::Versioning
 # ======================
-heartbeat_versioning: heartbeat.cpp
+heartbeat_versioning: heartbeat.cpp heartbeat_versioning_rollforward.cpp
 	make code_generation
 ifeq ($(ENABLE_ROLLFORWARD), true)
-	mkdir bin ;
-	ROLLFORWARD_PATH=$(ROLLFORWARD_PATH) CXX=$(CXX) $(TPALXX) $(CXX) -DHEARTBEAT_VERSIONING $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $^ $(ROLLFORWARD_SEPARATOR) -o $@ $(LIBS_HEARTBEAT)
+	make heartbeat_versioning_rf
 else
 	$(CXX) -DHEARTBEAT_VERSIONING $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $^ $(ROLLFORWARD_SEPARATOR) -o $@ $(LIBS_HEARTBEAT)
 endif
 
 run_heartbeat_versioning: heartbeat_versioning
 	export TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY_KHZ); ./$<
+
+# ============================================
+# Heartbeat::Versioning (Rollforward)
+# ============================================
+heartbeat_versioning_rollforward.s: heartbeat_versioning_rollforward.cpp
+	$(CXX) -DHEARTBEAT_VERSIONING $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $< -S -o $@
+
+heartbeat_versioning.rf.s: heartbeat_versioning_rollforward.s
+	ROLLFORWARD_PATH=$(ROLLFORWARD_PATH) ./$(ROLLFORWARDXX) $< $@
+
+heartbeat_versioning.rf.o: heartbeat_versioning.rf.s
+	$(CXX) -I $(ROLLFORWARD_INCLUDE) $< -c -o $@
+
+rollforward.o: $(ROLLFORWARD_INCLUDE)/rollforward.c
+	$(CXX) $< -c -o $@
+
+heartbeat_versioning_rf: heartbeat.cpp heartbeat_versioning.rf.o rollforward.o
+	$(CXX) -DHEARTBEAT_VERSIONING $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $^ -o $@ $(LIBS_HEARTBEAT)
+	cp $@ heartbeat_versioning
 
 # ======================
 # Evaluation
@@ -246,7 +266,7 @@ condor_clean:
 clean:
 	rm -rf baseline opencilk openmp ;
 	rm -rf heartbeat_branches heartbeat_versioning ;
-	rm -rf bin ;
+	rm -rf heartbeat_versioning_rollforward.s heartbeat_versioning.rf.s heartbeat_versioning.rf.o rollforward.o heartbeat_versioning_rf ;
 	rm -rf code_*.hpp ;
 
 .PHONY: clean
