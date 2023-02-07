@@ -168,7 +168,7 @@ endif
 
 # whether the leftover task is further splittable through heartbeat promotion
 # options: true, false
-LEFTOVER_SPLITTABLE ?= false
+LEFTOVER_SPLITTABLE ?= true
 ifeq ($(LEFTOVER_SPLITTABLE), true)
 	MACROS_HEARTBEAT += -DLEFTOVER_SPLITTABLE
 else
