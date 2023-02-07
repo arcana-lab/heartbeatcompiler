@@ -26,7 +26,7 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxt, uint64_t myIndex, uint64_t startIte
 
   int64_t rc = 0;
   double r_private = 0.0;
-#if defined(CHUNK_LOOP_ITERATIONS)
+#if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_0 != 1
   uint64_t low, high;
   for (; ;) {
     low = startIter;

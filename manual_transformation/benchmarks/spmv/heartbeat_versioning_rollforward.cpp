@@ -35,7 +35,7 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t myIndex, uint64_t startIt
   cxts[LEVEL_ONE * CACHELINE + LIVE_OUT_ENV] = (uint64_t)redArrLiveOut0Loop1;
 
   int64_t rc = 0;
-#if defined(CHUNK_LOOP_ITERATIONS)
+#if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_0 != 1
   uint64_t low, high;
   for (; ;) {
     low = startIter;
@@ -110,7 +110,7 @@ int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t myIndex, uint64_t startIt
 
   int64_t rc = 0;
   double r_private = 0.0;
-#if defined(CHUNK_LOOP_ITERATIONS)
+#if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_1 != 1
   uint64_t low, high;
   for (; ;) {
     low = startIter;
@@ -179,7 +179,7 @@ int64_t HEARTBEAT_loop1_optimized(uint64_t *cxt, uint64_t myIndex, uint64_t star
 
   int64_t rc = 0;
   double r_private = 0.0;
-#if defined(CHUNK_LOOP_ITERATIONS)
+#if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_1 != 1
   uint64_t low, high;
   for (; ;) {
     low = startIter;

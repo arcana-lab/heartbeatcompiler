@@ -30,7 +30,7 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t startIter, uint64_t maxIt
   int vertices = (int)constLiveIns[1];
 
   int64_t rc = 0;
-#if defined(CHUNK_LOOP_ITERATIONS)
+#if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_0 != 1
   int low, high;
 
   // store into live-in environment for loop1
@@ -99,7 +99,7 @@ int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t startIter0, uint64_t maxI
   int from = *(int *)cxts[LEVEL_ONE * CACHELINE + LIVE_IN_ENV];
 
   int64_t rc = 0;
-#if defined(CHUNK_LOOP_ITERATIONS)
+#if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_1 != 1
   int low, high;
   for (; ;) {
     low = (int)startIter;
@@ -159,7 +159,7 @@ int64_t HEARTBEAT_loop1_optimized(uint64_t *cxt, uint64_t startIter, uint64_t ma
   int from = *(int *)cxt[LIVE_IN_ENV];
 
   int64_t rc = 0;
-#if defined(CHUNK_LOOP_ITERATIONS)
+#if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_1 != 1
   int low, high;
   for (; ;) {
     low = (int)startIter;
