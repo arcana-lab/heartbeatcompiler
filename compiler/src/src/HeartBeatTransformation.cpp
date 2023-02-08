@@ -639,15 +639,28 @@ bool HeartBeatTransformation::apply (
       privateAccumulatedValue->getType(),
       secondElementPtr
     );
-    auto firstAddInst = hbReductionBlockBuilder.CreateAdd(
-      privateAccumulatedValue,
-      firstElement
-    );
-    auto secondAddInst = hbReductionBlockBuilder.CreateAdd(
-      firstAddInst,
-      secondElement,
-      "reduction_result_for_heartbeat"
-    );
+    Value *secondAddInst = nullptr;
+    if (isa<IntegerType>(privateAccumulatedValue->getType())) {
+      auto firstAddInst = hbReductionBlockBuilder.CreateAdd(
+        privateAccumulatedValue,
+        firstElement
+      );
+      secondAddInst = hbReductionBlockBuilder.CreateAdd(
+        firstAddInst,
+        secondElement,
+        "reduction_result_for_heartbeat"
+      );
+    } else {
+      auto firstAddInst = hbReductionBlockBuilder.CreateFAdd(
+        privateAccumulatedValue,
+        firstElement
+      );
+      secondAddInst = hbReductionBlockBuilder.CreateFAdd(
+        firstAddInst,
+        secondElement,
+        "reduction_result_for_heartbeat"
+      );
+    }
 
     // leftover reduction [0]
     auto firstElementLeftoverPtr = leftoverReductionBlockBuilder.CreateInBoundsGEP(
@@ -659,11 +672,20 @@ bool HeartBeatTransformation::apply (
       privateAccumulatedValue->getType(),
       firstElementLeftoverPtr
     );
-    auto firstAddLeftoverInst = leftoverReductionBlockBuilder.CreateAdd(
-      privateAccumulatedValue,
-      firstElementLeftover,
-      "reduction_result_for_leftover"
-    );
+    Value *firstAddLeftoverInst = nullptr;
+    if (isa<IntegerType>(privateAccumulatedValue->getType())) {
+      firstAddLeftoverInst= leftoverReductionBlockBuilder.CreateAdd(
+        privateAccumulatedValue,
+        firstElementLeftover,
+        "reduction_result_for_leftover"
+      );
+    } else {
+      firstAddLeftoverInst= leftoverReductionBlockBuilder.CreateFAdd(
+        privateAccumulatedValue,
+        firstElementLeftover,
+        "reduction_result_for_leftover"
+      );
+    }
 
     // store the final reduction result into upper level's reduction array
     IRBuilder<> exitBlockBuilder{ exitBlock };
@@ -1083,12 +1105,15 @@ void HeartBeatTransformation::allocateNextLevelReducibleEnvironmentInsideTask(Lo
   // the pointer to the liveOutEnvironment array (if any)
   // is now pointing at the liveOutEnvironment array for kids,
   // need to reset it before returns
-  auto taskExit = task->getExit();
-  auto exitReturnInst = taskExit->getTerminator();
-  errs() << "terminator of the exit block of task " << *exitReturnInst << "\n";
-  IRBuilder exitBuilder { taskExit };
-  exitBuilder.SetInsertPoint(exitReturnInst);
-  ((HeartBeatLoopEnvironmentUser *)this->envBuilder->getUser(0))->resetReducibleEnvironmentArray(exitBuilder);
+  // Fix: only reset the environment when there's a live-out environment for the loop
+  if (((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentSize() > 0) {
+    auto taskExit = task->getExit();
+    auto exitReturnInst = taskExit->getTerminator();
+    errs() << "terminator of the exit block of task " << *exitReturnInst << "\n";
+    IRBuilder exitBuilder { taskExit };
+    exitBuilder.SetInsertPoint(exitReturnInst);
+    ((HeartBeatLoopEnvironmentUser *)this->envBuilder->getUser(0))->resetReducibleEnvironmentArray(exitBuilder);
+  }
 
   return;
 }

@@ -220,7 +220,7 @@ void HeartBeatLoopEnvironmentBuilder::generateNextLevelReducibleEnvironmentVaria
     auto ptrType = PointerType::getUnqual(varType);
 
     auto valuesInCacheLine = Architecture::getCacheLineBytes() / sizeof(int64_t);
-    auto reducerArrType = ArrayType::get(int64, this->numReducers * valuesInCacheLine);
+    auto reducerArrType = ArrayType::get(varType, this->numReducers * valuesInCacheLine);
 
     auto reduceArrAlloca = builder.CreateAlloca(
       reducerArrType,
@@ -475,7 +475,7 @@ void HeartBeatLoopEnvironmentBuilder::generateEnvVariables(IRBuilder<> builder, 
     auto valuesInCacheLine =
         Architecture::getCacheLineBytes() / sizeof(int64_t);
     auto reduceArrType =
-        ArrayType::get(int64, reducerCount * valuesInCacheLine);
+        ArrayType::get(varType, reducerCount * valuesInCacheLine);
 
     /*
      * Allocate the vectorized form of the current reducable variable on the

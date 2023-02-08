@@ -61,7 +61,7 @@ void HeartBeatLoopEnvironmentUser::createReducableEnvPtr(IRBuilder<> builder, ui
 
   auto envReducePtr = builder.CreateBitCast(
     envReduceGEP,
-    PointerType::getUnqual(PointerType::getUnqual(ArrayType::get(int64, reducerCount * valuesInCacheLine))),
+    PointerType::getUnqual(PointerType::getUnqual(ArrayType::get(type, reducerCount * valuesInCacheLine))),
     std::string("reductionArrayLiveOut_").append(std::to_string(envIndex)).append("_PtrCasted")
   );
   auto reducibleArrayPtr = builder.CreateLoad(
