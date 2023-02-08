@@ -14,7 +14,7 @@
 #elif defined(INPUT_TESTING)
   uint64_t n = 1000000000;
 #else
-  #error "Need to select input size, e.g., INPUT_BENCHMARKING, INPUT_TESTING"
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TESTING}"
 #endif
 double result = 0.0;
 double *a;

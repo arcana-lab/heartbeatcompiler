@@ -16,11 +16,24 @@ double _mb_x0 = -2.5;
 double _mb_y0 = -0.875;
 double _mb_x1 = 1;
 double _mb_y1 = 0.875;
-int _mb_height = 12576;
-// Width should be a multiple of 8
-int _mb_width = 12576;
+#if defined(INPUT_BENCHMARKING)
+int _mb_height = 4192;
+int _mb_width = 4192;
 int _mb_max_depth = 100;
 double g = 2.0;
+#elif defined(INPUT_TESTING)
+  int _mb_height = 4192;
+  int _mb_width = 4192;
+  int _mb_max_depth = 100;
+  double g = 2.0;
+#elif defined(INPUT_TPAL)
+  int _mb_height = 4192;
+  int _mb_width = 4192;
+  int _mb_max_depth = 100;
+  double g = 2.0;
+#else
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TESTING, TPAL}"
+#endif
 
 void setup() {
   for (int i = 0; i < 100; i++) {

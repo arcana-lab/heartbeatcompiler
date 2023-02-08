@@ -9,6 +9,7 @@
 #define _USE_MATH_DEFINES
 #if defined(USE_OPENCILK)
 #include <cilk/cilk.h>
+#include <cilk/cilk_api.h>
 #endif
 #if defined(USE_OPENMP)
 #include <omp.h>
@@ -19,12 +20,12 @@
 
 #if defined(INPUT_BENCHMARKING)
   #if defined(SPMV_RANDOM)
-    uint64_t n_bigrows = 20000000;
-    uint64_t degree_bigrows = 200;
+    uint64_t n_bigrows = 3000000;
+    uint64_t degree_bigrows = 100;
   #elif defined(SPMV_POWERLAW)
-    uint64_t n_bigcols = 27;
+    uint64_t n_bigcols = 23;
   #elif defined(SPMV_ARROWHEAD)
-    uint64_t n_arrowhead = 2000000000;
+    uint64_t n_arrowhead = 100000000;
   #elif defined(SPMV_DENSE)
     uint64_t n_dense = 100000;
   #elif defined(SPMV_DIAGONAL)
@@ -51,8 +52,25 @@
   #else
     #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL}"
   #endif
+#elif defined(INPUT_TPAL)
+  #if defined(SPMV_RANDOM)
+    uint64_t n_bigrows = 3000000;
+    uint64_t degree_bigrows = 100;
+  #elif defined(SPMV_POWERLAW)
+    uint64_t n_bigcols = 23;
+  #elif defined(SPMV_ARROWHEAD)
+    uint64_t n_arrowhead = 100000000;
+  #elif defined(SPMV_DENSE)
+    uint64_t n_dense = 100000;
+  #elif defined(SPMV_DIAGONAL)
+    uint64_t n_diagonal = 5000000000;
+  #elif defined(SPMV_NORMAL)
+    uint64_t n_normal = 200000;
+  #else
+    #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL}"
+  #endif
 #else
-  #error "Need to select input size: INPUT_BENCHMARKING, INPUT_TESTING"
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TESTING, TPAL}"
 #endif
 
 uint64_t row_len = 1000;
@@ -236,8 +254,12 @@ auto bench_pre_bigrows() {
   bench_pre_shared([&] {
 #if defined(INPUT_BENCHMARKING)
     const char* filename = "matrix_random_benchmarking.dat";
-#else
+#elif defined(INPUT_TESTING)
     const char* filename = "matrix_random_testing.dat";
+#elif defined(INPUT_TPAL)
+    const char* filename = "matrix_random_tpal.dat";
+#else
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TESTING, TPAL}"
 #endif
     if (!access(filename, F_OK)) {
       printf("read matrix from %s\n", filename);
@@ -279,8 +301,12 @@ auto bench_pre_bigcols() {
   bench_pre_shared([&] {
 #if defined(INPUT_BENCHMARKING)
     const char* filename = "matrix_powerlaw_benchmarking.dat";
-#else
+#elif defined(INPUT_TESTING)
     const char* filename = "matrix_powerlaw_testing.dat";
+#elif defined(INPUT_TPAL)
+    const char* filename = "matrix_powerlaw_tpal.dat";
+#else
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TESTING, TPAL}"
 #endif
     if (!access(filename, F_OK)) {
       printf("read matrix from %s\n", filename);
@@ -315,8 +341,12 @@ auto bench_pre_arrowhead() {
   bench_pre_shared([&] {
 #if defined(INPUT_BENCHMARKING)
     const char* filename = "matrix_arrowhead_benchmarking.dat";
-#else
+#elif defined(INPUT_TESTING)
     const char* filename = "matrix_arrowhead_testing.dat";
+#elif defined(INPUT_TPAL)
+    const char* filename = "matrix_arrowhead_tpal.dat";
+#else
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TESTING, TPAL}"
 #endif
     if (!access(filename, F_OK)) {
       printf("read matrix from %s\n", filename);
@@ -347,8 +377,12 @@ auto bench_pre_dense() {
   bench_pre_shared([&] {
 #if defined(INPUT_BENCHMARKING)
     const char* filename = "matrix_dense_benchmarking.dat";
-#else
+#elif defined(INPUT_TESTING)
     const char* filename = "matrix_dense_testing.dat";
+#elif defined(INPUT_TPAL)
+    const char* filename = "matrix_dense_tpal.dat";
+#else
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TESTING, TPAL}"
 #endif
     if (!access(filename, F_OK)) {
       printf("read matrix from %s\n", filename);
@@ -376,9 +410,13 @@ auto bench_pre_diagonal() {
   nb_rows = n_diagonal;
   bench_pre_shared([&] {
 #if defined(INPUT_BENCHMARKING)
-    const char* filename = "matrix_diagonal_benchmarking.dat";
-#else
+    const char* filename = "matrix_disgonal_benchmarking.dat";
+#elif defined(INPUT_TESTING)
     const char* filename = "matrix_diagonal_testing.dat";
+#elif defined(INPUT_TPAL)
+    const char* filename = "matrix_diagonal_tpal.dat";
+#else
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TESTING, TPAL}"
 #endif
     if (!access(filename, F_OK)) {
       printf("read matrix from %s\n", filename);
@@ -415,8 +453,12 @@ auto bench_pre_normal() {
   bench_pre_shared([&] {
 #if defined(INPUT_BENCHMARKING)
     const char* filename = "matrix_normal_benchmarking.dat";
-#else
+#elif defined(INPUT_TESTING)
     const char* filename = "matrix_normal_testing.dat";
+#elif defined(INPUT_TPAL)
+    const char* filename = "matrix_normal_tpal.dat";
+#else
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TESTING, TPAL}"
 #endif
     if (!access(filename, F_OK)) {
       printf("read matrix from %s\n", filename);
@@ -570,7 +612,51 @@ void spmv_opencilk(
     y[i] = t;
   }
 }
+
+#elif defined(OPENCILK_HEURISTICS)
+int nworkers = __cilkrts_get_nworkers();
+auto ceiling_div(uint64_t x, uint64_t y) -> uint64_t {
+  return (x + y - 1) / y;
+}
+auto get_grainsize(uint64_t n) -> uint64_t {
+  return std::min<uint64_t>(2048, ceiling_div(n, 8 * nworkers));
+}
+
+auto dotprod_rec(int64_t lo, int64_t hi, double* val, double* x, uint64_t* col_ind,
+		 uint64_t grainsize) -> double {
+  auto n = hi - lo;
+  if (n <= grainsize) {
+    double t = 0.0;
+    for (int64_t k = lo; k < hi; k++) { // col loop
+      t += val[k] * x[col_ind[k]];
+    }
+    return t;
+  }
+  auto mid = (lo + hi) / 2;
+  double r1, r2;
+  r1 = cilk_spawn dotprod_rec(lo, mid, val, x, col_ind, grainsize);
+  r2 = dotprod_rec(mid, hi, val, x, col_ind, grainsize);
+  cilk_sync;
+  return r1 + r2;
+}
+
+auto dotprod(int64_t lo, int64_t hi, double* val, double* x, uint64_t* col_ind) -> double {
+  return dotprod_rec(lo, hi, val, x, col_ind, get_grainsize(hi - lo));
+}
+
+void spmv_opencilk(
+  double* val,
+  uint64_t* row_ptr,
+  uint64_t* col_ind,
+  double* x,
+  double* y,
+  int64_t n) {
+  cilk_for (int64_t i = 0; i < n; i++) {  // row loop
+    y[i] = dotprod(row_ptr[i], row_ptr[i+1], val, x, col_ind);
+  }
+}
 #endif
+
 #elif defined(USE_OPENMP)
 void spmv_openmp(
   double* val,

@@ -17,11 +17,13 @@
 #define INF INT_MAX-1
 
 #if defined(INPUT_BENCHMARKING)
-  int vertices = 5000;
-#elif defined(INPUT_TESTING)
   int vertices = 2048;
+#elif defined(INPUT_TESTING)
+  int vertices = 1024;
+#elif defined(INPUT_TPAL)
+  int vertices = 1024;
 #else
-  #error "Need to select input size, e.g., INPUT_BENCHMARKING, INPUT_TESTING"
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TESTING, TPAL}"
 #endif
 int *dist = nullptr;
 

@@ -8,13 +8,15 @@ ifeq ($(COLLECT_KERNEL_TIME), true)
 	MACROS += -DCOLLECT_KERNEL_TIME
 endif
 
-# size of input, either benchmarking or testing
-# options: benchmarking, testing
-INPUT_SIZE ?= benchmarking
+# size of input, either benchmarking, testing or tpal
+# options: benchmarking, testing, tpal
+INPUT_SIZE ?= testing
 ifeq ($(INPUT_SIZE), benchmarking)
 	MACROS += -DINPUT_BENCHMARKING
-else
+else ifeq ($(INPUT_SIZE), testing)
 	MACROS += -DINPUT_TESTING
+else ifeq ($(INPUT_SIZE), tpal)
+	MACROS += -DINPUT_TPAL
 endif
 
 # whether to test the correctness of any implementation

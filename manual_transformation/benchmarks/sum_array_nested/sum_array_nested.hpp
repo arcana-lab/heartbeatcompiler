@@ -13,7 +13,7 @@
   uint64_t n1 = 100000;
   uint64_t n2 = 100000;
 #else
-  #error "Need to select input size, e.g., INPUT_BENCHMARKING, INPUT_TESTING"
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TESTING"
 #endif
 uint64_t result = 0;
 char **a;
