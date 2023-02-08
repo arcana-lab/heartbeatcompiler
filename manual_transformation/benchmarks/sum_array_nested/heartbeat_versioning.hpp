@@ -110,9 +110,8 @@ int64_t HEARTBEAT_loop_1_0_leftover(uint64_t *cxts, uint64_t myIndex, uint64_t *
   // load live-in environment
   uint64_t i = *(uint64_t *)cxts[LEVEL_ONE * CACHELINE + LIVE_IN_ENV];
 
-  // initialize my private copy of reduction array
+  // load my private copy of reduction array
   uint64_t *redArrLiveOut0 = (uint64_t *)cxts[LEVEL_ONE * CACHELINE + LIVE_OUT_ENV];
-  redArrLiveOut0[myIndex * CACHELINE] = 0;
 
   uint64_t r_private = 0;
   for (; startIter < maxIter; startIter++) {
@@ -120,7 +119,7 @@ int64_t HEARTBEAT_loop_1_0_leftover(uint64_t *cxts, uint64_t myIndex, uint64_t *
   }
 
   // reduction
-  redArrLiveOut0[myIndex * CACHELINE] += r_private;
+  redArrLiveOut0[myIndex * CACHELINE] = r_private;
 
   return 0;
 

@@ -16,9 +16,8 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxt, uint64_t myIndex, uint64_t startIte
   // load const live-ins
   double *a = (double *)constLiveIns[0];
 
-  // initialize my private copy of reduction array
+  // load my private copy of reduction array
   double *redArrLiveOut0 = (double *)cxt[LIVE_OUT_ENV];
-  redArrLiveOut0[myIndex * CACHELINE] = 0.0;
 
   // allocate reduction array (as live-out environment) for kids
   double redArrLiveOut0Kids[2 * CACHELINE];
@@ -66,10 +65,10 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxt, uint64_t myIndex, uint64_t startIte
 
   // reduction
   if (rc == 0) { // no heartbeat promotion happens
-    redArrLiveOut0[myIndex * CACHELINE] += r_private;
+    redArrLiveOut0[myIndex * CACHELINE] = r_private;
   } else {  // splittingLevel == myLevel
     assert(rc == 1);
-    redArrLiveOut0[myIndex * CACHELINE] += r_private + redArrLiveOut0Kids[0 * CACHELINE] + redArrLiveOut0Kids[1 * CACHELINE];
+    redArrLiveOut0[myIndex * CACHELINE] = r_private + redArrLiveOut0Kids[0 * CACHELINE] + redArrLiveOut0Kids[1 * CACHELINE];
   }
 
   // reset live-out environment

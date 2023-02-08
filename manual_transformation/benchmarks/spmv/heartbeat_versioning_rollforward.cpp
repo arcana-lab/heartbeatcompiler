@@ -100,9 +100,8 @@ int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t myIndex, uint64_t startIt
   uint64_t *col_ind = (uint64_t *)constLiveIns[3];
   double *x = (double *)constLiveIns[4];
 
-  // initialize my private copy of reduction array
+  // load my private copy of reduction array
   double *redArrLiveOut0 = (double *)cxts[LEVEL_ONE * CACHELINE + LIVE_OUT_ENV];
-  redArrLiveOut0[myIndex * CACHELINE] = 0.0;
 
   // allocate reduction array (as live-out environment) for kids
   double redArrLiveOut0Kids[2 * CACHELINE];
@@ -149,11 +148,11 @@ int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t myIndex, uint64_t startIt
 
   // reduction
   if (rc == 1) { // splittingLevel == myLevel
-    redArrLiveOut0[myIndex * CACHELINE] += r_private + redArrLiveOut0Kids[0 * CACHELINE] + redArrLiveOut0Kids[1 * CACHELINE];
+    redArrLiveOut0[myIndex * CACHELINE] = r_private + redArrLiveOut0Kids[0 * CACHELINE] + redArrLiveOut0Kids[1 * CACHELINE];
   } else if (rc > 1) { // splittingLevel < myLevel
-    redArrLiveOut0[myIndex * CACHELINE] += r_private + redArrLiveOut0Kids[0 * CACHELINE];
+    redArrLiveOut0[myIndex * CACHELINE] = r_private + redArrLiveOut0Kids[0 * CACHELINE];
   } else { // no heartbeat promotion happens or splittingLevel > myLevel
-    redArrLiveOut0[myIndex * CACHELINE] += r_private;
+    redArrLiveOut0[myIndex * CACHELINE] = r_private;
   }
 
   // reset live-out environment
@@ -169,9 +168,8 @@ int64_t HEARTBEAT_loop1_optimized(uint64_t *cxt, uint64_t myIndex, uint64_t star
   uint64_t *col_ind = (uint64_t *)constLiveIns[3];
   double *x = (double *)constLiveIns[4];
 
-  // initialize my private copy of reduction array
+  // load my private copy of reduction array
   double *redArrLiveOut0 = (double *)cxt[LIVE_OUT_ENV];
-  redArrLiveOut0[myIndex * CACHELINE] = 0.0;
 
   // allocate reduction array (as live-out environment) for kids
   double redArrLiveOut0Kids[2 * CACHELINE];
@@ -218,10 +216,10 @@ int64_t HEARTBEAT_loop1_optimized(uint64_t *cxt, uint64_t myIndex, uint64_t star
 
   // reduction
   if (rc == 0) { // no heartbeat promotion happens
-    redArrLiveOut0[myIndex * CACHELINE] += r_private;
+    redArrLiveOut0[myIndex * CACHELINE] = r_private;
   } else {  // splittingLevel == myLevel
     assert(rc == 1);
-    redArrLiveOut0[myIndex * CACHELINE] += r_private + redArrLiveOut0Kids[0 * CACHELINE] + redArrLiveOut0Kids[1 * CACHELINE];
+    redArrLiveOut0[myIndex * CACHELINE] = r_private + redArrLiveOut0Kids[0 * CACHELINE] + redArrLiveOut0Kids[1 * CACHELINE];
   }
 
   // reset live-out environment
