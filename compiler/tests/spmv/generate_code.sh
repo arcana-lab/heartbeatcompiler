@@ -2,7 +2,6 @@
 
 level=$1
 handle_live_out=$2
-# path=../commons
 path=./
 
 ./$path/generate_loop_slice_declaration.sh                $level $handle_live_out > code_loop_slice_declaration.hpp

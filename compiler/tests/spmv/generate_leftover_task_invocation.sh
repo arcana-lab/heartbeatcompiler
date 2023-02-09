@@ -5,7 +5,7 @@ handle_live_out=$2
 
 echo "switch (splittingLevel) {" ;
 
-for l in `seq 0 $(($level - 1))` ; do
+for l in `seq 0 $(($level - 2))` ; do
   echo "  case $l:" ;
   echo "    taskparts::tpalrts_promote_via_nativefj([&] {" ;
   if [ $handle_live_out == "true" ] ; then
