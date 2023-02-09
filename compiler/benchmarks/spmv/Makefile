@@ -56,7 +56,7 @@ endif
 # ======================
 MACROS_BASELINE += $(MACROS)
 FLAGS_BASELINE += $(FLAGS)
-OPTS_BASLINE += $(OPTS)
+OPTS_BASELINE += $(OPTS)
 LIBS_BASELINE += $(LIBS)
 
 baseline: test.cpp spmv.cpp
