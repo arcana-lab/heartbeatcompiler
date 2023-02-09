@@ -62,11 +62,11 @@ endif
 # ======================
 MACROS_BASELINE += $(MACROS)
 FLAGS_BASELINE += $(FLAGS)
-OPTS_BASLINE += $(OPTS)
+OPTS_BASELINE += $(OPTS)
 LIBS_BASELINE += $(LIBS)
 
 baseline: baseline.cpp
-	$(CXX) $(MACROS_BASELINE) $(FLAGS_BASELINE) $(OPTS_BASLINE) $^ -o $@ $(LIBS_BASELINE)
+	$(CXX) $(MACROS_BASELINE) $(FLAGS_BASELINE) $(OPTS_BASELINE) $^ -o $@ $(LIBS_BASELINE)
 
 run_baseline: baseline
 	./$<
