@@ -1319,12 +1319,14 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
   //   taskBody
   // }));
 
-  // assumption: the root function is already invoked through the loop_dispatcher function
-  // all we need to do here is invoke the hbTask
+  // invoke the transformed loop slice of root throug loop_dispatcher
+  auto loopDispatcherFunction = this->n.getProgram()->getFunction("loop_dispatcher");
+  assert(loopDispatcherFunction != nullptr && "loop_dispatcher function not found\n");
   IRBuilder<> doallBuilder(this->entryPointOfParallelizedLoop);
   doallBuilder.CreateCall(
-    this->tasks[0]->getTaskBody(),
+    loopDispatcherFunction,
     ArrayRef<Value *>({
+      this->tasks[0]->getTaskBody(),
       contextArrayCasted,
       ConstantInt::get(doallBuilder.getInt64Ty(), 0),
       firstIterationGoverningIVValue,

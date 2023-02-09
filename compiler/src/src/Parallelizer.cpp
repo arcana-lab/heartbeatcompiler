@@ -112,7 +112,7 @@ void HeartBeat::linkTransformedLoopToOriginalFunction(
   auto originalHeader = originalTerminator->getSuccessor(0);
 
   IRBuilder<> loopSwitchBuilder(originalTerminator);
-  auto runHeartbeatBoolGlobal = noelle.getProgram()->getNamedGlobal("runHeartbeat");
+  auto runHeartbeatBoolGlobal = noelle.getProgram()->getNamedGlobal("run_heartbeat");
   auto loadRunHeartbeatBool = loopSwitchBuilder.CreateLoad(runHeartbeatBoolGlobal);
   auto cmpInst = loopSwitchBuilder.CreateICmpEQ(
     loadRunHeartbeatBool,
