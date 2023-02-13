@@ -20,18 +20,18 @@
 
 #if defined(INPUT_BENCHMARKING)
   #if defined(SPMV_RANDOM)
-    uint64_t n_bigrows = 3000000;
+    uint64_t n_bigrows = 6000000;
     uint64_t degree_bigrows = 100;
   #elif defined(SPMV_POWERLAW)
-    uint64_t n_bigcols = 23;
+    uint64_t n_bigcols = 24;
   #elif defined(SPMV_ARROWHEAD)
-    uint64_t n_arrowhead = 100000000;
+    uint64_t n_arrowhead = 400000000;
   #elif defined(SPMV_DENSE)
     uint64_t n_dense = 100000;
   #elif defined(SPMV_DIAGONAL)
     uint64_t n_diagonal = 5000000000;
   #elif defined(SPMV_NORMAL)
-    uint64_t n_normal = 200000;
+    uint64_t n_normal = 50000;
   #else
     #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL}"
   #endif
@@ -48,7 +48,7 @@
   #elif defined(SPMV_DIAGONAL)
     uint64_t n_diagonal = 50000000;
   #elif defined(SPMV_NORMAL)
-    uint64_t n_normal = 20000;
+    uint64_t n_normal = 400;
   #else
     #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL}"
   #endif
@@ -435,7 +435,7 @@ auto bench_pre_diagonal() {
 auto mk_normal_edgelist(size_t n) {
   edgelist_type edges;
   double mean = n/2;
-  double stdev = n/6.1;   
+  double stdev = n/6.1;
   // double stdev = n/10;   // steeper curve
   // double stdev = n/5;    // flatter curve
   for (size_t i = 0; i < n; i++) {
@@ -528,7 +528,7 @@ void spmv_opencilk(
   }
 }
 
-#elif defined(OPENCILK_MAP_REDUCE)
+#elif defined(OPENCILK_MANUAL_GRANULARITY)
 static constexpr
 uint64_t threshold = 1024;
 template <typename F>
