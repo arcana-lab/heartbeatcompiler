@@ -1054,12 +1054,12 @@ void HeartBeatTransformation::generateCodeToStoreLiveOutVariables(LoopDependence
         static_cast<BinaryReductionSCC *>(sccManager->getSCCAttrs(producerSCC));
     assert(reductionVariable != nullptr);
 
-    // Reducible live-out initialization
-    auto identityV = reductionVariable->getIdentityValue();
-    // OPTIMIZATION: we might not need to initialize the live-out in the reduction array here
-    // can just store the final reduction result
-    auto newStore = entryBuilder.CreateStore(identityV, envPtr);
-    mm->addMetadata(newStore, "heartbeat.environment_variable.live_out.reducible.initialize_private_copy", std::to_string(envID));
+    // // Reducible live-out initialization
+    // auto identityV = reductionVariable->getIdentityValue();
+    // // OPTIMIZATION: we might not need to initialize the live-out in the reduction array here
+    // // can just store the final reduction result
+    // auto newStore = entryBuilder.CreateStore(identityV, envPtr);
+    // mm->addMetadata(newStore, "heartbeat.environment_variable.live_out.reducible.initialize_private_copy", std::to_string(envID));
 
     /*
      * Inject store instructions to propagate live-out values back to the caller
