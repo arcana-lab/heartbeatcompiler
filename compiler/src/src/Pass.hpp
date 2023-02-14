@@ -161,4 +161,9 @@ class HeartBeat : public ModulePass {
 
     std::vector<Constant *> leftoverTasks;
 
+    /*
+     * Chunking info
+     */
+    std::unordered_map<LoopDependenceInfo *, uint64_t> loopToChunksize;
+
 };

@@ -44,7 +44,8 @@ class HeartBeatTransformation : public DOALL {
       std::unordered_map<int, int> &constantLiveInsArgIndexToIndex,
       std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns,
       std::unordered_map<LoopDependenceInfo *, HeartBeatTransformation *> &loopToHeartBeatTransformation,
-      std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop
+      std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop,
+      std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToChunksize
     );
 
     bool apply (
@@ -98,6 +99,12 @@ class HeartBeatTransformation : public DOALL {
     void invokeHeartBeatFunctionAsideCallerLoop (
         LoopDependenceInfo *LDI
         );
+    
+    void executeLoopInChunk(
+      LoopDependenceInfo *
+    );
+
+    void replaceAllUsesInsideLoopBody(LoopDependenceInfo *, Value *, Value *);
 
   private:
     void initializeEnvironmentBuilder(LoopDependenceInfo *LDI, 
@@ -121,6 +128,7 @@ class HeartBeatTransformation : public DOALL {
     HeartBeatTask *hbTask;
     std::unordered_map<LoopDependenceInfo *, HeartBeatTransformation *> &loopToHeartBeatTransformation;
     std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop;
+    std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToChunksize;
     Value *contextBitcastInst;
     BasicBlock *loopHandlerBlock;
     BasicBlock *modifyExitConditionBlock;

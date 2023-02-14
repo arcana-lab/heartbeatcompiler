@@ -31,6 +31,13 @@ bool HeartBeat::runOnModule (Module &M) {
   }
 
   /*
+   * Set the chunksize for all heartbeat loops, right now set it to default value 32
+   */
+  for (auto loop : heartbeatLoops) {
+    this->loopToChunksize[loop] = 1024;
+  }
+
+  /*
    * Determine the level of the targeted heartbeat loop, and the root loop for each targeted loop
    */
   this->performLoopLevelAnalysis(noelle, heartbeatLoops);

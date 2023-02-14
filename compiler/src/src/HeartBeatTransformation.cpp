@@ -16,7 +16,8 @@ HeartBeatTransformation::HeartBeatTransformation (
   std::unordered_map<int, int> &constantLiveInsArgIndexToIndex,
   std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns,
   std::unordered_map<LoopDependenceInfo *, HeartBeatTransformation *> &loopToHeartBeatTransformation,
-  std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop
+  std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop,
+  std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToChunksize
 ) : DOALL{noelle},
     ldi{ldi},
     n{noelle},
@@ -28,7 +29,8 @@ HeartBeatTransformation::HeartBeatTransformation (
     loopToConstantLiveIns{loopToConstantLiveIns},
     hbTask{nullptr},
     loopToHeartBeatTransformation{loopToHeartBeatTransformation},
-    loopToCallerLoop{loopToCallerLoop} {
+    loopToCallerLoop{loopToCallerLoop},
+    loopToChunksize{loopToChunksize} {
 
   // set cacheline element size
   this->valuesInCacheLine = Architecture::getCacheLineBytes() / sizeof(int64_t);
@@ -734,6 +736,17 @@ bool HeartBeatTransformation::apply (
   } else {
     errs() << "the loop is not a root loop, need to invoke this loop from it's parent loop\n";
     this->invokeHeartBeatFunctionAsideCallerLoop(loop);
+  }
+
+  /*
+   * Execute the leaf loop in chunk
+   * Chunksize is supposed to be passed from the command line
+   */
+  if (this->loopToLevel[ldi] == this->numLevels - 1) {
+    // if (this->loopToChunksize[ldi] > 1) {
+      errs() << "found a loop that needs to be executed in chunk, do the chunking transformation\n";
+      this->executeLoopInChunk(ldi);
+    // }
   }
 
   return true;
@@ -1785,4 +1798,204 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideCallerLoop (
   errs() << "callerTask after fixing the phis to pass the return code value" << *callerHBTask->getTaskBody() << "\n";
 
   return ;
+}
+
+void HeartBeatTransformation::executeLoopInChunk(LoopDependenceInfo *ldi) {
+  // errs() << "current task before chunking\n";
+  // errs() << *(this->hbTask->getTaskBody()) << "\n";
+
+  // How the loop looks like after making the chunking transformation
+  // for (; startIter < maxIter; startIter += CHUNKSIZE_1) {
+  //   auto low = startIter;
+  //   auto high = std::min(maxIter, startIter + CHUNKSIZE_1);
+  //   for (; low < high; low++) {
+  //     r_private += a[i][low];
+  //   }
+  //   if (low == maxIter) {
+  //     break;
+  //   }
+
+  //   rc = loop_handler(cxts, LEVEL_ONE, leftoverTasks, leafTasks, startIter0, maxIter0, low - 1, maxIter);
+  //   if (rc > 0) {
+  //     maxIter = startIter + 1;
+  //   }
+  // }
+
+  auto ls = ldi->getLoopStructure();
+  auto loopHeader = ls->getHeader();
+  auto loopHeaderTerminator = loopHeader->getTerminator();
+  auto loopHeaderTerminatorCloned = cast<BranchInst>(this->hbTask->getCloneOfOriginalInstruction(loopHeaderTerminator));
+  auto loopBodyBlockCloned = loopHeaderTerminatorCloned->getSuccessor(0);
+  auto loopExits = ls->getLoopExitBasicBlocks();
+  assert(loopExits.size() == 1 && "hb pass doesn't handle multiple exit blocks");
+  auto loopExit = *(loopExits.begin());
+  auto loopExitCloned = this->hbTask->getCloneOfOriginalBasicBlock(loopExit);
+
+  // Step 1: Create blocks for the chunk-executed loop
+  auto chunkLoopHeaderBlock = BasicBlock::Create(this->hbTask->getTaskBody()->getContext(), "chunk_loop_header", this->hbTask->getTaskBody());
+  IRBuilder chunkLoopHeaderBlockBuilder{ chunkLoopHeaderBlock };
+  auto chunkLoopLatchBlock = BasicBlock::Create(this->hbTask->getTaskBody()->getContext(), "chunk_loop_latch", this->hbTask->getTaskBody());
+  IRBuilder chunkLoopLatchBlockBuilder{ chunkLoopLatchBlock };
+  auto chunkLoopExitBlock = BasicBlock::Create(this->hbTask->getTaskBody()->getContext(), "chunk_loop_exit", this->hbTask->getTaskBody());
+  IRBuilder chunkLoopExitBlockBuilder{ chunkLoopExitBlock };
+
+  // Step 2: Create uint64_t low
+  //    first get the induction variable in the original loop
+  auto IV_attr = ldi->getLoopGoverningIVAttribution();
+  auto IV = IV_attr->getValueToCompareAgainstExitConditionValue();
+  auto IV_cloned = this->hbTask->getCloneOfOriginalInstruction(IV);
+  auto lowPhiNode = chunkLoopHeaderBlockBuilder.CreatePHI(
+    IV_cloned->getType(),
+    2,
+    "low"
+  );
+  lowPhiNode->addIncoming(
+    IV_cloned,
+    IV_cloned->getParent()
+  );
+
+  // Step 3: Replace all uses of the cloned IV inside the body with low
+  replaceAllUsesInsideLoopBody(ldi, IV_cloned, lowPhiNode);
+
+  // Step: update the stride of the outer loop's IV with chunksize
+  auto IV_cloned_update = cast<PHINode>(IV_cloned)->getIncomingValue(1);
+  assert(isa<BinaryOperator>(IV_cloned_update));
+  errs() << "update of induction variable " << *IV_cloned_update << "\n";
+  cast<Instruction>(IV_cloned_update)->setOperand(1, chunkLoopHeaderBlockBuilder.getInt64(this->loopToChunksize[ldi]));
+
+  // Step: update induction variable low in latch block and branch to header
+  auto lowUpdate = chunkLoopLatchBlockBuilder.CreateAdd(
+    lowPhiNode,
+    chunkLoopLatchBlockBuilder.getInt64(1),
+    "lowUpdate"
+  );
+  chunkLoopLatchBlockBuilder.CreateBr(chunkLoopHeaderBlock);
+  lowPhiNode->addIncoming(lowUpdate, chunkLoopLatchBlock);
+
+  // Step: update the cond br in the outer loop to jump to the chunk_loop_header
+  loopHeaderTerminatorCloned->setSuccessor(0, chunkLoopHeaderBlock);
+
+  // Step: erase the original br to loop handler block to replace is with a br to chunk loop latch
+  auto lastBodyBlock = this->getLoopHandlerBlock()->getSinglePredecessor();\
+  auto loopHandlerBlockBr = lastBodyBlock->getTerminator();
+  IRBuilder brBuilder{ loopHandlerBlockBr };
+  brBuilder.CreateBr(chunkLoopLatchBlock);
+  loopHandlerBlockBr->eraseFromParent();
+
+  // Step: compare low == maxIter and jump either to the exit block of outer loop or the loop_handler_block
+  auto lowMaxIterCmpInst = chunkLoopExitBlockBuilder.CreateICmpEQ(
+    lowPhiNode,
+    this->hbTask->getMaxIteration()
+  );
+  chunkLoopExitBlockBuilder.CreateCondBr(
+    lowMaxIterCmpInst,
+    loopExitCloned,
+    this->getLoopHandlerBlock()
+  );
+
+  // Step 4: Create phis for all live-out variables
+  auto loopEnv = ldi->getEnvironment();
+  for (auto liveOutVarID : loopEnv->getEnvIDsOfLiveOutVars()) {
+    auto producer = loopEnv->getProducer(liveOutVarID);
+    auto producerCloned = this->hbTask->getCloneOfOriginalInstruction(cast<Instruction>(producer));
+    errs() << "clone of live-out variable" << *producerCloned << "\n";
+
+    auto liveOutPhiNode = chunkLoopHeaderBlockBuilder.CreatePHI(
+      producerCloned->getType(),
+      2,
+      std::string("liveOut_ID_").append(std::to_string(liveOutVarID))
+    );
+    liveOutPhiNode->addIncoming(
+      producerCloned,
+      producerCloned->getParent()
+    );
+    liveOutPhiNode->addIncoming(
+      cast<PHINode>(producerCloned)->getIncomingValue(1),
+      chunkLoopLatchBlock
+    );
+
+    // replace the incoming value in the cloned header
+    cast<PHINode>(producerCloned)->setIncomingValue(1, liveOutPhiNode);
+
+    // add another incoming value to the propagated value in the exit block of the outer loop
+    cast<PHINode>(this->liveOutVariableToAccumulatedPrivateCopy[liveOutVarID])->addIncoming(liveOutPhiNode, chunkLoopExitBlock);
+
+    // Replace all uses of the cloned liveOut inside the loop body with liveOutPhiNode
+    replaceAllUsesInsideLoopBody(ldi, producerCloned, liveOutPhiNode);
+  }
+
+  // Step 5: determine the max value
+  auto startIterPlusChunk = chunkLoopHeaderBlockBuilder.CreateAdd(
+    IV_cloned,
+    chunkLoopHeaderBlockBuilder.getInt64(this->loopToChunksize[ldi])
+  );
+  auto highCompareInst = chunkLoopHeaderBlockBuilder.CreateICmpSLT(
+    this->hbTask->getMaxIteration(),
+    startIterPlusChunk
+  );
+  auto high = chunkLoopHeaderBlockBuilder.CreateSelect(
+    highCompareInst,
+    this->hbTask->getMaxIteration(),
+    startIterPlusChunk,
+    "high"
+  );
+  auto loopCompareInst = chunkLoopHeaderBlockBuilder.CreateICmpSLT(
+    lowPhiNode,
+    high
+  );
+  chunkLoopHeaderBlockBuilder.CreateCondBr(
+    loopCompareInst,
+    loopBodyBlockCloned,
+    chunkLoopExitBlock
+  );
+
+  // replace the call to loop_handler with low - 1
+  IRBuilder loopHandlerBlockBuilder{ this->getLoopHandlerBlock() };
+  loopHandlerBlockBuilder.SetInsertPoint(this->getCallToLoopHandler());
+  auto lowSubOneInst = loopHandlerBlockBuilder.CreateSub(
+    lowPhiNode,
+    loopHandlerBlockBuilder.getInt64(1),
+    "lowSubOne"
+  );
+  auto myStartIterIndexInCall = 3 + this->loopToLevel[ldi] * 2;
+  this->getCallToLoopHandler()->setArgOperand(myStartIterIndexInCall, lowSubOneInst);
+
+  return;
+}
+
+void HeartBeatTransformation::replaceAllUsesInsideLoopBody(LoopDependenceInfo *ldi, Value *originalVal, Value *replacedVal) {
+  // Step 1: collect all body basic blocks
+  auto ls = ldi->getLoopStructure();
+  auto bbs = ls->getBasicBlocks();
+
+  // Step 2: remove collected basic blocks that are
+  // preheader, header, latches, exits
+  bbs.erase(ls->getPreHeader());
+  bbs.erase(ls->getHeader());
+  for (auto latch : ls->getLatches()) {
+    bbs.erase(latch);
+  }
+  for (auto exit : ls->getLoopExitBasicBlocks()) {
+    bbs.erase(exit);
+  }
+
+  // Step 3: create cloned blocks
+  std::unordered_set<BasicBlock *> bbsCloned;
+  for (auto bb : bbs) {
+    bbsCloned.insert(this->hbTask->getCloneOfOriginalBasicBlock(bb));
+  }
+
+  std::vector<User *> usersToReplace;
+  for (auto &use : originalVal->uses()) {
+    auto user = use.getUser();
+    auto userBB = cast<Instruction>(user)->getParent();
+    if (bbsCloned.find(userBB) != bbsCloned.end()) {
+      errs() << "found a user " << *user << "\n";
+      usersToReplace.push_back(user);
+    }
+  }
+
+  for (auto user : usersToReplace) {
+    user->replaceUsesOfWith(originalVal, replacedVal);
+  }
 }
