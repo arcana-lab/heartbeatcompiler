@@ -26,10 +26,9 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxt, uint64_t myIndex, uint64_t startIte
   int64_t rc = 0;
   double r_private = 0.0;
 #if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_0 != 1
-  uint64_t low, high;
-  for (; ;) {
-    low = startIter;
-    high = std::min(maxIter, startIter + CHUNKSIZE_0);
+  for (; startIter < maxIter; startIter += CHUNKSIZE_0) {
+    uint64_t low = startIter;
+    uint64_t high = std::min(maxIter, startIter + CHUNKSIZE_0);
 
     for (; low < high; low++) {
       r_private += a[low];
@@ -46,7 +45,6 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxt, uint64_t myIndex, uint64_t startIte
     if (rc > 0) {
       break;
     }
-    startIter = low;
   }
 #else
   for (; startIter < maxIter; startIter++) {

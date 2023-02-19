@@ -11,6 +11,15 @@
 #include <chrono>
 #endif
 
+extern unsigned char *output;
+extern double _mb_x0;
+extern double _mb_y0;
+extern double _mb_x1;
+extern double _mb_y1;
+extern int _mb_height;
+extern int _mb_width;
+extern int _mb_max_depth;
+
 void loop_dispatcher(
   void (*f)(double, double, double, double, int, int, int, unsigned char *&),
   double x0,
@@ -59,7 +68,7 @@ int main() {
   test_correctness(output);
 #endif
 
-  finishup(output);
+  finishup();
 
 #if defined(COLLECT_HEARTBEAT_POLLING_TIME)
   collect_heartbeat_polling_time_print();

@@ -34,7 +34,7 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t startIter, uint64_t maxIt
   // store into live-in environment for loop1
   cxts[LEVEL_ONE * CACHELINE + LIVE_IN_ENV] = (uint64_t)&low;
 
-  for (; ;) {
+  for (; startIter < maxIter; startIter += CHUNKSIZE_0) {
     low = (int)startIter;
     high = (int)std::min(maxIter, startIter + CHUNKSIZE_0);
 
@@ -60,7 +60,6 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t startIter, uint64_t maxIt
     if (rc > 0) {
       break;
     }
-    startIter = low;
   }
 #else
   // store into live-in environment for loop1
@@ -102,10 +101,9 @@ int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t startIter0, uint64_t maxI
 
   int64_t rc = 0;
 #if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_1 != 1
-  int low, high;
-  for (; ;) {
-    low = (int)startIter;
-    high = (int)std::min(maxIter, startIter + CHUNKSIZE_1);
+  for (; startIter < maxIter; startIter += CHUNKSIZE_1) {
+    int low = (int)startIter;
+    int high = (int)std::min(maxIter, startIter + CHUNKSIZE_1);
 
     for (; low < high; low++) {
       double z_real = x0 + low*xstep;
@@ -137,7 +135,6 @@ int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t startIter0, uint64_t maxI
     if (rc > 0) {
       break;
     }
-    startIter = low;
   }
 #else
   for (; (int)startIter < (int)maxIter; startIter++) {
@@ -188,10 +185,9 @@ int64_t HEARTBEAT_loop1_optimized(uint64_t *cxt, uint64_t startIter, uint64_t ma
 
   int64_t rc = 0;
 #if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_1 != 1
-  int low, high;
-  for (; ;) {
-    low = (int)startIter;
-    high = (int)std::min(maxIter, startIter + CHUNKSIZE_1);
+  for (; startIter < maxIter; startIter += CHUNKSIZE_1) {
+    int low = (int)startIter;
+    int high = (int)std::min(maxIter, startIter + CHUNKSIZE_1);
 
     for (; low < high; low++) {
       double z_real = x0 + low*xstep;
@@ -223,7 +219,6 @@ int64_t HEARTBEAT_loop1_optimized(uint64_t *cxt, uint64_t startIter, uint64_t ma
     if (rc > 0) {
       break;
     }
-    startIter = low;
   }
 #else
   for (; (int)startIter < (int)maxIter; startIter++) {
