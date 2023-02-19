@@ -4,12 +4,19 @@
 #elif defined(HEARTBEAT_VERSIONING)
 #include "heartbeat_versioning.hpp"
 #else
-#error "Need to specific the version of heartbeat, e.g., HEARTBEAT_BRANCHES, HEARTBEAT_VERSIONING"
+#error "Need to specific the algorithm of heartbeat transformation: HEARTBEAT_{BRANCHES, VERSIONING}"
 #endif
 #if defined(COLLECT_KERNEL_TIME)
 #include <stdio.h>
 #include <chrono>
 #endif
+
+extern double* val;
+extern uint64_t* row_ptr;
+extern uint64_t* col_ind;
+extern double* x;
+extern double* y;
+extern uint64_t nb_rows;
 
 void loop_dispatcher(
   void (*f)(double *, uint64_t *, uint64_t *, double *, double *, uint64_t),
@@ -45,7 +52,7 @@ int main() {
 #elif defined(HEARTBEAT_VERSIONING)
   loop_dispatcher(&spmv_heartbeat_versioning, val, row_ptr, col_ind, x, y, nb_rows);
 #else
-  #error "Need to specific the version of heartbeat, e.g., HEARTBEAT_BRANCHES, HEARTBEAT_VERSIONING"
+  #error "Need to specific the algorithm of heartbeat transformation: HEARTBEAT_{BRANCHES, VERSIONING}"
 #endif
 
 #if defined(COLLECT_KERNEL_TIME)

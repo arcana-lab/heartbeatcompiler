@@ -1,20 +1,9 @@
-all: runtime
+all: link
 
-runtime:
-	git clone https://github.com/mikerainey/taskparts.git runtime ;
-	cd runtime ;
-	git clone https://github.com/mikerainey/rollforward.git rollforward ;
-	cp -r patches/* . ;
-
-condor:
-	make -C condor submit;
+link:
+	make -C benchmarks link ;
 
 clean:
 	make -C benchmarks clean ;
-	make -C tests clean ;
-	make -C condor clean ;
 
-uninstall:
-	rm -rf runtime rollforward ;
-
-.PHONY: condor
+.PHONY: clean

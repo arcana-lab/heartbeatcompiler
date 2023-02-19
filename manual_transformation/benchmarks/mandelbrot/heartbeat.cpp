@@ -4,7 +4,7 @@
 #elif defined(HEARTBEAT_VERSIONING)
 #include "heartbeat_versioning.hpp"
 #else
-#error "Need to specific the version of heartbeat, e.g., HEARTBEAT_BRANCHES, HEARTBEAT_VERSIONING"
+#error "Need to specific the algorithm of heartbeat transformation: HEARTBEAT_{BRANCHES, VERSIONING}"
 #endif
 #if defined(COLLECT_KERNEL_TIME)
 #include <stdio.h>
@@ -47,7 +47,7 @@ int main() {
 #elif defined(HEARTBEAT_VERSIONING)
   loop_dispatcher(&mandelbrot_heartbeat_versioning, _mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_width, _mb_height, _mb_max_depth, output);
 #else
-  #error "Need to specific the version of heartbeat, e.g., HEARTBEAT_BRANCHES, HEARTBEAT_VERSIONING"
+  #error "Need to specific the algorithm of heartbeat transformation: HEARTBEAT_{BRANCHES, VERSIONING}"
 #endif
 
 #if defined(COLLECT_KERNEL_TIME)

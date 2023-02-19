@@ -5,12 +5,17 @@
 #elif defined(HEARTBEAT_VERSIONING)
 #include "heartbeat_versioning.hpp"
 #else
-#error "Need to specific the version of heartbeat, e.g., HEARTBEAT_BRANCHES, HEARTBEAT_VERSIONING"
+#error "Need to specific the algorithm of heartbeat transformation: HEARTBEAT_{BRANCHES, VERSIONING}"
 #endif
 #if defined(COLLECT_KERNEL_TIME)
 #include <stdio.h>
 #include <chrono>
 #endif
+
+extern uint64_t n1;
+extern uint64_t n2;
+extern uint64_t result;
+extern char **a;
 
 void loop_dispatcher(
   void (*f)(char **, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t &),
@@ -46,7 +51,7 @@ int main() {
 #elif defined(HEARTBEAT_VERSIONING)
   loop_dispatcher(&sum_array_nested_heartbeat_versioning, a, 0, n1, 0, n2, result);
 #else
-  #error "Need to specific the version of heartbeat, e.g., HEARTBEAT_BRANCHES, HEARTBEAT_VERSIONING"
+  #error "Need to specific the algorithm of heartbeat transformation: HEARTBEAT_{BRANCHES, VERSIONING}"
 #endif
 
 #if defined(COLLECT_KERNEL_TIME)

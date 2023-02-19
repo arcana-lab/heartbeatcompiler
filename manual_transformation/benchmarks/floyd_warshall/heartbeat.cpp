@@ -11,6 +11,9 @@
 #include <chrono>
 #endif
 
+extern int vertices;
+extern int *dist;
+
 void loop_dispatcher(
   void (*f)(int *, int),
   int *dist,
@@ -62,5 +65,4 @@ int main() {
   collect_heartbeat_promotion_time_print();
 #endif
   return 0;
-
 }

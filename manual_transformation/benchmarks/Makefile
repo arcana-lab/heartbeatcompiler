@@ -5,3 +5,5 @@ link:
 
 clean:
 	./scripts/clean.sh
+
+.PHONY: clean

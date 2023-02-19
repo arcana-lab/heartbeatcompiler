@@ -22,5 +22,3 @@ for bench in `ls` ; do
   cd ../ ;
 
 done
-
-exit 0 ;
