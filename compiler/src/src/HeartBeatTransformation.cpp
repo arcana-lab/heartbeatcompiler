@@ -1336,14 +1336,18 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
   auto loopDispatcherFunction = this->n.getProgram()->getFunction("loop_dispatcher");
   assert(loopDispatcherFunction != nullptr && "loop_dispatcher function not found\n");
   IRBuilder<> doallBuilder(this->entryPointOfParallelizedLoop);
+  std::vector<Value *> loopDispatcherParameters;
+  loopDispatcherParameters.push_back(this->tasks[0]->getTaskBody());
+  loopDispatcherParameters.push_back(contextArrayCasted);
+  if (this->containsLiveOut) {
+    loopDispatcherParameters.push_back(ConstantInt::get(doallBuilder.getInt64Ty(), 0));
+  }
+  loopDispatcherParameters.push_back(firstIterationGoverningIVValue);
+  loopDispatcherParameters.push_back(lastIterationGoverningIVValue);
   doallBuilder.CreateCall(
     loopDispatcherFunction,
     ArrayRef<Value *>({
-      this->tasks[0]->getTaskBody(),
-      contextArrayCasted,
-      ConstantInt::get(doallBuilder.getInt64Ty(), 0),
-      firstIterationGoverningIVValue,
-      lastIterationGoverningIVValue
+      loopDispatcherParameters
     })
   );
   errs() << "original function after invoking call to hb loop" << *(LDI->getLoopStructure()->getFunction()) << "\n";
@@ -1709,19 +1713,21 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideCallerLoop (
     "nested_loop_return_code"
   );
 
-  // if the original callee function has a return value (assumption, can only have at most 1 return value as live-out)
-  // we then need to load this value from the reduction array and replace all uses of the original call
-  assert(env->getLiveOutSize() == 1 && " invoking a callee function that has multiple live-outs!\n");
-  auto liveOutID = *(env->getEnvIDsOfLiveOutVars().begin());
-  errs() << "liveOutID: " << liveOutID << "\n";
-  auto liveOutIndex = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getIndexOfLiveOut(liveOutID);
-  errs() << "liveOutIndex: " << liveOutIndex << "\n";
-  // now we have the index of the liveOutIndex, now load the result from the reductionArray allocated for the nest loop
-  auto liveOutResult = liveInEnvBuilder.CreateLoad(
-    ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleVariableOfIndexGivenEnvIndex(liveOutIndex, 0)
-  );
+  if (env->getLiveOutSize() > 0) {
+    // if the original callee function has a return value (assumption, can only have at most 1 return value as live-out)
+    // we then need to load this value from the reduction array and replace all uses of the original call
+    assert(env->getLiveOutSize() == 1 && " invoking a callee function that has multiple live-outs!\n");
+    auto liveOutID = *(env->getEnvIDsOfLiveOutVars().begin());
+    errs() << "liveOutID: " << liveOutID << "\n";
+    auto liveOutIndex = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getIndexOfLiveOut(liveOutID);
+    errs() << "liveOutIndex: " << liveOutIndex << "\n";
+    // now we have the index of the liveOutIndex, now load the result from the reductionArray allocated for the nest loop
+    auto liveOutResult = liveInEnvBuilder.CreateLoad(
+      ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleVariableOfIndexGivenEnvIndex(liveOutIndex, 0)
+    );
 
-  callToLoopInCallerInst->replaceAllUsesWith(liveOutResult);
+    callToLoopInCallerInst->replaceAllUsesWith(liveOutResult);
+  }
   callToLoopInCallerInst->eraseFromParent();
 
   errs() << "callerTask after calling calleeHBTask" << *callerHBTask->getTaskBody() << "\n";
