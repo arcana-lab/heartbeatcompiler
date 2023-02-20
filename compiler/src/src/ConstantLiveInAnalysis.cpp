@@ -82,7 +82,7 @@ void HeartBeat::constantLiveInToLoop(llvm::Argument &arg, int arg_index, LoopDep
 
     errs() << "User of arg " << arg << ", " << *arg_user << "\n";
 
-    if (&arg == startValue || &arg == exitValue) {
+    if (iv.getSCC()->isInternal(cast<Value>(arg_user))) {
       // the logic to detecet whether a arg is start or exit condition
       // shall be checked by caller (parent loop)
       errs() << "  " << arg << " is either start/exit condition of the current loop\n";
