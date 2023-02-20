@@ -3,6 +3,8 @@
 using namespace llvm;
 using namespace llvm::noelle;
 
+static cl::list<std::string> Chunksize("chunksize", cl::desc("Specify the chunksize for each level of nested loop"), cl::OneOrMore);
+
 HeartBeat::HeartBeat () 
   : ModulePass(ID) 
   , outputPrefix("HeartBeat: ")
@@ -31,16 +33,18 @@ bool HeartBeat::runOnModule (Module &M) {
   }
 
   /*
-   * Set the chunksize for all heartbeat loops, right now set it to default value 32
-   */
-  for (auto loop : heartbeatLoops) {
-    this->loopToChunksize[loop] = 1024;
-  }
-
-  /*
    * Determine the level of the targeted heartbeat loop, and the root loop for each targeted loop
    */
   this->performLoopLevelAnalysis(noelle, heartbeatLoops);
+
+  /*
+   * Set the chunksize using command line arguments
+   */
+  uint64_t index = 0;
+  for (auto &chunksize : Chunksize) {
+    this->loopToChunksize[this->levelToLoop[index]] = stoi(chunksize);
+    index++;
+  }
 
   /*
    * Determine if any heartbeat loop contains live-out variables
