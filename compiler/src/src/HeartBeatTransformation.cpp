@@ -1869,6 +1869,14 @@ void HeartBeatTransformation::executeLoopInChunk(LoopDependenceInfo *ldi) {
   errs() << "update of induction variable " << *IV_cloned_update << "\n";
   cast<Instruction>(IV_cloned_update)->setOperand(1, chunkLoopHeaderBlockBuilder.getInt64(this->loopToChunksize[ldi]));
 
+  // Step: ensure the instruction that use to determine whether keep running the loop is icmp slt but not icmp ne
+  auto exitCmpInst = IV_attr->getHeaderCompareInstructionToComputeExitCondition();
+  auto exitCmpInstCloned = this->hbTask->getCloneOfOriginalInstruction(exitCmpInst);
+  errs() << "exit compare inst" << *exitCmpInstCloned << "\n";
+  assert(isa<CmpInst>(exitCmpInstCloned) && "exit condtion determination isn't a compare inst\n");
+  cast<CmpInst>(exitCmpInstCloned)->setPredicate(CmpInst::Predicate::ICMP_ULT);
+  errs() << "exit compare inst after modifying the predict" << *exitCmpInstCloned << "\n";
+
   // Step: update induction variable low in latch block and branch to header
   auto lowUpdate = chunkLoopLatchBlockBuilder.CreateAdd(
     lowPhiNode,
