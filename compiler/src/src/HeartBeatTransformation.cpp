@@ -552,165 +552,168 @@ bool HeartBeatTransformation::apply (
     latchBBClone
   );
 
-  auto exitBB = *(ls->getLoopExitBasicBlocks().begin());
-  auto exitBBClone = hbTask->getCloneOfOriginalBasicBlock(exitBB);
-  auto exitBBTerminator = exitBBClone->getTerminator();
-  IRBuilder<> exitBBBuilder{ exitBBClone };
-  exitBBBuilder.SetInsertPoint(exitBBTerminator);
-  // this->returnCodePhiInst = cast<PHINode>(exitBBBuilder.CreatePHI(
-  //   exitBBBuilder.getInt64Ty(),
-  //   1,
-  //   "returnCode"
-  // ));
-  // this->returnCodePhiInst->addIncoming(
-  //   ConstantInt::get(exitBBBuilder.getInt64Ty(), 0),
-  //   hbTask->getEntry()
-  // );
+  if (loopEnvironment->getLiveOutSize() > 0) {
+    auto exitBB = *(ls->getLoopExitBasicBlocks().begin());
+    auto exitBBClone = hbTask->getCloneOfOriginalBasicBlock(exitBB);
+    auto exitBBTerminator = exitBBClone->getTerminator();
+    IRBuilder<> exitBBBuilder{ exitBBClone };
+    exitBBBuilder.SetInsertPoint(exitBBTerminator);
+    // this->returnCodePhiInst = cast<PHINode>(exitBBBuilder.CreatePHI(
+    //   exitBBBuilder.getInt64Ty(),
+    //   1,
+    //   "returnCode"
+    // ));
+    // this->returnCodePhiInst->addIncoming(
+    //   ConstantInt::get(exitBBBuilder.getInt64Ty(), 0),
+    //   hbTask->getEntry()
+    // );
 
-  // the following code does the following things
-  // initialize the private copy of the reduction array and handles the reduction based on the return code
-  // if (rc == 1) { // splittingLevel == myLevel
-  //   redArrLiveOut0[myIndex * CACHELINE] += r_private + redArrLiveOut0Kids[0 * CACHELINE] + redArrLiveOut0Kids[1 * CACHELINE];
-  // } else if (rc > 1) { // splittingLevel < myLevel
-  //   redArrLiveOut0[myIndex * CACHELINE] += r_private + redArrLiveOut0Kids[0 * CACHELINE];
-  // } else { // no heartbeat promotion happens or splittingLevel > myLevel
-  //   redArrLiveOut0[myIndex * CACHELINE] += r_private;
-  // }
-  // step 2: create 3 basic blocks to do the reduction
-  auto exitBlock = hbTask->getExit();
-  // first block
-  auto hbReductionBlock = BasicBlock::Create(this->noelle.getProgramContext(), "HB_Reduction_Block", hbTask->getTaskBody());
-  IRBuilder<> hbReductionBlockBuilder{ hbReductionBlock };
-  auto hbReductionBlockBrInst = hbReductionBlockBuilder.CreateBr(exitBlock);
-  hbReductionBlockBuilder.SetInsertPoint(hbReductionBlockBrInst);
-  // second block
-  auto leftoverReductionBlock = BasicBlock::Create(this->noelle.getProgramContext(), "Leftover_Reduction_Block", hbTask->getTaskBody());
-  IRBuilder<> leftoverReductionBlockBuilder { leftoverReductionBlock };
-  auto leftoverReductionBlockBrInst = leftoverReductionBlockBuilder.CreateBr(exitBlock);
-  leftoverReductionBlockBuilder.SetInsertPoint(leftoverReductionBlockBrInst);
-  // third block
-  auto secondCheckBlock = BasicBlock::Create(this->noelle.getProgramContext(), "Second_Check_Block", hbTask->getTaskBody());
-  IRBuilder<> secondCheckBlockBuilder { secondCheckBlock };
-  auto secondCheckCmpInst = secondCheckBlockBuilder.CreateICmpSGT(
-    this->returnCodePhiInst,
-    ConstantInt::get(secondCheckBlockBuilder.getInt64Ty(), 1)
-  );
-  auto secondCheckCondBr = secondCheckBlockBuilder.CreateCondBr(
-    secondCheckCmpInst,
-    leftoverReductionBlock,
-    exitBlock
-  );
-  // conditions from the loop exit block
-  auto exitBBCmpInst = exitBBBuilder.CreateICmpEQ(
-    this->returnCodePhiInst,
-    ConstantInt::get(secondCheckBlockBuilder.getInt64Ty(), 1)
-  );
-  auto exitBBCondBr = exitBBBuilder.CreateCondBr(
-    exitBBCmpInst,
-    hbReductionBlock,
-    secondCheckBlock
-  );
-  exitBBTerminator->eraseFromParent();
-  errs() << "task after adding three reduction blocks: " << *(hbTask->getTaskBody()) << "\n";
+    // the following code does the following things
+    // initialize the private copy of the reduction array and handles the reduction based on the return code
+    // if (rc == 1) { // splittingLevel == myLevel
+    //   redArrLiveOut0[myIndex * CACHELINE] += r_private + redArrLiveOut0Kids[0 * CACHELINE] + redArrLiveOut0Kids[1 * CACHELINE];
+    // } else if (rc > 1) { // splittingLevel < myLevel
+    //   redArrLiveOut0[myIndex * CACHELINE] += r_private + redArrLiveOut0Kids[0 * CACHELINE];
+    // } else { // no heartbeat promotion happens or splittingLevel > myLevel
+    //   redArrLiveOut0[myIndex * CACHELINE] += r_private;
+    // }
+    // step 2: create 3 basic blocks to do the reduction
+    auto exitBlock = hbTask->getExit();
+    // first block
+    auto hbReductionBlock = BasicBlock::Create(this->noelle.getProgramContext(), "HB_Reduction_Block", hbTask->getTaskBody());
+    IRBuilder<> hbReductionBlockBuilder{ hbReductionBlock };
+    auto hbReductionBlockBrInst = hbReductionBlockBuilder.CreateBr(exitBlock);
+    hbReductionBlockBuilder.SetInsertPoint(hbReductionBlockBrInst);
+    // second block
+    auto leftoverReductionBlock = BasicBlock::Create(this->noelle.getProgramContext(), "Leftover_Reduction_Block", hbTask->getTaskBody());
+    IRBuilder<> leftoverReductionBlockBuilder { leftoverReductionBlock };
+    auto leftoverReductionBlockBrInst = leftoverReductionBlockBuilder.CreateBr(exitBlock);
+    leftoverReductionBlockBuilder.SetInsertPoint(leftoverReductionBlockBrInst);
+    // third block
+    auto secondCheckBlock = BasicBlock::Create(this->noelle.getProgramContext(), "Second_Check_Block", hbTask->getTaskBody());
+    IRBuilder<> secondCheckBlockBuilder { secondCheckBlock };
+    auto secondCheckCmpInst = secondCheckBlockBuilder.CreateICmpSGT(
+      this->returnCodePhiInst,
+      ConstantInt::get(secondCheckBlockBuilder.getInt64Ty(), 1)
+    );
+    auto secondCheckCondBr = secondCheckBlockBuilder.CreateCondBr(
+      secondCheckCmpInst,
+      leftoverReductionBlock,
+      exitBlock
+    );
+    // conditions from the loop exit block
+    auto exitBBCmpInst = exitBBBuilder.CreateICmpEQ(
+      this->returnCodePhiInst,
+      ConstantInt::get(secondCheckBlockBuilder.getInt64Ty(), 1)
+    );
+    auto exitBBCondBr = exitBBBuilder.CreateCondBr(
+      exitBBCmpInst,
+      hbReductionBlock,
+      secondCheckBlock
+    );
+    exitBBTerminator->eraseFromParent();
+    errs() << "task after adding three reduction blocks: " << *(hbTask->getTaskBody()) << "\n";
 
-  // do the final reduction and store into reduction array for all live-outs
-  for (auto liveOutEnvID : envUser->getEnvIDsOfLiveOutVars()) {
-    auto reductionArrayForKids = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getLiveOutReductionArray(liveOutEnvID);
-    errs() << "reduction array for liveOutEnv id: " << liveOutEnvID << " " << *reductionArrayForKids << "\n";
+    // do the final reduction and store into reduction array for all live-outs
+    for (auto liveOutEnvID : envUser->getEnvIDsOfLiveOutVars()) {
+      auto reductionArrayForKids = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getLiveOutReductionArray(liveOutEnvID);
+      errs() << "reduction array for liveOutEnv id: " << liveOutEnvID << " " << *reductionArrayForKids << "\n";
 
-    auto int64 = IntegerType::get(this->noelle.getProgramContext(), 64);
-    auto zeroV = cast<Value>(ConstantInt::get(int64, 0));
-    auto privateAccumulatedValue = this->liveOutVariableToAccumulatedPrivateCopy[liveOutEnvID];
+      auto int64 = IntegerType::get(this->noelle.getProgramContext(), 64);
+      auto zeroV = cast<Value>(ConstantInt::get(int64, 0));
+      auto privateAccumulatedValue = this->liveOutVariableToAccumulatedPrivateCopy[liveOutEnvID];
 
-    // heartbeat reduction [0] + [1]
-    auto firstElementPtr = hbReductionBlockBuilder.CreateInBoundsGEP(
-      reductionArrayForKids,
-      ArrayRef<Value *>({ zeroV, cast<Value>(ConstantInt::get(int64, 0 * this->valuesInCacheLine)) }),
-      "reductionArrayForKids_firstElement_Ptr"
-    );
-    auto firstElement = hbReductionBlockBuilder.CreateLoad(
-      privateAccumulatedValue->getType(),
-      firstElementPtr
-    );
-    auto secondElementPtr = hbReductionBlockBuilder.CreateInBoundsGEP(
-      reductionArrayForKids,
-      ArrayRef<Value *>({ zeroV, cast<Value>(ConstantInt::get(int64, 1 * this->valuesInCacheLine)) }),
-      "reductionArrayForKids_secondElement_Ptr"
-    );
-    auto secondElement = hbReductionBlockBuilder.CreateLoad(
-      privateAccumulatedValue->getType(),
-      secondElementPtr
-    );
-    Value *secondAddInst = nullptr;
-    if (isa<IntegerType>(privateAccumulatedValue->getType())) {
-      auto firstAddInst = hbReductionBlockBuilder.CreateAdd(
-        privateAccumulatedValue,
-        firstElement
+      // heartbeat reduction [0] + [1]
+      auto firstElementPtr = hbReductionBlockBuilder.CreateInBoundsGEP(
+        reductionArrayForKids,
+        ArrayRef<Value *>({ zeroV, cast<Value>(ConstantInt::get(int64, 0 * this->valuesInCacheLine)) }),
+        "reductionArrayForKids_firstElement_Ptr"
       );
-      secondAddInst = hbReductionBlockBuilder.CreateAdd(
-        firstAddInst,
-        secondElement,
-        "reduction_result_for_heartbeat"
+      auto firstElement = hbReductionBlockBuilder.CreateLoad(
+        privateAccumulatedValue->getType(),
+        firstElementPtr
       );
-    } else {
-      auto firstAddInst = hbReductionBlockBuilder.CreateFAdd(
-        privateAccumulatedValue,
-        firstElement
+      auto secondElementPtr = hbReductionBlockBuilder.CreateInBoundsGEP(
+        reductionArrayForKids,
+        ArrayRef<Value *>({ zeroV, cast<Value>(ConstantInt::get(int64, 1 * this->valuesInCacheLine)) }),
+        "reductionArrayForKids_secondElement_Ptr"
       );
-      secondAddInst = hbReductionBlockBuilder.CreateFAdd(
-        firstAddInst,
-        secondElement,
-        "reduction_result_for_heartbeat"
+      auto secondElement = hbReductionBlockBuilder.CreateLoad(
+        privateAccumulatedValue->getType(),
+        secondElementPtr
+      );
+      Value *secondAddInst = nullptr;
+      if (isa<IntegerType>(privateAccumulatedValue->getType())) {
+        auto firstAddInst = hbReductionBlockBuilder.CreateAdd(
+          privateAccumulatedValue,
+          firstElement
+        );
+        secondAddInst = hbReductionBlockBuilder.CreateAdd(
+          firstAddInst,
+          secondElement,
+          "reduction_result_for_heartbeat"
+        );
+      } else {
+        auto firstAddInst = hbReductionBlockBuilder.CreateFAdd(
+          privateAccumulatedValue,
+          firstElement
+        );
+        secondAddInst = hbReductionBlockBuilder.CreateFAdd(
+          firstAddInst,
+          secondElement,
+          "reduction_result_for_heartbeat"
+        );
+      }
+
+      // leftover reduction [0]
+      auto firstElementLeftoverPtr = leftoverReductionBlockBuilder.CreateInBoundsGEP(
+        reductionArrayForKids,
+        ArrayRef<Value *>({ zeroV, cast<Value>(ConstantInt::get(int64, 0 * this->valuesInCacheLine)) }),
+        "reductionArrayForKids_firstElement_Ptr"
+      );
+      auto firstElementLeftover = leftoverReductionBlockBuilder.CreateLoad(
+        privateAccumulatedValue->getType(),
+        firstElementLeftoverPtr
+      );
+      Value *firstAddLeftoverInst = nullptr;
+      if (isa<IntegerType>(privateAccumulatedValue->getType())) {
+        firstAddLeftoverInst= leftoverReductionBlockBuilder.CreateAdd(
+          privateAccumulatedValue,
+          firstElementLeftover,
+          "reduction_result_for_leftover"
+        );
+      } else {
+        firstAddLeftoverInst= leftoverReductionBlockBuilder.CreateFAdd(
+          privateAccumulatedValue,
+          firstElementLeftover,
+          "reduction_result_for_leftover"
+        );
+      }
+
+      // store the final reduction result into upper level's reduction array
+      IRBuilder<> exitBlockBuilder{ exitBlock };
+      exitBlockBuilder.SetInsertPoint( exitBlock->getFirstNonPHI() );
+      // create phi to select from reduction result
+      auto reductionResultPHI = exitBlockBuilder.CreatePHI(
+        privateAccumulatedValue->getType(),
+        3,
+        "reductionResult"
+      );
+      // reductionResultPHI->addIncoming(privateAccumulatedValue, cast<Instruction>(privateAccumulatedValue)->getParent());
+      reductionResultPHI->addIncoming(privateAccumulatedValue, secondCheckBlock);
+      reductionResultPHI->addIncoming(secondAddInst, hbReductionBlock);
+      reductionResultPHI->addIncoming(firstAddLeftoverInst, leftoverReductionBlock);
+
+      exitBlockBuilder.CreateStore(
+        reductionResultPHI,
+        envUser->getEnvPtr(liveOutEnvID)
       );
     }
-
-    // leftover reduction [0]
-    auto firstElementLeftoverPtr = leftoverReductionBlockBuilder.CreateInBoundsGEP(
-      reductionArrayForKids,
-      ArrayRef<Value *>({ zeroV, cast<Value>(ConstantInt::get(int64, 0 * this->valuesInCacheLine)) }),
-      "reductionArrayForKids_firstElement_Ptr"
-    );
-    auto firstElementLeftover = leftoverReductionBlockBuilder.CreateLoad(
-      privateAccumulatedValue->getType(),
-      firstElementLeftoverPtr
-    );
-    Value *firstAddLeftoverInst = nullptr;
-    if (isa<IntegerType>(privateAccumulatedValue->getType())) {
-      firstAddLeftoverInst= leftoverReductionBlockBuilder.CreateAdd(
-        privateAccumulatedValue,
-        firstElementLeftover,
-        "reduction_result_for_leftover"
-      );
-    } else {
-      firstAddLeftoverInst= leftoverReductionBlockBuilder.CreateFAdd(
-        privateAccumulatedValue,
-        firstElementLeftover,
-        "reduction_result_for_leftover"
-      );
-    }
-
-    // store the final reduction result into upper level's reduction array
-    IRBuilder<> exitBlockBuilder{ exitBlock };
-    exitBlockBuilder.SetInsertPoint( exitBlock->getFirstNonPHI() );
-    // create phi to select from reduction result
-    auto reductionResultPHI = exitBlockBuilder.CreatePHI(
-      privateAccumulatedValue->getType(),
-      3,
-      "reductionResult"
-    );
-    // reductionResultPHI->addIncoming(privateAccumulatedValue, cast<Instruction>(privateAccumulatedValue)->getParent());
-    reductionResultPHI->addIncoming(privateAccumulatedValue, secondCheckBlock);
-    reductionResultPHI->addIncoming(secondAddInst, hbReductionBlock);
-    reductionResultPHI->addIncoming(firstAddLeftoverInst, leftoverReductionBlock);
-
-    exitBlockBuilder.CreateStore(
-      reductionResultPHI,
-      envUser->getEnvPtr(liveOutEnvID)
-    );
+    errs() << "task after doing reduction: " << *(hbTask->getTaskBody()) << "\n";
   }
-  errs() << "task after doing reduction: " << *(hbTask->getTaskBody()) << "\n";
 
   // Fix the return code to use rc - 1
+  auto exitBlock = hbTask->getExit();
   IRBuilder<> exitBlockBuilder{ exitBlock };
   exitBlockBuilder.SetInsertPoint( exitBlock->getTerminator() );
   auto returnRCInst = exitBlockBuilder.CreateSub(
