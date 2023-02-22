@@ -1335,25 +1335,44 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
   //   taskBody
   // }));
 
-  // invoke the transformed loop slice of root throug loop_dispatcher
-  auto loopDispatcherFunction = this->n.getProgram()->getFunction("loop_dispatcher");
-  assert(loopDispatcherFunction != nullptr && "loop_dispatcher function not found\n");
+  // // invoke the transformed loop slice of root throug loop_dispatcher
+  // auto loopDispatcherFunction = this->n.getProgram()->getFunction("loop_dispatcher");
+  // assert(loopDispatcherFunction != nullptr && "loop_dispatcher function not found\n");
+  // IRBuilder<> doallBuilder(this->entryPointOfParallelizedLoop);
+  // std::vector<Value *> loopDispatcherParameters;
+  // loopDispatcherParameters.push_back(this->tasks[0]->getTaskBody());
+  // loopDispatcherParameters.push_back(contextArrayCasted);
+  // if (this->containsLiveOut) {
+  //   loopDispatcherParameters.push_back(ConstantInt::get(doallBuilder.getInt64Ty(), 0));
+  // }
+  // loopDispatcherParameters.push_back(firstIterationGoverningIVValue);
+  // loopDispatcherParameters.push_back(lastIterationGoverningIVValue);
+  // doallBuilder.CreateCall(
+  //   loopDispatcherFunction,
+  //   ArrayRef<Value *>({
+  //     loopDispatcherParameters
+  //   })
+  // );
+  // errs() << "original function after invoking call to hb loop" << *(LDI->getLoopStructure()->getFunction()) << "\n";
+
+  // we no longer make the call to the loop_dispatcher function through the compiler
+  // however, we modify the source code in heartbeat.cpp to wrap the region of interest to taskparts runtime
   IRBuilder<> doallBuilder(this->entryPointOfParallelizedLoop);
-  std::vector<Value *> loopDispatcherParameters;
-  loopDispatcherParameters.push_back(this->tasks[0]->getTaskBody());
-  loopDispatcherParameters.push_back(contextArrayCasted);
+  std::vector<Value *> loopSliceParameters;
+  loopSliceParameters.push_back(contextArrayCasted);
   if (this->containsLiveOut) {
-    loopDispatcherParameters.push_back(ConstantInt::get(doallBuilder.getInt64Ty(), 0));
+    loopSliceParameters.push_back(ConstantInt::get(doallBuilder.getInt64Ty(), 0));
   }
-  loopDispatcherParameters.push_back(firstIterationGoverningIVValue);
-  loopDispatcherParameters.push_back(lastIterationGoverningIVValue);
+  loopSliceParameters.push_back(firstIterationGoverningIVValue);
+  loopSliceParameters.push_back(lastIterationGoverningIVValue);
   doallBuilder.CreateCall(
-    loopDispatcherFunction,
+    this->tasks[0]->getTaskBody(),
     ArrayRef<Value *>({
-      loopDispatcherParameters
+      loopSliceParameters
     })
   );
   errs() << "original function after invoking call to hb loop" << *(LDI->getLoopStructure()->getFunction()) << "\n";
+
 
   /*
    * Propagate the last value of live-out variables to the code outside the parallelized loop.
