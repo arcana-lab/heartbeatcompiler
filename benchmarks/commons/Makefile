@@ -136,6 +136,7 @@ condor_clean:
 clean:
 	rm -rf baseline opencilk openmp ;
 	rm -rf heartbeat_branches heartbeat_versioning ;
+	rm -rf *.bc *.ll ;
 	rm -rf heartbeat_versioning_rollforward.s heartbeat_versioning.rf.s heartbeat_versioning.rf.o rollforward.o heartbeat_versioning_rf ;
 	rm -rf code_*.hpp ;
 

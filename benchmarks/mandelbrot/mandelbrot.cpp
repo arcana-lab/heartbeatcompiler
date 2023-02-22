@@ -19,9 +19,9 @@ double _mb_x1 = 1;
 double _mb_y1 = 0.875;
 double g = 2.0;
 #if defined(INPUT_BENCHMARKING)
-  int _mb_height = 4192;
-  int _mb_width = 4192;
-  int _mb_max_depth = 100;
+  int _mb_height = 8384;
+  int _mb_width = 8384;
+  int _mb_max_depth = 200;
 #elif defined(INPUT_TESTING)
   int _mb_height = 4192;
   int _mb_width = 4192;
