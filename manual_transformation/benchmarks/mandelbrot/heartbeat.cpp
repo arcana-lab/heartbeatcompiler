@@ -77,5 +77,4 @@ int main() {
   collect_heartbeat_promotion_time_print();
 #endif
   return 0;
-
 }
