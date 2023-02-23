@@ -11,35 +11,54 @@
 #include <cstdio>
 #endif
 
-namespace srad {
-
-int rows=16000;
-int cols=16000, size_I, size_R;
+#if defined(INPUT_BENCHMARKING)
+  int rows=16000;
+  int cols=16000;
+#elif defined(INPUT_TESTING)
+  int rows=4000;
+  int cols=4000;
+#elif defined(INPUT_TPAL)
+  int rows=4000;
+  int cols=4000;
+#else
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TESTING, TPAL}"
+#endif
+int size_I, size_R;
 float *I, *J, q0sqr, sum, sum2, tmp, meanROI,varROI ;
 int *iN, *iS, *jE, *jW;
 float *dN, *dS, *dW, *dE;
 int r1, r2, c1, c2;
 float *c, D;
 float lambda;
+#if defined(TEST_CORRECTNESS)
+float *J_ref;
+#endif
 
-uint64_t hash64(uint64_t u) {
-  uint64_t v = u * 3935559000370003845ul + 2691343689449507681ul;
-  v ^= v >> 21;
-  v ^= v << 37;
-  v ^= v >>  4;
-  v *= 4768777513237032717ul;
-  v ^= v << 20;
-  v ^= v >> 41;
-  v ^= v <<  5;
-  return v;
-}
+// uint64_t hash64(uint64_t u) {
+//   uint64_t v = u * 3935559000370003845ul + 2691343689449507681ul;
+//   v ^= v >> 21;
+//   v ^= v << 37;
+//   v ^= v >>  4;
+//   v *= 4768777513237032717ul;
+//   v ^= v << 20;
+//   v ^= v >> 41;
+//   v ^= v <<  5;
+//   return v;
+// }
 
 void random_matrix(float *I, int rows, int cols){
-  for( int i = 0 ; i < rows ; i++) {
-    for ( int j = 0 ; j < cols ; j++) {
-      I[i * cols + j] = (float)hash64(i+j)/(float)RAND_MAX ;
-    }
-  }
+  // for( int i = 0 ; i < rows ; i++) {
+  //   for ( int j = 0 ; j < cols ; j++) {
+  //     I[i * cols + j] = (float)hash64(i+j)/(float)RAND_MAX ;
+  //   }
+  // }
+  srand(7);
+	for( int i = 0 ; i < rows ; i++){
+		for ( int j = 0 ; j < cols ; j++){
+		  I[i * cols + j] = rand()/(float)RAND_MAX ;
+		}
+	}
+
 }
 
 void setup() {
@@ -54,6 +73,9 @@ void setup() {
 
   I = (float *)malloc( size_I * sizeof(float) );
   J = (float *)malloc( size_I * sizeof(float) );
+#if defined(TEST_CORRECTNESS)
+  J_ref = (float *)malloc( size_I * sizeof(float) );
+#endif
   c  = (float *)malloc(sizeof(float)* size_I) ;
 
   iN = (int *)malloc(sizeof(unsigned int*) * rows) ;
@@ -66,7 +88,6 @@ void setup() {
   dS = (float *)malloc(sizeof(float)* size_I) ;
   dW = (float *)malloc(sizeof(float)* size_I) ;
   dE = (float *)malloc(sizeof(float)* size_I) ;    
-    
 
   for (int i=0; i< rows; i++) {
     iN[i] = i-1;
@@ -85,6 +106,9 @@ void setup() {
 
   for (int k = 0;  k < size_I; k++ ) {
     J[k] = (float)exp((double)I[k]) ;
+#if defined(TEST_CORRECTNESS)
+    J_ref[k] = J[k];
+#endif
   }
 
   sum=0; sum2=0;     
@@ -106,10 +130,13 @@ void finishup() {
   free(iN); free(iS); free(jW); free(jE);
   free(dN); free(dS); free(dW); free(dE);
   free(c);
+#if defined(TEST_CORRECTNESS)
+  free(J_ref);
+#endif
 }
 
 #if defined(USE_OPENCILK)
-void srad_opencilk(int rows, int cols, int size_I, int size_R, float *I, float *J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float *c, int *iN, int *iS, int *jE, int *jW, float lambda) {
+void srad_opencilk(int rows, int cols, float *J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float *c, int *iN, int *iS, int *jE, int *jW, float lambda) {
   cilk_for (int i = 0 ; i < rows ; i++) {
     cilk_for (int j = 0; j < cols; j++) { 
 		
@@ -161,8 +188,9 @@ void srad_opencilk(int rows, int cols, int size_I, int size_R, float *I, float *
     }
   }
 }
+
 #elif defined(USE_OPENMP)
-void srad_openmp(int rows, int cols, int size_I, int size_R, float *I, float *J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float *c, int *iN, int *iS, int *jE, int *jW, float lambda) {
+void srad_openmp(int rows, int cols, float *J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float *c, int *iN, int *iS, int *jE, int *jW, float lambda) {
 #if defined(OMP_DYNAMIC)
   #pragma omp parallel for schedule(dynamic)
 #elif defined(OMP_GUIDED) 
@@ -228,8 +256,10 @@ void srad_openmp(int rows, int cols, int size_I, int size_R, float *I, float *J,
     }
   }
 }
-#else
-void srad_serial(int rows, int cols, int size_I, int size_R, float *I, float *J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float *c, int *iN, int *iS, int *jE, int *jW, float lambda) {
+
+#endif
+
+void srad_serial(int rows, int cols, float *J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float *c, int *iN, int *iS, int *jE, int *jW, float lambda) {
   for (int i = 0 ; i < rows ; i++) {
     for (int j = 0; j < cols; j++) { 
       int k = i * cols + j;
@@ -278,6 +308,25 @@ void srad_serial(int rows, int cols, int size_I, int size_R, float *I, float *J,
     }
   }
 }
-#endif
 
+#if defined(TEST_CORRECTNESS)
+void test_correctness() {
+  srad_serial(rows, cols, J_ref, q0sqr, dN, dS, dW, dE, c, iN, iS, jE, jW, lambda);
+  uint64_t num_diffs = 0;
+  double epsilon = 0.01;
+  for (uint64_t i = 0; i != size_I; i++) {
+    auto diff = std::abs(J[i] - J_ref[i]);
+    if (diff > epsilon) {
+      // printf("diff=%f J[i]=%f J_ref[i]=%f at i=%ld\n", diff, J[i], J_ref[i], i);
+      num_diffs++;
+    }
+  }
+  if (num_diffs > 0) {
+    printf("\033[0;31mINCORRECT!\033[0m");
+    printf("  num_diffs = %lu\n", num_diffs);
+  } else {
+    printf("\033[0;32mCORRECT!\033[0m\n");
+  }
+  // printf("num_diffs %ld\n", num_diffs);
 }
+#endif
