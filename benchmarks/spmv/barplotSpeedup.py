@@ -9,8 +9,6 @@ def collectBenchmarks(pathToBenchmarkSuite):
   benchmarks = []
   for benchmark in os.listdir(pathToBenchmarkSuite):
     if benchmark.startswith('spmv'):
-      continue
-    else:
       benchmarks.append(benchmark)
 
   return benchmarks
@@ -163,13 +161,15 @@ def plot(benchmark, inputSize, speedups, techniques, configs, maxSpeedUp):
   ax.set_aspect(0.3)
 
   plt.tight_layout()
-  plt.savefig('../plots/time/' + benchmark + '_' + inputSize + '.pdf', format = 'pdf')
+  plt.savefig('../../../plots/time/' + benchmark + '_' + inputSize + '.pdf', format = 'pdf')
 
 # Global settings
-pathToBenchmarkSuite = '../results/time'
-inputSize = 'tpal'
+pathToBenchmarkSuite = '../../../results/time'
+inputSize = 'benchmarking'
 colors = [
   'tomato',
+  'darkorange',
+  'yellowgreen',
   'turquoise',
   'cornflowerblue',
   'mediumpurple',
@@ -177,7 +177,9 @@ colors = [
   'pink'
 ]
 techniques = [
-  'opencilk',
+  'opencilk_manual_granularity',
+  'opencilk_outer_for',
+  'opencilk_heuristics',
   'openmp_static',
   'heartbeat_versioning',
   'heartbeat_versioning_rollforward',
@@ -185,8 +187,10 @@ techniques = [
   'hbc_versioning_rollforward'
 ]
 technique_names = [
-  'OpenCilk',
-  'OpenMP',
+  'OpenCilk (Manual Granularity)',
+  'OpenCilk (Outer cilk_for)',
+  'OpenCilk (Heuristics)',
+  'OpenMP (Static)',
   'Heartbeat (Versioning)',
   'Heartbeat (Versioning with Rollforward)',
   'HBC (Versioning)',
