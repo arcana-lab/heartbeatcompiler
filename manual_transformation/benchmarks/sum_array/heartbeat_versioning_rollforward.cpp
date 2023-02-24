@@ -56,7 +56,7 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxt, uint64_t myIndex, uint64_t startIte
     rc = loop_handler_optimized(cxt, startIter, maxIter, &HEARTBEAT_loop0_slice);
 #endif
     if (rc > 0) {
-      maxIter = startIter + 1;
+      break;
     }
   }
 #endif

@@ -75,8 +75,7 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t myIndex, uint64_t startIt
     y[startIter] = r + redArrLiveOut0Loop1[0 * CACHELINE];
 
     if (rc > 0) {
-      maxIter = startIter + 1;
-      continue;
+      break;
     }
 #if defined(ENABLE_ROLLFORWARD)
     __rf_handle_wrapper(rc, cxts, LEVEL_ZERO, leftoverTasks, nullptr, startIter, maxIter, 0, 0);
@@ -84,7 +83,7 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t myIndex, uint64_t startIt
     rc = loop_handler(cxts, LEVEL_ZERO, leftoverTasks, nullptr, startIter, maxIter, 0, 0);
 #endif
     if (rc > 0) {
-      maxIter = startIter + 1;
+      break;
     }
   }
 #endif
@@ -137,7 +136,7 @@ int64_t HEARTBEAT_loop1_slice(uint64_t *cxts, uint64_t myIndex, uint64_t startIt
     rc = loop_handler(cxts, LEVEL_ONE, leftoverTasks, leafTasks, startIter0, maxIter0, startIter, maxIter);
 #endif
     if (rc > 0) {
-      maxIter = startIter + 1;
+      break;
     }
   }
 #endif
@@ -203,7 +202,7 @@ int64_t HEARTBEAT_loop1_optimized(uint64_t *cxt, uint64_t myIndex, uint64_t star
     rc = loop_handler_optimized(cxt, startIter, maxIter, &HEARTBEAT_loop1_optimized);
 #endif
     if (rc > 0) {
-      maxIter = startIter + 1;
+      break;
     }
   }
 #endif
