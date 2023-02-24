@@ -1,4 +1,4 @@
-#include "mandelbrot.hpp"
+#include "bench.hpp"
 #include <cmath>
 #include <cstdlib>
 #include <emmintrin.h>

@@ -1,4 +1,4 @@
-#include "sum_array.hpp"
+#include "bench.hpp"
 #include "stdio.h"
 #if defined(COLLECT_KERNEL_TIME)
 #include <chrono>

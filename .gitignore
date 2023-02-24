@@ -13,13 +13,14 @@ benchmarks/spmv/*.dat
 
 # manual_transformation
 manual_transformation/tests/*/Makefile
+manual_transformation/benchmarks/*/bench.*
+manual_transformation/benchmarks/*/Makefile
 manual_transformation/benchmarks/*/Makefile_heartbeat
 manual_transformation/benchmarks/*/loop_handler.hpp
 manual_transformation/benchmarks/*/rollforward_handler.hpp
 manual_transformation/benchmarks/*/condor
 manual_transformation/benchmarks/*/generate_code.sh
 manual_transformation/benchmarks/*/code_*.hpp
-manual_transformation/benchmarks/*/Makefile
 manual_transformation/benchmarks/*/main.cpp
 manual_transformation/benchmarks/*/level.config
 manual_transformation/benchmarks/*/live_out.config
@@ -27,17 +28,11 @@ manual_transformation/benchmarks/*/live_out.config
 manual_transformation/benchmarks/spmv/*.dat
 manual_transformation/benchmarks/spmv/barplotSpeedup.py
 
-manual_transformation/benchmarks/floyd_warshall/floyd_warshall.*
-manual_transformation/benchmarks/mandelbrot/mandelbrot.*
-manual_transformation/benchmarks/spmv/spmv.*
-manual_transformation/benchmarks/srad/srad.*
-manual_transformation/benchmarks/sum_array/sum_array.*
-manual_transformation/benchmarks/sum_array_nested/sum_array_nested.*
-
 # compiler
 compiler/src/build
 compiler/src/compile_commands.json
 
+compiler/benchmarks/*/bench.*
 compiler/benchmarks/*/Makefile
 compiler/benchmarks/*/Makefile_heartbeat
 compiler/benchmarks/*/loop_handler.hpp
@@ -51,9 +46,4 @@ compiler/benchmarks/*/live_out.config
 
 compiler/benchmarks/spmv/*.dat
 compiler/benchmarks/spmv/barplotSpeedup.py
-
-compiler/benchmarks/floyd_warshall/floyd_warshall.*
-compiler/benchmarks/mandelbrot/mandelbrot.*
-compiler/benchmarks/spmv/spmv.*
-compiler/benchmarks/sum_array_nested/sum_array_nested.*
 

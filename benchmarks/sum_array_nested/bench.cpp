@@ -1,4 +1,4 @@
-#include "sum_array_nested.hpp"
+#include "bench.hpp"
 #include <cstdint>
 #if defined(USE_OPENCILK)
 #include <cilk/cilk.h>

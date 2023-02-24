@@ -1,4 +1,4 @@
-#include "floyd_warshall.hpp"
+#include "bench.hpp"
 #include <algorithm>
 #if defined(HEARTBEAT_VERSIONING)
 #include "loop_handler.hpp"

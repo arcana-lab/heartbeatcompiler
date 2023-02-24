@@ -39,7 +39,7 @@ else
 endif
 
 # include benchmark specific settings
--include $(benchmark).config
+-include bench.config
 
 FLAGS = --std=c++17
 OPTS = -O3 -march=native
@@ -66,7 +66,7 @@ FLAGS_BASELINE += $(FLAGS)
 OPTS_BASELINE += $(OPTS)
 LIBS_BASELINE += $(LIBS)
 
-baseline: main.cpp $(benchmark).cpp
+baseline: main.cpp bench.cpp
 	$(CXX) $(MACROS_BASELINE) $(FLAGS_BASELINE) $(OPTS_BASELINE) $^ -o $@ $(LIBS_BASELINE)
 
 run_baseline: baseline
@@ -87,7 +87,7 @@ LIBS_OPENCILK += \
 	$(LIBS) \
 	$(CUSTOM_MALLOC) # needs to go last, or else it won't be used
 
-opencilk: main.cpp $(benchmark).cpp
+opencilk: main.cpp bench.cpp
 	$(OPENCILK_COMPILER) $(MACROS_OPENCILK) $(FLAGS_OPENCILK) $(OPTS_OPENCILK) $^ -o $@ $(LIBS_OPENCILK)
 
 run_opencilk: opencilk
@@ -110,7 +110,7 @@ else ifeq ($(OMP_SCHEDULE), GUIDED)
 	MACROS_OPENMP += -DOMP_GUIDED
 endif
 
-openmp: main.cpp $(benchmark).cpp
+openmp: main.cpp bench.cpp
 	$(CXX) $(MACROS_OPENMP) $(FLAGS_OPENMP) $(OPTS_OPENMP) $^ -o $@ $(LIBS_OPENMP)
 
 run_openmp: openmp

@@ -1,6 +1,6 @@
+#include "bench.hpp"
 #if defined(USE_HEARTBEAT)
 #include "loop_handler.hpp"
-// #include "loop_handler_temp.hpp"
 #endif
 #include <iostream>
 #include <cstdlib>

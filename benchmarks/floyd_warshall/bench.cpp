@@ -1,4 +1,4 @@
-#include "floyd_warshall.hpp"
+#include "bench.hpp"
 #include <cstdlib>
 #include <climits>
 #include <algorithm>

@@ -1,4 +1,4 @@
-#include "spmv.hpp"
+#include "bench.hpp"
 #if defined(HEARTBEAT_BRANCHES)
 #include "heartbeat_branches.hpp"
 #elif defined(HEARTBEAT_VERSIONING)

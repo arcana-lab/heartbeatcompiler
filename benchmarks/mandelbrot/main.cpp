@@ -1,4 +1,4 @@
-#include "mandelbrot.hpp"
+#include "bench.hpp"
 #if defined(COLLECT_KERNEL_TIME)
 #include <stdio.h>
 #include <chrono>

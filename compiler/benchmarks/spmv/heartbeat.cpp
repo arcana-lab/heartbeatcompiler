@@ -1,4 +1,4 @@
-#include "spmv.hpp"
+#include "bench.hpp"
 #if defined(HEARTBEAT_VERSIONING)
 #include "loop_handler.hpp"
 #endif

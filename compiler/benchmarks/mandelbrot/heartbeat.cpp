@@ -1,4 +1,4 @@
-#include "mandelbrot.hpp"
+#include "bench.hpp"
 #include <cstdlib>
 #if defined(HEARTBEAT_VERSIONING)
 #include "loop_handler.hpp"

@@ -1,3 +1,4 @@
+#include "bench.hpp"
 #include <cstdint>
 #include <cstdlib>
 #include <cmath>

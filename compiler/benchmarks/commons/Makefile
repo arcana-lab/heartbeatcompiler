@@ -111,7 +111,7 @@ heartbeat_versioning.bc: heartbeat_normalized.bc
 	noelle-parallel-load -noelle-verbose=2 -load /home/yso0488/CAT/lib/HeartBeat.so -heartbeat $(PASS_ARGUMENTS_HEARTBEAT) $^ -o $@
 	llvm-dis $@
 
-heartbeat_versioning: heartbeat_versioning.bc $(benchmark).cpp loop_handler.cpp
+heartbeat_versioning: heartbeat_versioning.bc bench.cpp loop_handler.cpp
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	make heartbeat_versioning_rf
 else

@@ -96,7 +96,7 @@ code_generation: generate_code.sh level.config live_out.config
 # ============================================
 # Heartbeat::Versioning
 # ============================================
-heartbeat_versioning: heartbeat.cpp heartbeat_versioning_rollforward.cpp $(benchmark).cpp
+heartbeat_versioning: heartbeat.cpp heartbeat_versioning_rollforward.cpp bench.cpp
 	make code_generation
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	make heartbeat_versioning_rf
@@ -122,6 +122,6 @@ heartbeat_versioning.rf.o: heartbeat_versioning.rf.s
 rollforward.o: $(ROLLFORWARD_INCLUDE)/rollforward.c
 	$(CXX) $< -c -o $@
 
-heartbeat_versioning_rf: heartbeat.cpp heartbeat_versioning.rf.o rollforward.o $(benchmark).cpp
+heartbeat_versioning_rf: heartbeat.cpp heartbeat_versioning.rf.o rollforward.o bench.cpp
 	$(CXX) -DHEARTBEAT_VERSIONING $(MACROS_HEARTBEAT) $(FLAGS_HEARTBEAT) $(OPTS_HEARTBEAT) $^ -o $@ $(LIBS_HEARTBEAT)
 	cp $@ heartbeat_versioning

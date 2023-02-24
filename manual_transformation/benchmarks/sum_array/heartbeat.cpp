@@ -1,4 +1,4 @@
-#include "sum_array.hpp"
+#include "bench.hpp"
 #include "stdio.h"
 #if defined(HEARTBEAT_BRANCHES)
 #include "heartbeat_branches.hpp"
