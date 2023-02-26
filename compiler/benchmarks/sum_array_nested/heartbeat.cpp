@@ -1,10 +1,11 @@
 #include "bench.hpp"
-#if defined(USE_HEARTBEAT)
+#if defined(HEARTBEAT_VERSIONING)
 #include "loop_handler.hpp"
 #endif
-#include <iostream>
-#include <cstdlib>
-#include <cstdint>
+#if defined(COLLECT_KERNEL_TIME)
+#include <stdio.h>
+#include <chrono>
+#endif
 
 uint64_t HEARTBEAT_loop0(char **, uint64_t, uint64_t, uint64_t, uint64_t);
 uint64_t HEARTBEAT_loop1(char **, uint64_t, uint64_t, uint64_t);
@@ -27,45 +28,39 @@ uint64_t HEARTBEAT_loop1(char **a, uint64_t i, uint64_t low2, uint64_t high2) {
   return r;
 }
 
-bool runHeartbeat = true;
+bool run_heartbeat = true;
+
+extern uint64_t n1;
+extern uint64_t n2;
+extern uint64_t result;
+extern char **a;
 
 int main(int argc, char *argv[]) {
-  if (argc < 3) {
-    std::cerr << "USAGE: " << argv[0] << " OUTER_SIZE INNER_SIZE" << std::endl;
-  }
+  setup();
 
-  uint64_t n1 = atoll(argv[1]);
-  uint64_t n2 = atoll(argv[2]);
-
-  // setup
-  char **a = new char*[n1];
-  for (uint64_t i = 0; i < n1; i++) {
-    a[i] = new char[n2];
-    for (uint64_t j = 0; j < n2; j++) {
-      a[i][j] = 1;
-    }
-  }
-
-  uint64_t r = 0;
-#if defined(USE_BASELINE)
-  for (uint64_t i = 0; i < n1; i++) {
-    for (uint64_t j = 0; j < n2; j++) {
-      r += a[i][j];
-    }
-  }
-#elif defined(USE_HEARTBEAT)
-  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
-    r = HEARTBEAT_loop0(a, 0, n1, 0, n2);
-  });
+#if defined(COLLECT_KERNEL_TIME)
+  using clock = std::chrono::system_clock;
+  using sec = std::chrono::duration<double>;
+  const auto before = clock::now();
 #endif
 
-  // finishup
-  for (uint64_t i = 0; i < n1; i++) {
-    delete [] a[i];
-  }
-  delete [] a;
+  loop_dispatcher([&] {
+    result = HEARTBEAT_loop0(a, 0, n1, 0, n2);
+  });
 
-  std::cout << r << std::endl;
+#if defined(COLLECT_KERNEL_TIME)
+  const sec duration = clock::now() - before;
+  printf("\"kernel_exectime\":  %.2f\n", duration.count());
+#endif
 
+  finishup();
+
+#if defined(HEARTBEAT_VERSIONING)
+  // create dummy call here so loop_handler declarations
+  // so that the function declaration will be emitted by the LLVM-IR
+  loop_handler(nullptr, 0, nullptr, 0, 0, 0, 0);
+#endif
+
+  printf("result=%lu\n", result);
   return 0;
 }
