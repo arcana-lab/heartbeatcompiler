@@ -66,10 +66,6 @@ class HeartBeatTransformation : public DOALL {
       return this->loopHandlerBlock;
     }
 
-    inline BasicBlock * getModifyExitConditionBlock() {
-      return this->modifyExitConditionBlock;
-    }
-
     inline CallInst * getCallToLoopHandler() {
       return this->callToLoopHandler;
     }
@@ -78,7 +74,7 @@ class HeartBeatTransformation : public DOALL {
       return this->returnCodePhiInst;
     }
 
-  protected:
+  public:
     Noelle &n;
     LoopDependenceInfo *ldi;
     uint64_t numLevels;
@@ -131,6 +127,5 @@ class HeartBeatTransformation : public DOALL {
     std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToChunksize;
     Value *contextBitcastInst;
     BasicBlock *loopHandlerBlock;
-    BasicBlock *modifyExitConditionBlock;
     CallInst *callToLoopHandler;
 };
