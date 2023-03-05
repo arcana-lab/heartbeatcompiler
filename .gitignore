@@ -10,6 +10,7 @@ plots/
 
 # benchmarks
 benchmarks/*/Makefile
+benchmarks/*/condor
 benchmarks/spmv/*.dat
 
 # manual_transformation
@@ -18,6 +19,7 @@ manual_transformation/benchmarks/*/bench.*
 manual_transformation/benchmarks/*/Makefile
 manual_transformation/benchmarks/*/Makefile_heartbeat
 manual_transformation/benchmarks/*/loop_handler.hpp
+manual_transformation/benchmarks/*/loop_handler.cpp
 manual_transformation/benchmarks/*/rollforward_handler.hpp
 manual_transformation/benchmarks/*/condor
 manual_transformation/benchmarks/*/generate_code.sh

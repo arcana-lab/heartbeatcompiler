@@ -78,7 +78,11 @@ int HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t myIndex, uint64_t start
       break;
     }
 
+#if !defined(ENABLE_ROLLFORWARD)
     rc = loop_handler_level1(cxts, &HEARTBEAT_nest0_loop0_slice, low - 1, maxIter);
+#else
+    __rf_handle_level1_wrapper(rc, cxts, &HEARTBEAT_nest0_loop0_slice, low - 1, maxIter);
+#endif
     if (rc > 0) {
       break;
     }
@@ -87,7 +91,11 @@ int HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t myIndex, uint64_t start
   for (; startIter != maxIter; startIter++) {
     r_private += a[startIter];
 
+#if !defined(ENABLE_ROLLFORWARD)
     rc = loop_handler_level1(cxts, &HEARTBEAT_nest0_loop0_slice, startIter, maxIter);
+#else
+    __rf_handle_level1_wrapper(rc, cxts, &HEARTBEAT_nest0_loop0_slice, startIter, maxIter);
+#endif
     if (rc > 0) {
       // call to loop_handler block post-dominates the body of the loop
       // so there's no need to modify the exit condition of the loop

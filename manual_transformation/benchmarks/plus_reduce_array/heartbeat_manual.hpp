@@ -10,7 +10,6 @@ void run_bench(std::function<void()> const &bench_body,
 
 namespace plus_reduce_array {
 
-extern
 double HEARTBEAT_nest0_loop0(double *a, uint64_t lo, uint64_t hi);
 
 inline

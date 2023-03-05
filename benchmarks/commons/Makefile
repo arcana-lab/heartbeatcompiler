@@ -140,8 +140,8 @@ condor_clean:
 # ============================================
 clean:
 	rm -rf baseline opencilk openmp heartbeat ;
+	rm -rf *.s *.o heartbeat_rf ;
 	rm -rf *.bc *.ll ;
-	rm -rf heartbeat_versioning_rollforward.s heartbeat_versioning.rf.s heartbeat_versioning.rf.o rollforward.o heartbeat_versioning_rf ;
 	rm -rf code_*.hpp ;
 
 .PHONY: condor clean
