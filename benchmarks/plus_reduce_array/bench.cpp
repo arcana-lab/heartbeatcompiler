@@ -2,7 +2,9 @@
 #include <cstdint>
 #include <cstdlib>
 #include <functional>
+#if !defined(USE_HB_MANUAL)
 #include <taskparts/benchmark.hpp>
+#endif
 
 namespace plus_reduce_array {
 
@@ -13,11 +15,12 @@ namespace plus_reduce_array {
 #elif defined(INPUT_TESTING)
   uint64_t nb_items = 100 * 100 * 100;
 #else
-  #error "Need to select input size: INPUT_{BENCHMARKING, TPAL, TESTING}
+  #error "Need to select input size: INPUT_{BENCHMARKING, TPAL, TESTING}"
 #endif
 double *a;
 double result = 0.0;
 
+#if !defined(USE_HB_MANUAL)
 void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
                std::function<void()> const &bench_end) {
@@ -29,6 +32,7 @@ void run_bench(std::function<void()> const &bench_body,
     bench_end();
   });
 }
+#endif
 
 void setup() {
   a = (double*)malloc(sizeof(double)*nb_items);
