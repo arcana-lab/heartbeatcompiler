@@ -5,13 +5,13 @@
 #include <rollforward.h>
 #endif
 
-int loop_handler_level1(uint64_t *cxt,
-                        int (*sliceTask)(uint64_t *, uint64_t, uint64_t, uint64_t),
-                        uint64_t startIter, uint64_t maxIter);
+int64_t loop_handler_level1(void *cxt,
+                            int64_t (*sliceTask)(void *, uint64_t, uint64_t, uint64_t),
+                            uint64_t startIter, uint64_t maxIter);
 
 #if defined(ENABLE_ROLLFORWARD)
-void rollforward_handler_annotation __rf_handle_level1_wrapper(int &rc,
-                                                               uint64_t *cxt,
-                                                               int (*sliceTask)(uint64_t *, uint64_t, uint64_t, uint64_t),
+void rollforward_handler_annotation __rf_handle_level1_wrapper(int64_t &rc,
+                                                               void *cxt,
+                                                               int64_t (*sliceTask)(void *, uint64_t, uint64_t, uint64_t),
                                                                uint64_t startIter, uint64_t maxIter);
 #endif

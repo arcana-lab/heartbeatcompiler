@@ -26,9 +26,9 @@ void run_bench(std::function<void()> const &bench_body,
 #define LIVE_IN_ENV 0
 #define LIVE_OUT_ENV 1
 
-int loop_handler_level1(uint64_t *cxt,
-                        int (*sliceTask)(uint64_t *, uint64_t, uint64_t, uint64_t),
-                        uint64_t startIter, uint64_t maxIter) {
+int64_t loop_handler_level1(void *cxt,
+                            int64_t (*sliceTask)(void *, uint64_t, uint64_t, uint64_t),
+                            uint64_t startIter, uint64_t maxIter) {
 #if defined(DISABLE_HEARTBEAT_PROMOTION)
   return 0;
 #endif
@@ -66,10 +66,10 @@ int loop_handler_level1(uint64_t *cxt,
   /*
    * Construct cxts for both tasks
    */
-  cxtFirst[LIVE_IN_ENV]   = cxt[LIVE_IN_ENV];
-  cxtSecond[LIVE_IN_ENV]  = cxt[LIVE_IN_ENV];
-  cxtFirst[LIVE_OUT_ENV]  = cxt[LIVE_OUT_ENV];
-  cxtSecond[LIVE_OUT_ENV] = cxt[LIVE_OUT_ENV];
+  cxtFirst[LIVE_IN_ENV]   = ((uint64_t *)cxt)[LIVE_IN_ENV];
+  cxtSecond[LIVE_IN_ENV]  = ((uint64_t *)cxt)[LIVE_IN_ENV];
+  cxtFirst[LIVE_OUT_ENV]  = ((uint64_t *)cxt)[LIVE_OUT_ENV];
+  cxtSecond[LIVE_OUT_ENV] = ((uint64_t *)cxt)[LIVE_OUT_ENV];
 
   /*
    * Invoke splitting tasks
@@ -85,9 +85,9 @@ int loop_handler_level1(uint64_t *cxt,
 
 #if defined(ENABLE_ROLLFORWARD)
 
-void rollforward_handler_annotation __rf_handle_level1_wrapper(int &rc,
-                                                               uint64_t *cxt,
-                                                               int (*sliceTask)(uint64_t *, uint64_t, uint64_t, uint64_t),
+void rollforward_handler_annotation __rf_handle_level1_wrapper(int64_t &rc,
+                                                               void *cxt,
+                                                               int64_t (*sliceTask)(void *, uint64_t, uint64_t, uint64_t),
                                                                uint64_t startIter, uint64_t maxIter) {
   rc = loop_handler_level1(cxt, sliceTask, startIter, maxIter);
   rollbackward

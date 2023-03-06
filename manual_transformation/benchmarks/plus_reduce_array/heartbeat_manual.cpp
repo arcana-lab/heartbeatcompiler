@@ -10,7 +10,7 @@ namespace plus_reduce_array {
 #define LIVE_OUT_ENV 1
 
 double HEARTBEAT_nest0_loop0(double *a, uint64_t lo, uint64_t hi);
-int HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t myIndex, uint64_t startIter, uint64_t maxIter);
+int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t startIter, uint64_t maxIter);
 
 bool run_heartbeat = true;
 uint64_t *constLiveIns;
@@ -34,7 +34,7 @@ double HEARTBEAT_nest0_loop0(double *a, uint64_t lo, uint64_t hi) {
     cxts[LIVE_OUT_ENV] = (uint64_t)redArrLoop0LiveOut0;
 
     // invoke loop0 in heartbeat form
-    HEARTBEAT_nest0_loop0_slice(cxts, 0, lo, hi);
+    HEARTBEAT_nest0_loop0_slice((void *)cxts, 0, lo, hi);
 
     // reduction
     r += redArrLoop0LiveOut0[0 * CACHELINE];
@@ -49,18 +49,18 @@ double HEARTBEAT_nest0_loop0(double *a, uint64_t lo, uint64_t hi) {
   return r;
 }
 
-int HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t myIndex, uint64_t startIter, uint64_t maxIter) {
+int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t startIter, uint64_t maxIter) {
   // load const live-ins
   double *a = (double *)constLiveIns[0];
 
   // load reduction array for live-outs
-  double *redArrLoop0LiveOut0 = (double *)cxts[LIVE_OUT_ENV];
+  double *redArrLoop0LiveOut0 = (double *)((uint64_t *)cxts)[LIVE_OUT_ENV];
 
   // allocate reduction array (as live-out environment) for kids of loop0
   double redArrLoop0LiveOut0Kids[2 * CACHELINE];
-  cxts[LIVE_OUT_ENV] = (uint64_t)redArrLoop0LiveOut0Kids;
+  ((uint64_t *)cxts)[LIVE_OUT_ENV] = (uint64_t)redArrLoop0LiveOut0Kids;
 
-  int rc = 0;
+  int64_t rc = 0;
   double r_private = 0.0;
 #if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_0 != 1
   // here the predict to compare has to be '<' not '!=',
@@ -79,9 +79,9 @@ int HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t myIndex, uint64_t start
     }
 
 #if !defined(ENABLE_ROLLFORWARD)
-    rc = loop_handler_level1(cxts, &HEARTBEAT_nest0_loop0_slice, low - 1, maxIter);
+    rc = loop_handler_level1((void *)cxts, &HEARTBEAT_nest0_loop0_slice, low - 1, maxIter);
 #else
-    __rf_handle_level1_wrapper(rc, cxts, &HEARTBEAT_nest0_loop0_slice, low - 1, maxIter);
+    __rf_handle_level1_wrapper(rc, (void *)cxts, &HEARTBEAT_nest0_loop0_slice, low - 1, maxIter);
 #endif
     if (rc > 0) {
       break;
@@ -92,9 +92,9 @@ int HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t myIndex, uint64_t start
     r_private += a[startIter];
 
 #if !defined(ENABLE_ROLLFORWARD)
-    rc = loop_handler_level1(cxts, &HEARTBEAT_nest0_loop0_slice, startIter, maxIter);
+    rc = loop_handler_level1((void *)cxts, &HEARTBEAT_nest0_loop0_slice, startIter, maxIter);
 #else
-    __rf_handle_level1_wrapper(rc, cxts, &HEARTBEAT_nest0_loop0_slice, startIter, maxIter);
+    __rf_handle_level1_wrapper(rc, (void *)cxts, &HEARTBEAT_nest0_loop0_slice, startIter, maxIter);
 #endif
     if (rc > 0) {
       // call to loop_handler block post-dominates the body of the loop
@@ -115,7 +115,7 @@ int HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t myIndex, uint64_t start
   }
 
   // reset live-out environment
-  cxts[LIVE_OUT_ENV] = (uint64_t)redArrLoop0LiveOut0;
+  ((uint64_t *)cxts)[LIVE_OUT_ENV] = (uint64_t)redArrLoop0LiveOut0;
 
   return rc - 1;
 }
