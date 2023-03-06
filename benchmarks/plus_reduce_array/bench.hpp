@@ -9,7 +9,7 @@ extern uint64_t nb_items;
 extern double *a;
 extern double result;
 
-#if !defined(USE_HB_MANUAL)
+#if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
                std::function<void()> const &bench_end);

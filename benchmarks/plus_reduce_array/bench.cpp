@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <functional>
-#if !defined(USE_HB_MANUAL)
+#if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 #include <taskparts/benchmark.hpp>
 #endif
 
@@ -20,7 +20,7 @@ namespace plus_reduce_array {
 double *a;
 double result = 0.0;
 
-#if !defined(USE_HB_MANUAL)
+#if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
                std::function<void()> const &bench_end) {

@@ -2,8 +2,16 @@
 #if defined(USE_HB_MANUAL)
 #include "heartbeat_manual.hpp"
 #endif
+#if defined(USE_HB_COMPILER)
+#include "heartbeat_compiler.hpp"
+#include "loop_handler.hpp"
+#endif
 
 using namespace plus_reduce_array;
+
+#if defined(USE_HB_COMPILER)
+bool run_heartbeat = true;
+#endif
 
 int main() {
 
@@ -16,6 +24,8 @@ int main() {
     result = plus_reduce_array_openmp(a, 0, nb_items);
 #elif defined(USE_HB_MANUAL)
     result = plus_reduce_array_hb_manual(a, 0, nb_items);
+#elif defined(USE_HB_COMPILER)
+    result = plus_reduce_array_hb_compiler(a, 0, nb_items);
 #endif
 
 #if defined(TEST_CORRECTNESS)
@@ -26,6 +36,11 @@ int main() {
   }, [&] {
     finishup();
   });
+
+#if defined(USE_HB_COMPILER)
+  // dummy call to loop_handler
+  loop_handler_level1(nullptr, nullptr, 0, 0);
+#endif
 
   return 0;
 }

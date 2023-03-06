@@ -1,58 +1,38 @@
 #include "loop_handler.hpp"
-#include <alloca.h>
-#include <taskparts/benchmark.hpp>
+#include <cstdint>
 #include <functional>
+#include <taskparts/benchmark.hpp>
 
 extern "C" {
+
+void run_bench(std::function<void()> const &bench_body,
+               std::function<void()> const &bench_start,
+               std::function<void()> const &bench_end) {
+  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
+    bench_body();
+  }, [&] (auto sched) {
+    bench_start();
+  }, [&] (auto sched) {
+    bench_end();
+  });
+}
 
 #ifndef SMALLEST_GRANULARITY
   #error "Macro SMALLEST_GRANULARITY undefined"
 #endif
 
-#define CACHELINE     8
-#define LIVE_IN_ENV   0
-#define LIVE_OUT_ENV  1
-#define START_ITER    0
-#define MAX_ITER      1
+#define CACHELINE 8
+#define LIVE_IN_ENV 0
+#define LIVE_OUT_ENV 1
 
-/*
- * Benchmark-specific variable indicating the level of nested loop
- * This variable should be defined inside heartbeat_*.hpp
- */
-uint64_t numLevels = 2;
-
-void loop_dispatcher(std::function<void()> const& lambda) {
-  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
-    lambda();
-  });
-
-  return;
-}
-
-/*
- * The benchmark-specific function to determine the leftover task to use
- * giving the splittingLevel and receivingLevel
- * This function should be defined inside heartbeat_versioning.hpp
- */
-uint64_t getLeftoverTaskIndex(uint64_t splittingLevel, uint64_t myLevel) {
+int64_t loop_handler_level1(void *cxt,
+                            int64_t (*sliceTask)(void *, uint64_t, uint64_t, uint64_t),
+                            uint64_t startIter, uint64_t maxIter) {
+#if defined(DISABLE_HEARTBEAT_PROMOTION)
   return 0;
-}
+#endif
 
-#include "code_loop_slice_declaration.hpp"
-
-/*
- * Generic loop_handler function for the versioning version
- * 1. if no heartbeat promotion happens, return 0
- *    if heartbeat promotion happens, 
- *      return the number of levels that maxIter needs to be reset
- * 2. caller side should prepare the live-out environment (if any) for kids,
- *    loop_handler does simply copy the existing live-out environments
- */
-int64_t loop_handler(
-  void *cxts,
-  uint64_t receivingLevel,
-  #include "code_loop_handler_signature.hpp"
-) {
+#if !defined(ENABLE_ROLLFORWARD)
   /*
    * Determine whether to promote since last promotion
    */
@@ -62,76 +42,44 @@ int64_t loop_handler(
     return 0;
   }
   p = n;
+#endif
 
   /*
-   * Decide the splitting level
+   * Determine if there's more work for splitting
    */
-  uint64_t splittingLevel = numLevels;
-  #include "code_splitting_level_determination.hpp"
-
-  /*
-   * No more work to split at any level
-   */
-  if (splittingLevel == numLevels) {
+  if ((maxIter - startIter) <= SMALLEST_GRANULARITY) {
     return 0;
   }
 
   /*
-   * Snapshot global iteration state
+   * Calculate the splitting point of the rest of iterations
    */
-  uint64_t *itersArr = (uint64_t *)alloca(sizeof(uint64_t) * numLevels * 2);
-  uint64_t index = 0;
-  #include "code_iteration_state_snapshot.hpp"
+  uint64_t mid = (startIter + 1 + maxIter) / 2;
 
   /*
    * Allocate cxts for both tasks
    */
-  uint64_t *cxtsFirst   = (uint64_t *)alloca(sizeof(uint64_t) * numLevels * CACHELINE);
-  uint64_t *cxtsSecond  = (uint64_t *)alloca(sizeof(uint64_t) * numLevels * CACHELINE);
+  uint64_t cxtFirst[1 * CACHELINE];
+  uint64_t cxtSecond[1 * CACHELINE];
 
   /*
-   * Determine the splitting point of the remaining iterations
+   * Construct cxts for both tasks
    */
-  uint64_t med = (itersArr[splittingLevel * 2 + START_ITER] + 1 + itersArr[splittingLevel * 2 + MAX_ITER]) / 2;
+  cxtFirst[LIVE_IN_ENV]   = ((uint64_t *)cxt)[LIVE_IN_ENV];
+  cxtSecond[LIVE_IN_ENV]  = ((uint64_t *)cxt)[LIVE_IN_ENV];
+  cxtFirst[LIVE_OUT_ENV]  = ((uint64_t *)cxt)[LIVE_OUT_ENV];
+  cxtSecond[LIVE_OUT_ENV] = ((uint64_t *)cxt)[LIVE_OUT_ENV];
 
   /*
-   * Reconstruct the context at the splittingLevel for both tasks
+   * Invoke splitting tasks
    */
-  #include "code_slice_context_construction.hpp"
+  taskparts::tpalrts_promote_via_nativefj([&] {
+    (*sliceTask)((void *)cxtFirst, 0, startIter + 1, mid);
+  }, [&] {
+    (*sliceTask)((void *)cxtSecond, 1, mid, maxIter);
+  }, [] { }, taskparts::bench_scheduler());
 
-  if (splittingLevel == receivingLevel) { // no leftover task needed
-    #include "code_slice_task_invocation.hpp"
-
-  } else { // build up the leftover task
-    /*
-     * Allocate context for leftover task
-     */
-    uint64_t *cxtsLeftover = (uint64_t *)alloca(sizeof(uint64_t) * numLevels * CACHELINE);
-
-    /*
-     * Reconstruct the context starting from splittingLevel + 1 up to receivingLevel for leftover task
-     */
-    for (uint64_t level = splittingLevel + 1; level <= receivingLevel; level++) {
-      uint64_t index = level * CACHELINE;
-      #include "code_leftover_context_construction.hpp"
-
-      /*
-       * Rreset global iters for leftover task
-       */
-      itersArr[level * 2 + START_ITER] += 1;
-    }
-
-    /*
-     * Determine which leftover task to run
-     */
-    uint64_t leftoverTaskIndex = getLeftoverTaskIndex(splittingLevel, receivingLevel);
-    #include "code_leftover_task_invocation.hpp"
-  }
-
-  /*
-   * Return the number of levels that maxIter needs to be reset
-   */
-  return receivingLevel - splittingLevel + 1;
+  return 1;
 }
 
 }
