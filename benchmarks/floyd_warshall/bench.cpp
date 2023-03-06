@@ -1,30 +1,42 @@
 #include "bench.hpp"
+#include <cstdint>
 #include <cstdlib>
 #include <climits>
 #include <algorithm>
-#if defined(USE_OPENCILK)
-#include <cilk/cilk.h>
-#endif
-#if defined(USE_OPENMP)
-#include <omp.h>
-#endif
-#if defined(TEST_CORRECTNESS)
-#include <cstdio>
+#include <functional>
+#if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
+#include <taskparts/benchmark.hpp>
 #endif
 
 #define SUB(array, row_sz, i, j) (array[i * row_sz + j])
 #define INF INT_MAX-1
 
+namespace floyd_warshall {
+
 #if defined(INPUT_BENCHMARKING)
   int vertices = 2048;
-#elif defined(INPUT_TESTING)
-  int vertices = 1024;
 #elif defined(INPUT_TPAL)
   int vertices = 1024;
+#elif defined(INPUT_TESTING)
+  int vertices = 1024;
 #else
-  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TESTING, TPAL}"
+  #error "Need to select input size: INPUT_{BENCHMARKING, TPAL, TESTING}"
 #endif
 int *dist = nullptr;
+
+#if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
+void run_bench(std::function<void()> const &bench_body,
+               std::function<void()> const &bench_start,
+               std::function<void()> const &bench_end) {
+  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
+    bench_body();
+  }, [&] (auto sched) {
+    bench_start();
+  }, [&] (auto sched) {
+    bench_end();
+  });
+}
+#endif
 
 auto init_input(int vertices) {
   int *dist = (int *)malloc(sizeof(int) * vertices * vertices);
@@ -60,11 +72,32 @@ void finishup() {
   free(dist);
 }
 
+#if defined(USE_BASELINE) || defined(TEST_CORRECTNESS)
+
+void floyd_warshall_serial(int* dist, int vertices) {
+  for(int via = 0; via < vertices; via++) {
+    for(int from = 0; from < vertices; from++) {
+      for(int to = 0; to < vertices; to++) {
+        if ((from != to) && (from != via) && (to != via)) {
+          SUB(dist, vertices, from, to) = 
+            std::min(SUB(dist, vertices, from, to), 
+                     SUB(dist, vertices, from, via) + SUB(dist, vertices, via, to));
+        }
+      }
+    }
+  }
+}
+
+#endif
+
 #if defined(USE_OPENCILK)
+
+#include <cilk/cilk.h>
+
 void floyd_warshall_opencilk(int* dist, int vertices) {
-  for (int via = 0; via < vertices; via++) {
-    cilk_for (int from = 0; from < vertices; from++) {
-      cilk_for (int to = 0; to < vertices; to++) {
+  for(int via = 0; via < vertices; via++) {
+    cilk_for(int from = 0; from < vertices; from++) {
+      cilk_for(int to = 0; to < vertices; to++) {
         if ((from != to) && (from != via) && (to != via)) {
           SUB(dist, vertices, from, to) = 
             std::min(SUB(dist, vertices, from, to), 
@@ -76,19 +109,15 @@ void floyd_warshall_opencilk(int* dist, int vertices) {
 }
 
 #elif defined(USE_OPENMP)
+
+#include <omp.h>
+
 void floyd_warshall_openmp(int* dist, int vertices) {
-  for (int via = 0; via < vertices; via++) {
-#if defined(OMP_STATIC)
+  for(int via = 0; via < vertices; via++) {
     #pragma omp parallel for schedule(static)
-#elif defined(OMP_DYNAMIC)
-    #pragma omp parallel for schedule(dynamic)
-#elif defined(OMP_GUIDED)
-    #pragma omp parallel for schedule(guided)
-#else
-    #error "Need to select OpenMP scheduler: STATIC, DYNAMIC or GUIDED"
-#endif
-    for (int from = 0; from < vertices; from++) {
-      for (int to = 0; to < vertices; to++) {
+    for(int from = 0; from < vertices; from++) {
+      #pragma omp parallel for schedule(static)
+      for(int to = 0; to < vertices; to++) {
         if ((from != to) && (from != via) && (to != via)) {
           SUB(dist, vertices, from, to) = 
             std::min(SUB(dist, vertices, from, to), 
@@ -100,23 +129,12 @@ void floyd_warshall_openmp(int* dist, int vertices) {
 }
 
 #endif
-
-void floyd_warshall_serial(int* dist, int vertices) {
-  for (int via = 0; via < vertices; via++) {
-    for (int from = 0; from < vertices; from++) {
-      for (int to = 0; to < vertices; to++) {
-        if ((from != to) && (from != via) && (to != via)) {
-          SUB(dist, vertices, from, to) = 
-            std::min(SUB(dist, vertices, from, to), 
-                     SUB(dist, vertices, from, via) + SUB(dist, vertices, via, to));
-        }
-      }
-    }
-  }
-}
 
 #if defined(TEST_CORRECTNESS)
-void test_correctness(int *dist) {
+
+#include <stdio.h>
+
+void test_correctness() {
   int *dist2 = init_input(vertices);
   floyd_warshall_serial(dist2, vertices);
   int num_diffs = 0;
@@ -135,4 +153,7 @@ void test_correctness(int *dist) {
   }
   free(dist2);
 }
+
 #endif
+
+} // namespace floyd_warshall

@@ -1,5 +1,17 @@
 #pragma once
 
+#include <functional>
+
+namespace floyd_warshall {
+
+extern int vertices;
+extern int *dist;
+
+#if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
+void run_bench(std::function<void()> const &bench_body,
+               std::function<void()> const &bench_start,
+               std::function<void()> const &bench_end);
+#endif
 void setup();
 void finishup();
 
@@ -12,5 +24,7 @@ void finishup();
 #endif
 
 #if defined(TEST_CORRECTNESS)
-  void test_correctness(int *dist);
+void test_correctness();
 #endif
+
+} // namespace floyd_warshall

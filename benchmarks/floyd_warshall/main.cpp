@@ -1,39 +1,51 @@
 #include "bench.hpp"
-#if defined(COLLECT_KERNEL_TIME)
-#include <stdio.h>
-#include <chrono>
+#if defined(USE_HB_MANUAL)
+#include "heartbeat_manual.hpp"
+#endif
+#if defined(USE_HB_COMPILER)
+#include "heartbeat_compiler.hpp"
+#include "loop_handler.hpp"
 #endif
 
-extern int vertices;
-extern int *dist;
+using namespace floyd_warshall;
+
+#if defined(USE_HB_COMPILER)
+bool run_heartbeat = true;
+#endif
 
 int main() {
-  setup();
 
-#if defined(COLLECT_KERNEL_TIME)
-  using clock = std::chrono::system_clock;
-  using sec = std::chrono::duration<double>;
-  const auto before = clock::now();
-#endif
-
+  run_bench([&] {
 #if defined(USE_BASELINE)
-  floyd_warshall_serial(dist, vertices);
+    floyd_warshall_serial(dist, vertices);
 #elif defined(USE_OPENCILK)
-  floyd_warshall_opencilk(dist, vertices);
+    floyd_warshall_opencilk(dist, vertices);
 #elif defined(USE_OPENMP)
-  floyd_warshall_openmp(dist, vertices);
-#endif
-
-#if defined(COLLECT_KERNEL_TIME)
-  const sec duration = clock::now() - before;
-  printf("\"kernel_exectime\":  %.2f\n", duration.count());
+    floyd_warshall_openmp(dist, vertices);
+#elif defined(USE_HB_MANUAL)
+    floyd_warshall_hb_manual(dist, vertices);
+#elif defined(USE_HB_COMPILER)
+    floyd_warshall_hb_compiler(dist, vertices);
 #endif
 
 #if defined(TEST_CORRECTNESS)
-  test_correctness(dist);
+    test_correctness();
 #endif
+  }, [&] {
+    setup();
+  }, [&] {
+    finishup();
+  });
 
-  finishup();
+#if defined(USE_HB_COMPILER)
+  // dummy call to loop_handler
+  loop_handler_level2(
+    nullptr, 0,
+    nullptr, nullptr, nullptr,
+    0, 0,
+    0, 0,
+  );
+#endif
 
   return 0;
 }

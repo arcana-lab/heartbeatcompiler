@@ -3,17 +3,17 @@
 #include <cstdint>
 #include <alloca.h>
 
-namespace plus_reduce_array {
-
 #define NUM_LEVELS 1
 #define CACHELINE 8
 #define LIVE_OUT_ENV 1
+
+namespace plus_reduce_array {
 
 double HEARTBEAT_nest0_loop0(double *a, uint64_t lo, uint64_t hi);
 int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t startIter, uint64_t maxIter);
 
 bool run_heartbeat = true;
-uint64_t *constLiveIns;
+uint64_t *constLiveIns_nest0;
 
 // Outlined loops
 double HEARTBEAT_nest0_loop0(double *a, uint64_t lo, uint64_t hi) {
@@ -23,8 +23,8 @@ double HEARTBEAT_nest0_loop0(double *a, uint64_t lo, uint64_t hi) {
     run_heartbeat = false;
 
     // allocate const live-ins
-    constLiveIns = (uint64_t *)alloca(sizeof(uint64_t) * 1);
-    constLiveIns[0] = (uint64_t)a;
+    constLiveIns_nest0 = (uint64_t *)alloca(sizeof(uint64_t) * 1);
+    constLiveIns_nest0[0] = (uint64_t)a;
 
     // allocate cxts
     uint64_t cxts[NUM_LEVELS * CACHELINE];
@@ -49,9 +49,10 @@ double HEARTBEAT_nest0_loop0(double *a, uint64_t lo, uint64_t hi) {
   return r;
 }
 
+// Transformed loops
 int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t startIter, uint64_t maxIter) {
   // load const live-ins
-  double *a = (double *)constLiveIns[0];
+  double *a = (double *)constLiveIns_nest0[0];
 
   // load reduction array for live-outs
   double *redArrLoop0LiveOut0 = (double *)((uint64_t *)cxts)[LIVE_OUT_ENV];
@@ -79,9 +80,9 @@ int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t start
     }
 
 #if !defined(ENABLE_ROLLFORWARD)
-    rc = loop_handler_level1((void *)cxts, &HEARTBEAT_nest0_loop0_slice, low - 1, maxIter);
+    rc = loop_handler_level1(cxts, &HEARTBEAT_nest0_loop0_slice, low - 1, maxIter);
 #else
-    __rf_handle_level1_wrapper(rc, (void *)cxts, &HEARTBEAT_nest0_loop0_slice, low - 1, maxIter);
+    __rf_handle_level1_wrapper(rc, cxts, &HEARTBEAT_nest0_loop0_slice, low - 1, maxIter);
 #endif
     if (rc > 0) {
       break;
@@ -92,9 +93,9 @@ int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t start
     r_private += a[startIter];
 
 #if !defined(ENABLE_ROLLFORWARD)
-    rc = loop_handler_level1((void *)cxts, &HEARTBEAT_nest0_loop0_slice, startIter, maxIter);
+    rc = loop_handler_level1(cxts, &HEARTBEAT_nest0_loop0_slice, startIter, maxIter);
 #else
-    __rf_handle_level1_wrapper(rc, (void *)cxts, &HEARTBEAT_nest0_loop0_slice, startIter, maxIter);
+    __rf_handle_level1_wrapper(rc, cxts, &HEARTBEAT_nest0_loop0_slice, startIter, maxIter);
 #endif
     if (rc > 0) {
       // call to loop_handler block post-dominates the body of the loop
