@@ -218,7 +218,7 @@ bool HeartBeatTransformation::apply (
   /*
    * Fetch the loop handler function
    */
-  auto loopHandlerFunction = program->getFunction("loop_handler");
+  auto loopHandlerFunction = program->getFunction(std::string("loop_handler_level").append(std::to_string(this->numLevels)));
   assert(loopHandlerFunction != nullptr);
   errs() << "loop_handler function" << *loopHandlerFunction << "\n";
 
@@ -324,22 +324,28 @@ bool HeartBeatTransformation::apply (
    */
   IRBuilder<> loopHandlerBuilder{ loopHandlerBlock };
   // create the vector to represent arguments
-  std::vector<Value *> loopHandlerParameters{ hbTask->getContextArg(),
-                                              loopHandlerBuilder.getInt64(this->loopToLevel[loop]),
-                                              nullptr // pointer to leftover tasks, change this value later
-                                            };
-  // copy the parent loop's start/max iteration
-  for (auto i = 0; i < this->loopToLevel[loop]; i++) {
-    loopHandlerParameters.push_back(hbTask->getIterationsVector()[i * 2]);
-    loopHandlerParameters.push_back(hbTask->getIterationsVector()[i * 2 + 1]);
-  }
-  // push the current start/max iteration
-  loopHandlerParameters.push_back(hbTask->getCurrentIteration());
-  loopHandlerParameters.push_back(hbTask->getMaxIteration());
-  // supply 0 as start/max iteration for the rest of levels
-  for (auto i = this->loopToLevel[loop] + 1; i <= this->numLevels - 1; i++) {
-    loopHandlerParameters.push_back(loopHandlerBuilder.getInt64(0));
-    loopHandlerParameters.push_back(loopHandlerBuilder.getInt64(0));
+  std::vector<Value *> loopHandlerParameters{ hbTask->getContextArg() };
+  if (this->numLevels == 1) {
+    loopHandlerParameters.push_back(hbTask->getTaskBody());
+    // push the current start/max iteration
+    loopHandlerParameters.push_back(hbTask->getCurrentIteration());
+    loopHandlerParameters.push_back(hbTask->getMaxIteration());
+  } else {
+    loopHandlerParameters.push_back(loopHandlerBuilder.getInt64(this->loopToLevel[loop]));
+    loopHandlerParameters.push_back(nullptr); // pointer to leftover tasks, change this value later
+    // copy the parent loop's start/max iteration
+    for (auto i = 0; i < this->loopToLevel[loop]; i++) {
+      loopHandlerParameters.push_back(hbTask->getIterationsVector()[i * 2]);
+      loopHandlerParameters.push_back(hbTask->getIterationsVector()[i * 2 + 1]);
+    }
+    // push the current start/max iteration
+    loopHandlerParameters.push_back(hbTask->getCurrentIteration());
+    loopHandlerParameters.push_back(hbTask->getMaxIteration());
+    // supply 0 as start/max iteration for the rest of levels
+    for (auto i = this->loopToLevel[loop] + 1; i <= this->numLevels - 1; i++) {
+      loopHandlerParameters.push_back(loopHandlerBuilder.getInt64(0));
+      loopHandlerParameters.push_back(loopHandlerBuilder.getInt64(0));
+    }
   }
 
   auto callToHandler = loopHandlerBuilder.CreateCall(
@@ -1993,8 +1999,16 @@ void HeartBeatTransformation::executeLoopInChunk(LoopDependenceInfo *ldi) {
     loopHandlerBlockBuilder.getInt64(1),
     "lowSubOne"
   );
-  auto myStartIterIndexInCall = 3 + this->loopToLevel[ldi] * 2;
+  uint64_t myStartIterIndexInCall = this->loopToLevel[ldi] * 2;
+  if (this->numLevels == 1) {
+    myStartIterIndexInCall += 2;
+  } else {
+    myStartIterIndexInCall += 3;
+  }
   this->getCallToLoopHandler()->setArgOperand(myStartIterIndexInCall, lowSubOneInst);
+
+  // errs() << "current task after chunking\n";
+  // errs() << *(this->hbTask->getTaskBody()) << "\n";
 
   return;
 }

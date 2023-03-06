@@ -88,24 +88,26 @@ bool HeartBeat::runOnModule (Module &M) {
     errs() << "cloned loop of level " << this->loopToLevel[pair.first] << *(pair.second->getHeartBeatTask()->getTaskBody()) << "\n";
   }
 
-  // now we've created all the heartbeat loops, it's time to create the leftover tasks per gap between heartbeat loops
-  modified |= createLeftoverTasks(noelle, heartbeatLoops);
+  if (this->numLevels > 1) {
+    // now we've created all the heartbeat loops, it's time to create the leftover tasks per gap between heartbeat loops
+    modified |= createLeftoverTasks(noelle, heartbeatLoops);
 
-  // all leftover tasks have been created, need to fix the call to loop_handler to use the leftoverTasks global
-  for (auto pair : this->loopToHeartBeatTransformation) {
-    auto callInst = cast<CallInst>(pair.second->getCallToLoopHandler());
+    // all leftover tasks have been created, need to fix the call to loop_handler to use the leftoverTasks global
+    for (auto pair : this->loopToHeartBeatTransformation) {
+      auto callInst = cast<CallInst>(pair.second->getCallToLoopHandler());
 
-    IRBuilder<> builder{ callInst };
-    auto leftoverTasksGEP = builder.CreateInBoundsGEP(
-      noelle.getProgram()->getNamedGlobal("leftoverTasks"),
-      ArrayRef<Value *>({
-        builder.getInt64(0),
-        builder.getInt64(0)
-      })
-    );
+      IRBuilder<> builder{ callInst };
+      auto leftoverTasksGEP = builder.CreateInBoundsGEP(
+        noelle.getProgram()->getNamedGlobal("leftoverTasks"),
+        ArrayRef<Value *>({
+          builder.getInt64(0),
+          builder.getInt64(0)
+        })
+      );
 
-    callInst->setArgOperand(2, leftoverTasksGEP);
-    errs() << "updated loop_handler function in loop level " << this->loopToLevel[pair.first] << *callInst << "\n";
+      callInst->setArgOperand(2, leftoverTasksGEP);
+      errs() << "updated loop_handler function in loop level " << this->loopToLevel[pair.first] << *callInst << "\n";
+    }
   }
 
   errs() << this->outputPrefix << "Exit\n";
