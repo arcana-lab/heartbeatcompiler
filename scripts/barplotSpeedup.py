@@ -177,20 +177,18 @@ colors = [
   'pink'
 ]
 techniques = [
-  'opencilk',
-  'openmp_static',
-  'heartbeat_versioning',
-  'heartbeat_versioning_rollforward',
-  'hbc_versioning',
-  'hbc_versioning_rollforward'
+  'tpal',
+  'heartbeat_manual_software_polling',
+  'heartbeat_manual_rollforward',
+  'heartbeat_compiler_software_polling',
+  'heartbeat_compiler_rollforward'
 ]
 technique_names = [
-  'OpenCilk',
-  'OpenMP',
-  'Heartbeat (Versioning)',
-  'Heartbeat (Versioning with Rollforward)',
-  'HBC (Versioning)',
-  'HBC (Versioning with Rollforward)'
+  'TPAL (interrupt_ping_thread)',
+  'HB Manual (Software Polling)',
+  'HB Manual (Rollforward)',
+  'HB Compiler (Software Polling)',
+  'HB Compiler (Rollforward)'
 ]
 configs = ['1', '2', '4', '8', '16', '28', '56_2_sockets']
 config_names = ['1 Physical Core', '2 Physical Cores', '4 Physical Cores', '8 Physical Cores', '16 Physical Cores', '28 Physical Cores', '56 Physical Cores - 2 Sockets']
