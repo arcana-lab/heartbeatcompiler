@@ -1,43 +1,51 @@
 #include "bench.hpp"
-#if defined(COLLECT_KERNEL_TIME)
-#include <stdio.h>
-#include <chrono>
+#if defined(USE_HB_MANUAL)
+#include "heartbeat_manual.hpp"
+#endif
+#if defined(USE_HB_COMPILER)
+#include "heartbeat_compiler.hpp"
+#include "loop_handler.hpp"
 #endif
 
-extern double* val;
-extern uint64_t* row_ptr;
-extern uint64_t* col_ind;
-extern double* x;
-extern double* y;
-extern uint64_t nb_rows;
+using namespace spmv;
+
+#if defined(USE_HB_COMPILER)
+bool run_heartbeat = true;
+#endif
 
 int main() {
-  setup();
 
-#if defined(COLLECT_KERNEL_TIME)
-  using clock = std::chrono::system_clock;
-  using sec = std::chrono::duration<double>;
-  const auto before = clock::now();
-#endif
-
+  run_bench([&] {
 #if defined(USE_BASELINE)
-  spmv_serial(val, row_ptr, col_ind, x, y, nb_rows);
+    spmv_serial(val, row_ptr, col_ind, x, y, nb_rows);
 #elif defined(USE_OPENCILK)
-  spmv_opencilk(val, row_ptr, col_ind, x, y, nb_rows);
+    spmv_opencilk(val, row_ptr, col_ind, x, y, nb_rows);
 #elif defined(USE_OPENMP)
-  spmv_openmp(val, row_ptr, col_ind, x, y, nb_rows);
-#endif
-
-#if defined(COLLECT_KERNEL_TIME)
-  const sec duration = clock::now() - before;
-  printf("\"kernel_exectime\":  %.2f\n", duration.count());
+    spmv_openmp(val, row_ptr, col_ind, x, y, nb_rows);
+#elif defined(USE_HB_MANUAL)
+    spmv_hb_manual(val, row_ptr, col_ind, x, y, nb_rows);
+#elif defined(USE_HB_COMPILER)
+    spmv_hb_compiler(val, row_ptr, col_ind, x, y, nb_rows);
 #endif
 
 #if defined(TEST_CORRECTNESS)
-  test_correctness(y);
+    test_correctness();
 #endif
+  }, [&] {
+    setup();
+  }, [&] {
+    finishup();
+  });
 
-  finishup();
+#if defined(USE_HB_COMPILER)
+  // dummy call to loop_handler
+  loop_handler_level2(
+    nullptr, 0,
+    nullptr, nullptr, nullptr,
+    0, 0,
+    0, 0,
+  );
+#endif
 
   return 0;
 }

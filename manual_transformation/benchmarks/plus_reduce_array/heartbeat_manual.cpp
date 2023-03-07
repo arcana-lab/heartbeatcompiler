@@ -54,15 +54,15 @@ int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t start
   // load const live-ins
   double *a = (double *)constLiveIns_nest0[0];
 
-  // load reduction array for live-outs
+  // load reduction array for live-outs and create a private copy
   double *redArrLoop0LiveOut0 = (double *)((uint64_t *)cxts)[LIVE_OUT_ENV];
+  double live_out_0 = 0.0;
 
   // allocate reduction array (as live-out environment) for kids of loop0
   double redArrLoop0LiveOut0Kids[2 * CACHELINE];
   ((uint64_t *)cxts)[LIVE_OUT_ENV] = (uint64_t)redArrLoop0LiveOut0Kids;
 
   int64_t rc = 0;
-  double r_private = 0.0;
 #if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_0 != 1
   // here the predict to compare has to be '<' not '!=',
   // otherwise there's an infinite loop bug
@@ -70,7 +70,7 @@ int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t start
     uint64_t low = startIter;
     uint64_t high = maxIter < startIter + CHUNKSIZE_0 ? maxIter : startIter + CHUNKSIZE_0;
     for (; low < high; low++) {
-      r_private += a[low];
+      live_out_0 += a[low];
     }
 
     if (low == maxIter) {
@@ -90,7 +90,7 @@ int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t start
   }
 #else
   for (; startIter != maxIter; startIter++) {
-    r_private += a[startIter];
+    live_out_0 += a[startIter];
 
 #if !defined(ENABLE_ROLLFORWARD)
     rc = loop_handler_level1(cxts, &HEARTBEAT_nest0_loop0_slice, startIter, maxIter);
@@ -110,9 +110,9 @@ int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t start
   // consider the scenario of returning up
   // reduction
   if (rc == 0) {  // no heartbeat promotion happens
-    redArrLoop0LiveOut0[myIndex * CACHELINE] = r_private;
+    redArrLoop0LiveOut0[myIndex * CACHELINE] = live_out_0;
   } else {        // splittingLevel == myLevel
-    redArrLoop0LiveOut0[myIndex * CACHELINE] = r_private + redArrLoop0LiveOut0Kids[0 * CACHELINE] + redArrLoop0LiveOut0Kids[1 * CACHELINE];
+    redArrLoop0LiveOut0[myIndex * CACHELINE] = live_out_0 + redArrLoop0LiveOut0Kids[0 * CACHELINE] + redArrLoop0LiveOut0Kids[1 * CACHELINE];
   }
 
   // reset live-out environment

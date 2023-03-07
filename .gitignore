@@ -20,13 +20,8 @@ manual_transformation/benchmarks/*/Makefile
 manual_transformation/benchmarks/*/Makefile_heartbeat
 manual_transformation/benchmarks/*/loop_handler.hpp
 manual_transformation/benchmarks/*/loop_handler.cpp
-manual_transformation/benchmarks/*/rollforward_handler.hpp
 manual_transformation/benchmarks/*/condor
-manual_transformation/benchmarks/*/generate_code.sh
-manual_transformation/benchmarks/*/code_*.hpp
 manual_transformation/benchmarks/*/main.cpp
-manual_transformation/benchmarks/*/level.config
-manual_transformation/benchmarks/*/live_out.config
 
 manual_transformation/benchmarks/spmv/*.dat
 manual_transformation/benchmarks/spmv/barplotSpeedup.py
