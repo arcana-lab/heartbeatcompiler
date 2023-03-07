@@ -2,36 +2,46 @@
 #include <cmath>
 #include <cstdlib>
 #include <emmintrin.h>
-#if defined(USE_OPENCILK)
-#include <cilk/cilk.h>
-#endif
-#if defined(USE_OPENMP)
-#include <omp.h>
-#endif
-#if defined(TEST_CORRECTNESS)
-#include <cstdio>
+#if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
+#include <taskparts/benchmark.hpp>
 #endif
 
+namespace mandelbrot {
+
+#if defined(INPUT_BENCHMARKING)
+  int _mb_height = 8384;
+  int _mb_width = 8384;
+  int _mb_max_depth = 100;
+#elif defined(INPUT_TPAL)
+  int _mb_height = 4192;
+  int _mb_width = 4192;
+  int _mb_max_depth = 100;
+#elif defined(INPUT_TESTING)
+  int _mb_height = 4192;
+  int _mb_width = 4192;
+  int _mb_max_depth = 100;
+#else
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TPAL, TESTING}"
+#endif
 unsigned char *output = nullptr;
 double _mb_x0 = -2.5;
 double _mb_y0 = -0.875;
 double _mb_x1 = 1;
 double _mb_y1 = 0.875;
 double g = 2.0;
-#if defined(INPUT_BENCHMARKING)
-  int _mb_height = 8384;
-  int _mb_width = 8384;
-  int _mb_max_depth = 200;
-#elif defined(INPUT_TESTING)
-  int _mb_height = 4192;
-  int _mb_width = 4192;
-  int _mb_max_depth = 100;
-#elif defined(INPUT_TPAL)
-  int _mb_height = 4192;
-  int _mb_width = 4192;
-  int _mb_max_depth = 100;
-#else
-  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TESTING, TPAL}"
+
+#if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
+void run_bench(std::function<void()> const &bench_body,
+               std::function<void()> const &bench_start,
+               std::function<void()> const &bench_end) {
+  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
+    bench_body();
+  }, [&] (auto sched) {
+    bench_start();
+  }, [&] (auto sched) {
+    bench_end();
+  });
+}
 #endif
 
 void setup() {
@@ -44,79 +54,10 @@ void finishup() {
   _mm_free(output);
 }
 
-#if defined(USE_OPENCILK)
-unsigned char* mandelbrot_opencilk(double x0, double y0, double x1, double y1,
-                               int width, int height, int max_depth) {
-  double xstep = (x1 - x0) / width;
-  double ystep = (y1 - y0) / height;
-  //unsigned char* output = static_cast<unsigned char*>(_mm_malloc(width * height * sizeof(unsigned char), 64));
-  unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
-  cilk_for(int j = 0; j < height; ++j) {
-    cilk_for(int i = 0; i < width; ++i) {
-      double z_real = x0 + i*xstep;
-      double z_imaginary = y0 + j*ystep;
-      double c_real = z_real;
-      double c_imaginary = z_imaginary;
-      double depth = 0;
-      while(depth < max_depth) {
-        if(z_real * z_real + z_imaginary * z_imaginary > 4.0) {
-          break;
-        }
-        double temp_real = z_real*z_real - z_imaginary*z_imaginary;
-        double temp_imaginary = 2.0*z_real*z_imaginary;
-        z_real = c_real + temp_real;
-        z_imaginary = c_imaginary + temp_imaginary;
-
-        ++depth;
-      }
-      output[j*width + i] = static_cast<unsigned char>(static_cast<double>(depth) / max_depth * 255);
-    }
-  }
-  return output;
-}
-
-#elif defined(USE_OPENMP)
-unsigned char* mandelbrot_openmp(double x0, double y0, double x1, double y1,
-                               int width, int height, int max_depth) {
-  double xstep = (x1 - x0) / width;
-  double ystep = (y1 - y0) / height;
-  //unsigned char* output = static_cast<unsigned char*>(_mm_malloc(width * height * sizeof(unsigned char), 64));
-  unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
-#if defined(OMP_DYNAMIC)
-  #pragma omp parallel for schedule(dynamic)
-#elif defined(OMP_GUIDED) 
-  #pragma omp parallel for schedule(guided)
-#else  
-  #pragma omp parallel for
-#endif
-  for(int j = 0; j < height; ++j) {
-    for(int i = 0; i < width; ++i) {
-      double z_real = x0 + i*xstep;
-      double z_imaginary = y0 + j*ystep;
-      double c_real = z_real;
-      double c_imaginary = z_imaginary;
-      double depth = 0;
-      while(depth < max_depth) {
-        if(z_real * z_real + z_imaginary * z_imaginary > 4.0) {
-          break;
-        }
-        double temp_real = z_real*z_real - z_imaginary*z_imaginary;
-        double temp_imaginary = 2.0*z_real*z_imaginary;
-        z_real = c_real + temp_real;
-        z_imaginary = c_imaginary + temp_imaginary;
-
-        ++depth;
-      }
-      output[j*width + i] = static_cast<unsigned char>(static_cast<double>(depth) / max_depth * 255);
-    }
-  }
-  return output;
-}
-
-#endif
+#if defined(USE_BASELINE) || defined(TEST_CORRECTNESS)
 
 unsigned char* mandelbrot_serial(double x0, double y0, double x1, double y1,
-                          int width, int height, int max_depth) {
+                                 int width, int height, int max_depth) {
   double xstep = (x1 - x0) / width;
   double ystep = (y1 - y0) / height;
   //  unsigned char* output = static_cast<unsigned char*>(_mm_malloc(width * height * sizeof(unsigned char), 64));
@@ -144,8 +85,83 @@ unsigned char* mandelbrot_serial(double x0, double y0, double x1, double y1,
   return output;
 }
 
+#endif
+
+#if defined(USE_OPENCILK)
+
+#include <cilk/cilk.h>
+
+unsigned char* mandelbrot_opencilk(double x0, double y0, double x1, double y1,
+                                 int width, int height, int max_depth) {
+  double xstep = (x1 - x0) / width;
+  double ystep = (y1 - y0) / height;
+  //  unsigned char* output = static_cast<unsigned char*>(_mm_malloc(width * height * sizeof(unsigned char), 64));
+  unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
+  cilk_for(int j = 0; j < height; ++j) { // col loop
+    cilk_for (int i = 0; i < width; ++i) { // row loop
+      double z_real = x0 + i*xstep;
+      double z_imaginary = y0 + j*ystep;
+      double c_real = z_real;
+      double c_imaginary = z_imaginary;
+      double depth = 0;
+      while(depth < max_depth) {
+        if(z_real * z_real + z_imaginary * z_imaginary > 4.0) {
+          break;
+        }
+        double temp_real = z_real*z_real - z_imaginary*z_imaginary;
+        double temp_imaginary = 2.0*z_real*z_imaginary;
+        z_real = c_real + temp_real;
+        z_imaginary = c_imaginary + temp_imaginary;
+        ++depth;
+      }
+      output[j*width + i] = static_cast<unsigned char>(static_cast<double>(depth) / max_depth * 255);
+    }
+  }
+  return output;
+}
+
+#elif defined(USE_OPENMP)
+
+#include <omp.h>
+
+unsigned char* mandelbrot_openmp(double x0, double y0, double x1, double y1,
+                                 int width, int height, int max_depth) {
+  double xstep = (x1 - x0) / width;
+  double ystep = (y1 - y0) / height;
+  //  unsigned char* output = static_cast<unsigned char*>(_mm_malloc(width * height * sizeof(unsigned char), 64));
+  unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
+  #pragma omp parallel for schedule(static)
+  for(int j = 0; j < height; ++j) { // col loop
+    #pragma omp parallel for schedule(static)
+    for (int i = 0; i < width; ++i) { // row loop
+      double z_real = x0 + i*xstep;
+      double z_imaginary = y0 + j*ystep;
+      double c_real = z_real;
+      double c_imaginary = z_imaginary;
+      double depth = 0;
+      while(depth < max_depth) {
+        if(z_real * z_real + z_imaginary * z_imaginary > 4.0) {
+          break;
+        }
+        double temp_real = z_real*z_real - z_imaginary*z_imaginary;
+        double temp_imaginary = 2.0*z_real*z_imaginary;
+        z_real = c_real + temp_real;
+        z_imaginary = c_imaginary + temp_imaginary;
+        ++depth;
+      }
+      output[j*width + i] = static_cast<unsigned char>(static_cast<double>(depth) / max_depth * 255);
+    }
+  }
+  return output;
+}
+
+#endif
+
 #if defined(TEST_CORRECTNESS)
-void test_correctness(unsigned char *output) {
+
+#include <stdio.h>
+
+void test_correctness() {
   unsigned char *output2 = mandelbrot_serial(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_width, _mb_height, _mb_max_depth);
   int num_diffs = 0;
   for (int i = 0; i < _mb_height; i++) {
@@ -163,4 +179,7 @@ void test_correctness(unsigned char *output) {
   }
   free(output2);
 }
+
 #endif
+
+} // namespace mandelbrot

@@ -1,45 +1,47 @@
 #include "bench.hpp"
-#if defined(COLLECT_KERNEL_TIME)
-#include <stdio.h>
-#include <chrono>
+#if defined(USE_HB_MANUAL)
+#include "heartbeat_manual.hpp"
+#endif
+#if defined(USE_HB_COMPILER)
+#include "heartbeat_compiler.hpp"
+#include "loop_handler.hpp"
 #endif
 
-extern unsigned char *output;
-extern double _mb_x0;
-extern double _mb_y0;
-extern double _mb_x1;
-extern double _mb_y1;
-extern int _mb_height;
-extern int _mb_width;
-extern int _mb_max_depth;
+using namespace mandelbrot;
 
 int main() {
-  setup();
 
-#if defined(COLLECT_KERNEL_TIME)
-  using clock = std::chrono::system_clock;
-  using sec = std::chrono::duration<double>;
-  const auto before = clock::now();
-#endif
-
+  run_bench([&] {
 #if defined(USE_BASELINE)
-  output = mandelbrot_serial(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_width, _mb_height, _mb_max_depth);
+    output = mandelbrot_serial(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_width, _mb_height, _mb_max_depth);
 #elif defined(USE_OPENCILK)
-  output = mandelbrot_opencilk(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_width, _mb_height, _mb_max_depth);
+    output = mandelbrot_opencilk(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_width, _mb_height, _mb_max_depth);
 #elif defined(USE_OPENMP)
-  output = mandelbrot_openmp(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_width, _mb_height, _mb_max_depth);
-#endif
-
-#if defined(COLLECT_KERNEL_TIME)
-  const sec duration = clock::now() - before;
-  printf("\"kernel_exectime\":  %.2f\n", duration.count());
+    output = mandelbrot_openmp(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_width, _mb_height, _mb_max_depth);
+#elif defined(USE_HB_MANUAL)
+    output = mandelbrot_hb_manual(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_width, _mb_height, _mb_max_depth);
+#elif defined(USE_HB_COMPILER)
+    output = mandelbrot_hb_compiler(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_width, _mb_height, _mb_max_depth);
 #endif
 
 #if defined(TEST_CORRECTNESS)
-  test_correctness(output);
+    test_correctness();
 #endif
+  }, [&] {
+    setup();
+  }, [&] {
+    finishup();
+  });
 
-  finishup();
+#if defined(USE_HB_COMPILER)
+  // dummy call to loop_handler
+  loop_handler_level2(
+    nullptr, 0,
+    nullptr, nullptr, nullptr,
+    0, 0,
+    0, 0,
+  );
+#endif
 
   return 0;
 }
