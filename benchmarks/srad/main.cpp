@@ -1,43 +1,51 @@
 #include "bench.hpp"
-#if defined(COLLECT_KERNEL_TIME)
-#include <stdio.h>
-#include <chrono>
+#if defined(USE_HB_MANUAL)
+#include "heartbeat_manual.hpp"
+#endif
+#if defined(USE_HB_COMPILER)
+#include "heartbeat_compiler.hpp"
+#include "loop_handler.hpp"
 #endif
 
-extern int rows, cols;
-extern float *I, *J, q0sqr;
-extern float *dN, *dS, *dW, *dE;
-extern float *c;
-extern int *iN, *iS, *jE, *jW;
-extern float lambda;
+using namespace srad;
+
+#if defined(USE_HB_COMPILER)
+bool run_heartbeat = true;
+#endif
 
 int main() {
-  setup();
 
-#if defined(COLLECT_KERNEL_TIME)
-  using clock = std::chrono::system_clock;
-  using sec = std::chrono::duration<double>;
-  const auto before = clock::now();
-#endif
-
+  run_bench([&] {
 #if defined(USE_BASELINE)
-  srad_serial(rows, cols, J, q0sqr, dN, dS, dW, dE, c, iN, iS, jE, jW, lambda);
+    srad_serial(rows, cols, size_I, size_R, I, J, q0sqr, dN, dS, dW, dE, c, iN, iS, jE, jW, lambda);
 #elif defined(USE_OPENCILK)
-  srad_opencilk(rows, cols, J, q0sqr, dN, dS, dW, dE, c, iN, iS, jE, jW, lambda);
+    srad_opencilk(rows, cols, size_I, size_R, I, J, q0sqr, dN, dS, dW, dE, c, iN, iS, jE, jW, lambda);
 #elif defined(USE_OPENMP)
-  srad_openmp(rows, cols, J, q0sqr, dN, dS, dW, dE, c, iN, iS, jE, jW, lambda);
-#endif
-
-#if defined(COLLECT_KERNEL_TIME)
-  const sec duration = clock::now() - before;
-  printf("\"kernel_exectime\":  %.2f\n", duration.count());
+    srad_openmp(rows, cols, size_I, size_R, I, J, q0sqr, dN, dS, dW, dE, c, iN, iS, jE, jW, lambda);
+#elif defined(USE_HB_MANUAL)
+    srad_hb_manual(rows, cols, size_I, size_R, I, J, q0sqr, dN, dS, dW, dE, c, iN, iS, jE, jW, lambda);
+#elif defined(USE_HB_COMPILER)
+    srad_hb_compiler(rows, cols, size_I, size_R, I, J, q0sqr, dN, dS, dW, dE, c, iN, iS, jE, jW, lambda);
 #endif
 
 #if TEST_CORRECTNESS
-  test_correctness();
+    test_correctness();
 #endif
+  }, [&] {
+    setup();
+  }, [&] {
+    finishup();
+  });
 
-  finishup();
+#if defined(USE_HB_COMPILER)
+  // dummy call to loop_handler
+  loop_handler_level2(
+    nullptr, 0,
+    nullptr, nullptr, nullptr,
+    0, 0,
+    0, 0,
+  );
+#endif
 
   return 0;
 }

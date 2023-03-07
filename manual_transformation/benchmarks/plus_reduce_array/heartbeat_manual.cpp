@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <alloca.h>
 
-#define NUM_LEVELS 1
+#define NUM_LEVELS_NEST0 1
 #define CACHELINE 8
 #define LIVE_OUT_ENV 1
 
@@ -27,7 +27,7 @@ double HEARTBEAT_nest0_loop0(double *a, uint64_t lo, uint64_t hi) {
     constLiveIns_nest0[0] = (uint64_t)a;
 
     // allocate cxts
-    uint64_t cxts[NUM_LEVELS * CACHELINE];
+    uint64_t cxts[NUM_LEVELS_NEST0 * CACHELINE];
 
     // allocate reduction array (as live-out environment) for loop0
     double redArrLoop0LiveOut0[1 * CACHELINE];

@@ -2,27 +2,23 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cmath>
-#if defined(USE_OPENCILK)
-#include <cilk/cilk.h>
+#if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
+#include <taskparts/benchmark.hpp>
 #endif
-#if defined(USE_OPENMP)
-#include <omp.h>
-#endif
-#if defined(TEST_CORRECTNESS)
-#include <cstdio>
-#endif
+
+namespace srad {
 
 #if defined(INPUT_BENCHMARKING)
   int rows=16000;
   int cols=16000;
-#elif defined(INPUT_TESTING)
-  int rows=4000;
-  int cols=4000;
 #elif defined(INPUT_TPAL)
   int rows=4000;
   int cols=4000;
+#elif defined(INPUT_TESTING)
+  int rows=4000;
+  int cols=4000;
 #else
-  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TESTING, TPAL}"
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TPAL, TESTING}"
 #endif
 int size_I, size_R;
 float *I, *J, q0sqr, sum, sum2, tmp, meanROI,varROI ;
@@ -35,31 +31,49 @@ float lambda;
 float *J_ref;
 #endif
 
-// uint64_t hash64(uint64_t u) {
-//   uint64_t v = u * 3935559000370003845ul + 2691343689449507681ul;
-//   v ^= v >> 21;
-//   v ^= v << 37;
-//   v ^= v >>  4;
-//   v *= 4768777513237032717ul;
-//   v ^= v << 20;
-//   v ^= v >> 41;
-//   v ^= v <<  5;
-//   return v;
-// }
+#if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
+void run_bench(std::function<void()> const &bench_body,
+               std::function<void()> const &bench_start,
+               std::function<void()> const &bench_end) {
+  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
+    bench_body();
+  }, [&] (auto sched) {
+    bench_start();
+  }, [&] (auto sched) {
+    bench_end();
+  });
+}
+#endif
+
+uint64_t hash64(uint64_t u) {
+  uint64_t v = u * 3935559000370003845ul + 2691343689449507681ul;
+  v ^= v >> 21;
+  v ^= v << 37;
+  v ^= v >>  4;
+  v *= 4768777513237032717ul;
+  v ^= v << 20;
+  v ^= v >> 41;
+  v ^= v <<  5;
+  return v;
+}
 
 void random_matrix(float *I, int rows, int cols){
-  // for( int i = 0 ; i < rows ; i++) {
-  //   for ( int j = 0 ; j < cols ; j++) {
-  //     I[i * cols + j] = (float)hash64(i+j)/(float)RAND_MAX ;
-  //   }
-  // }
+#if defined(INPUT_TPAL)
+  // tpal's input generator is falsy and leads to the final value in J to be -nan,
+  // however, to have a fair comparison against tpal, we keep this input generator
+  for( int i = 0 ; i < rows ; i++) {
+    for ( int j = 0 ; j < cols ; j++) {
+      I[i * cols + j] = (float)hash64(i+j)/(float)RAND_MAX ;
+    }
+  }
+#else
   srand(7);
 	for( int i = 0 ; i < rows ; i++){
 		for ( int j = 0 ; j < cols ; j++){
 		  I[i * cols + j] = rand()/(float)RAND_MAX ;
 		}
 	}
-
+#endif
 }
 
 void setup() {
@@ -136,8 +150,69 @@ void finishup() {
 #endif
 }
 
+#if defined(USE_BASELINE) || defined(TEST_CORRECTNESS)
+
+void srad_serial(int rows, int cols, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda) {
+  for (int i = 0 ; i < rows ; i++) {
+    for (int j = 0; j < cols; j++) { 
+		
+      int k = i * cols + j;
+      float Jc = J[k];
+ 
+      // directional derivates
+      dN[k] = J[iN[i] * cols + j] - Jc;
+      dS[k] = J[iS[i] * cols + j] - Jc;
+      dW[k] = J[i * cols + jW[j]] - Jc;
+      dE[k] = J[i * cols + jE[j]] - Jc;
+			
+      float G2 = (dN[k]*dN[k] + dS[k]*dS[k] 
+		  + dW[k]*dW[k] + dE[k]*dE[k]) / (Jc*Jc);
+
+      float L = (dN[k] + dS[k] + dW[k] + dE[k]) / Jc;
+
+      float num  = (0.5*G2) - ((1.0/16.0)*(L*L)) ;
+      float den  = 1 + (.25*L);
+      float qsqr = num/(den*den);
+ 
+      // diffusion coefficent (equ 33)
+      den = (qsqr-q0sqr) / (q0sqr * (1+q0sqr)) ;
+      c[k] = 1.0 / (1.0+den) ;
+                
+      // saturate diffusion coefficent
+      if (c[k] < 0) {c[k] = 0;}
+      else if (c[k] > 1) {c[k] = 1;}
+   
+    }
+  
+  }
+  for (int i = 0; i < rows; i++) {
+    for (int j = 0; j < cols; j++) {        
+
+      // current index
+      int k = i * cols + j;
+                
+      // diffusion coefficent
+      float cN = c[k];
+      float cS = c[iS[i] * cols + j];
+      float cW = c[k];
+      float cE = c[i * cols + jE[j]];
+
+      // divergence (equ 58)
+      float D = cN * dN[k] + cS * dS[k] + cW * dW[k] + cE * dE[k];
+                
+      // image update (equ 61)
+      J[k] = J[k] + 0.25*lambda*D;
+    }
+  }
+}
+
+#endif
+
 #if defined(USE_OPENCILK)
-void srad_opencilk(int rows, int cols, float *J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float *c, int *iN, int *iS, int *jE, int *jW, float lambda) {
+
+#include <cilk/cilk.h>
+
+void srad_opencilk(int rows, int cols, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda) {
   cilk_for (int i = 0 ; i < rows ; i++) {
     cilk_for (int j = 0; j < cols; j++) { 
 		
@@ -168,6 +243,7 @@ void srad_opencilk(int rows, int cols, float *J, float q0sqr, float *dN, float *
       else if (c[k] > 1) {c[k] = 1;}
    
     }
+  
   }
   cilk_for (int i = 0; i < rows; i++) {
     cilk_for (int j = 0; j < cols; j++) {        
@@ -191,15 +267,13 @@ void srad_opencilk(int rows, int cols, float *J, float q0sqr, float *dN, float *
 }
 
 #elif defined(USE_OPENMP)
-void srad_openmp(int rows, int cols, float *J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float *c, int *iN, int *iS, int *jE, int *jW, float lambda) {
-#if defined(OMP_DYNAMIC)
-  #pragma omp parallel for schedule(dynamic)
-#elif defined(OMP_GUIDED) 
-  #pragma omp parallel for schedule(guided)
-#else  
-  #pragma omp parallel for
-#endif
+
+#include <omp.h>
+
+void srad_openmp(int rows, int cols, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda) {
+  #pragma omp parallel for schedule(static)
   for (int i = 0 ; i < rows ; i++) {
+    #pragma omp parallel for schedule(static)
     for (int j = 0; j < cols; j++) { 
 		
       int k = i * cols + j;
@@ -229,15 +303,11 @@ void srad_openmp(int rows, int cols, float *J, float q0sqr, float *dN, float *dS
       else if (c[k] > 1) {c[k] = 1;}
    
     }
+  
   }
-#if defined(OMP_DYNAMIC)
-  #pragma omp parallel for schedule(dynamic)
-#elif defined(OMP_GUIDED) 
-  #pragma omp parallel for schedule(guided)
-#else  
-  #pragma omp parallel for
-#endif
+  #pragma omp parallel for schedule(static)
   for (int i = 0; i < rows; i++) {
+    #pragma omp parallel for schedule(static)
     for (int j = 0; j < cols; j++) {        
 
       // current index
@@ -259,60 +329,13 @@ void srad_openmp(int rows, int cols, float *J, float q0sqr, float *dN, float *dS
 }
 
 #endif
-
-void srad_serial(int rows, int cols, float *J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float *c, int *iN, int *iS, int *jE, int *jW, float lambda) {
-  for (int i = 0 ; i < rows ; i++) {
-    for (int j = 0; j < cols; j++) { 
-      int k = i * cols + j;
-      float Jc = J[k];
- 
-      // directional derivates
-      dN[k] = J[iN[i] * cols + j] - Jc;
-      dS[k] = J[iS[i] * cols + j] - Jc;
-      dW[k] = J[i * cols + jW[j]] - Jc;
-      dE[k] = J[i * cols + jE[j]] - Jc;
-			
-      float G2 = (dN[k]*dN[k] + dS[k]*dS[k] 
-		  + dW[k]*dW[k] + dE[k]*dE[k]) / (Jc*Jc);
-
-      float L = (dN[k] + dS[k] + dW[k] + dE[k]) / Jc;
-
-      float num  = (0.5*G2) - ((1.0/16.0)*(L*L)) ;
-      float den  = 1 + (.25*L);
-      float qsqr = num/(den*den);
- 
-      // diffusion coefficent (equ 33)
-      den = (qsqr-q0sqr) / (q0sqr * (1+q0sqr)) ;
-      c[k] = 1.0 / (1.0+den) ;
-                
-      // saturate diffusion coefficent
-      if (c[k] < 0) {c[k] = 0;}
-      else if (c[k] > 1) {c[k] = 1;}
-    }
-  }
-  for (int i = 0; i < rows; i++) {
-    for (int j = 0; j < cols; j++) {        
-      // current index
-      int k = i * cols + j;
-                
-      // diffusion coefficent
-      float cN = c[k];
-      float cS = c[iS[i] * cols + j];
-      float cW = c[k];
-      float cE = c[i * cols + jE[j]];
-
-      // divergence (equ 58)
-      float D = cN * dN[k] + cS * dS[k] + cW * dW[k] + cE * dE[k];
-                
-      // image update (equ 61)
-      J[k] = J[k] + 0.25*lambda*D;
-    }
-  }
-}
 
 #if defined(TEST_CORRECTNESS)
+
+#include <stdio.h>
+
 void test_correctness() {
-  srad_serial(rows, cols, J_ref, q0sqr, dN, dS, dW, dE, c, iN, iS, jE, jW, lambda);
+  srad_serial(rows, cols, size_I, size_R, I, J_ref, q0sqr, dN, dS, dW, dE, c, iN, iS, jE, jW, lambda);
   uint64_t num_diffs = 0;
   double epsilon = 0.01;
   for (uint64_t i = 0; i != size_I; i++) {
@@ -330,4 +353,7 @@ void test_correctness() {
   }
   // printf("num_diffs %ld\n", num_diffs);
 }
+
 #endif
+
+} // namespace srad

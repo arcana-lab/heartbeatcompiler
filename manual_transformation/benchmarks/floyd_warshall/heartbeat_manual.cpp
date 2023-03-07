@@ -1,10 +1,11 @@
 #include "heartbeat_manual.hpp"
 #include "loop_handler.hpp"
+#include <cstdint>
 #include <alloca.h>
 
 #define SUB(array, row_sz, i, j) (array[i * row_sz + j])
 
-#define NUM_LEVELS 2
+#define NUM_LEVELS_NEST0 2
 #define LEVEL_ZERO 0
 #define LEVEL_ONE 1
 #define CACHELINE 8
@@ -56,7 +57,7 @@ void HEARTBEAT_nest0_loop0(int *dist, int vertices, int via) {
     constLiveIns_nest0[2] = (uint64_t)via;
 
     // allocate cxts
-    uint64_t cxts[NUM_LEVELS * CACHELINE];
+    uint64_t cxts[NUM_LEVELS_NEST0 * CACHELINE];
 
     // invoke loop0 in heartbeat form
     HEARTBEAT_nest0_loop0_slice((void *)cxts, 0, 0, (uint64_t)vertices);
