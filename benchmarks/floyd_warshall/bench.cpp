@@ -16,7 +16,13 @@ namespace floyd_warshall {
 #if defined(INPUT_BENCHMARKING)
   int vertices = 2048;
 #elif defined(INPUT_TPAL)
-  int vertices = 1024;
+  #if defined(FW_1K)
+    int vertices = 1024;
+  #elif defined(FW_2K)
+    int vertices = 2048;
+  #else
+    #error "Need to select input class: FW_{1K, 2K}"
+  #endif
 #elif defined(INPUT_TESTING)
   int vertices = 1024;
 #else
