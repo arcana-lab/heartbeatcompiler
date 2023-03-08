@@ -15,7 +15,7 @@ for bench in `ls` ; do
 
   cd $bench ;
   
-  ln -s ../commons/Makefile Makefile ;
+  ln -s ../commons/* . ;
 
   cd ../ ;
 

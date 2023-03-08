@@ -4,7 +4,6 @@
 #endif
 #if defined(USE_HB_COMPILER)
 #include "heartbeat_compiler.hpp"
-#include "loop_handler.hpp"
 #endif
 
 using namespace spmv;

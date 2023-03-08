@@ -19,26 +19,26 @@ void HEARTBEAT_nest0_loop0(int *dist, int vertices, int via);
 void HEARTBEAT_nest0_loop1(int *dist, int vertices, int via, int from);
 
 int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t startIter, uint64_t maxIter);
-inline int64_t HEARTBEAT_nest0_loop0_slice_wrapper(void *cxts, uint64_t myIndex, uint64_t startIter, uint64_t maxIter) {
-  return HEARTBEAT_nest0_loop0_slice(cxts, myIndex, startIter, maxIter);
+inline void HEARTBEAT_nest0_loop0_slice_wrapper(void *cxts, uint64_t myIndex, uint64_t startIter, uint64_t maxIter) {
+  HEARTBEAT_nest0_loop0_slice(cxts, myIndex, startIter, maxIter);
 }
 int64_t HEARTBEAT_nest0_loop1_slice(void *cxts, uint64_t myIndex, uint64_t s0, uint64_t m0, uint64_t startIter, uint64_t maxIter);
-inline int64_t HEARTBEAT_nest0_loop1_slice_wrapper(void *cxts, uint64_t myIndex, uint64_t startIter, uint64_t maxIter) {
-  return HEARTBEAT_nest0_loop1_slice(cxts, myIndex, 0, 0, startIter, maxIter);
+inline void HEARTBEAT_nest0_loop1_slice_wrapper(void *cxts, uint64_t myIndex, uint64_t startIter, uint64_t maxIter) {
+  HEARTBEAT_nest0_loop1_slice(cxts, myIndex, 0, 0, startIter, maxIter);
 }
-typedef int64_t (*sliceTasksWrapperPointer)(void *, uint64_t, uint64_t, uint64_t);
+typedef void (*sliceTasksWrapperPointer)(void *, uint64_t, uint64_t, uint64_t);
 sliceTasksWrapperPointer slice_tasks_nest0[2] = {
   &HEARTBEAT_nest0_loop0_slice_wrapper,
   &HEARTBEAT_nest0_loop1_slice_wrapper
 };
 
-int64_t HEARTBEAT_nest0_loop_1_0_leftover(void *cxts, uint64_t myIndex, void *itersArr);
-typedef int64_t (*leftoverTasksPointer)(void *, uint64_t, void *);
+void HEARTBEAT_nest0_loop_1_0_leftover(void *cxts, uint64_t myIndex, void *itersArr);
+typedef void (*leftoverTasksPointer)(void *, uint64_t, void *);
 leftoverTasksPointer leftover_tasks_nest0[1] = {
   &HEARTBEAT_nest0_loop_1_0_leftover
 };
 
-uint64_t leftover_selector_nest0(uint64_t splittingLevel, uint64_t receivingLevel) {
+uint64_t leftover_selector_nest0(uint64_t receivingLevel, uint64_t splittingLevel) {
   return 0;
 }
 
@@ -249,14 +249,14 @@ int64_t HEARTBEAT_nest0_loop1_slice(void *cxts, uint64_t myIndex, uint64_t s0, u
 }
 
 // Leftover tasks
-int64_t HEARTBEAT_nest0_loop_1_0_leftover(void *cxts, uint64_t myIndex, void *itersArr) {
+void HEARTBEAT_nest0_loop_1_0_leftover(void *cxts, uint64_t myIndex, void *itersArr) {
   // load startIter and maxIter
   uint64_t startIter = ((uint64_t *)itersArr)[LEVEL_ONE * 2 + START_ITER];
   uint64_t maxIter   = ((uint64_t *)itersArr)[LEVEL_ONE * 2 + MAX_ITER];
 
   HEARTBEAT_nest0_loop1_slice(cxts, 0, 0, 0, startIter, maxIter);
 
-  return 0;
+  return;
 }
 
 } // namespace floyd_warshall

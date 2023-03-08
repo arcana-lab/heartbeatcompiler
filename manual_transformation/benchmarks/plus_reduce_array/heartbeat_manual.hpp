@@ -1,12 +1,7 @@
 #pragma once
 
+#include "loop_handler.hpp"
 #include <cstdint>
-#include <functional>
-
-extern
-void run_bench(std::function<void()> const &bench_body,
-               std::function<void()> const &bench_start,
-               std::function<void()> const &bench_end);
 
 namespace plus_reduce_array {
 

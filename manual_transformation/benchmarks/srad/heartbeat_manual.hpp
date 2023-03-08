@@ -2,10 +2,7 @@
 
 #include <functional>
 
-extern
-void run_bench(std::function<void()> const &bench_body,
-               std::function<void()> const &bench_start,
-               std::function<void()> const &bench_end);
+#include "loop_handler.hpp"
 
 namespace srad {
 

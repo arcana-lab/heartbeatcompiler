@@ -10,6 +10,7 @@ plots/
 
 # benchmarks
 benchmarks/*/Makefile
+benchmarks/*/loop_handler.*
 benchmarks/*/condor
 benchmarks/spmv/*.dat
 

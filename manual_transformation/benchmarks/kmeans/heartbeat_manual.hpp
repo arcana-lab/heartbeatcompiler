@@ -1,13 +1,8 @@
 #pragma once
 
+#include "loop_handler.hpp"
 #include <cstdlib>
 #include <thread>
-#include <functional>
-
-extern
-void run_bench(std::function<void()> const &bench_body,
-               std::function<void()> const &bench_start,
-               std::function<void()> const &bench_end);
 
 namespace kmeans {
 
