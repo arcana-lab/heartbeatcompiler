@@ -58,9 +58,7 @@ void HeartBeatTask::extractFuncArgs (void) {
   this->contextArg = (Value *) &*(argIter++);
 
   // Second argument (optional): myIndex
-  if (this->containsLiveOut) {
-    this->myIndexArg = (Value *) &*(argIter++);
-  }
+  this->myIndexArg = (Value *) &*(argIter++);
 
   // All startIteration and maxIteration
   for (uint64_t i = 0; i < this->level + 1; i++) {

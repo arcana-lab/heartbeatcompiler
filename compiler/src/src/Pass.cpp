@@ -89,14 +89,27 @@ bool HeartBeat::runOnModule (Module &M) {
   }
 
   if (this->numLevels > 1) {
-    // now we've created all the heartbeat loops, it's time to create the leftover tasks per gap between heartbeat loops
-    modified |= createLeftoverTasks(noelle, heartbeatLoops);
+    // all heartbeat loops are generated,
+    // create the slices wrapper function and the global
+    createSliceTasksWrapper(noelle);
 
-    // all leftover tasks have been created, need to fix the call to loop_handler to use the leftoverTasks global
+    // now we've created all the heartbeat loops, it's time to create the leftover tasks per gap between heartbeat loops
+    createLeftoverTasks(noelle, heartbeatLoops);
+
+    // all leftover tasks have been created
+    // 1. need to fix the call to loop_handler to use the leftoverTasks global
+    // 2. need to fix the call to loop_handler to use the leftoverTaskIndexSelector
     for (auto pair : this->loopToHeartBeatTransformation) {
       auto callInst = cast<CallInst>(pair.second->getCallToLoopHandler());
 
       IRBuilder<> builder{ callInst };
+      auto sliceTasksWrapperGEP = builder.CreateInBoundsGEP(
+        noelle.getProgram()->getNamedGlobal("sliceTasksWrapper"),
+        ArrayRef<Value *>({
+          builder.getInt64(0),
+          builder.getInt64(0),
+        })
+      );
       auto leftoverTasksGEP = builder.CreateInBoundsGEP(
         noelle.getProgram()->getNamedGlobal("leftoverTasks"),
         ArrayRef<Value *>({
@@ -105,7 +118,9 @@ bool HeartBeat::runOnModule (Module &M) {
         })
       );
 
-      callInst->setArgOperand(2, leftoverTasksGEP);
+      callInst->setArgOperand(2, sliceTasksWrapperGEP);
+      callInst->setArgOperand(3, leftoverTasksGEP);
+      callInst->setArgOperand(4, this->leftoverTaskIndexSelector);
       errs() << "updated loop_handler function in loop level " << this->loopToLevel[pair.first] << *callInst << "\n";
     }
   }

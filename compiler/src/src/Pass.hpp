@@ -152,14 +152,24 @@ class HeartBeat : public ModulePass {
     std::unordered_map<LoopDependenceInfo *, HeartBeatTransformation *> loopToHeartBeatTransformation;
 
     /*
-     * Step 7: create leftover tasks
+     * Step 7: create slice tasks wrapper
      */
-    bool createLeftoverTasks(
+    void createSliceTasksWrapper(
+      Noelle &noelle
+    );
+
+    std::vector<Constant *> sliceTasksWrapper;
+
+    /*
+     * Step 8: create leftover tasks
+     */
+    void createLeftoverTasks(
       Noelle &noelle,
       std::set<LoopDependenceInfo *> &heartbeatLoops
     );
 
     std::vector<Constant *> leftoverTasks;
+    Function *leftoverTaskIndexSelector;
 
     /*
      * Chunking info

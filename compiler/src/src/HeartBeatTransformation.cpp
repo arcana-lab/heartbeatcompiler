@@ -41,9 +41,7 @@ HeartBeatTransformation::HeartBeatTransformation (
   auto tm = noelle.getTypesManager();
   std::vector<Type *> sliceTaskSignatureTypes;
   sliceTaskSignatureTypes.push_back(tm->getVoidPointerType());  // pointer to compressed environment
-  if (containsLiveOut) {
-    sliceTaskSignatureTypes.push_back(tm->getIntegerType(64));  // index variable
-  }
+  sliceTaskSignatureTypes.push_back(tm->getIntegerType(64));  // index variable
   // loop level starts from 0, so +1 here
   for (auto i = 0; i < loopToLevel[ldi] + 1; i++) {
     sliceTaskSignatureTypes.push_back(tm->getIntegerType(64));  // startIter
@@ -332,7 +330,9 @@ bool HeartBeatTransformation::apply (
     loopHandlerParameters.push_back(hbTask->getMaxIteration());
   } else {
     loopHandlerParameters.push_back(loopHandlerBuilder.getInt64(this->loopToLevel[loop]));
+    loopHandlerParameters.push_back(nullptr); // pointer to slice tasks, change this value later
     loopHandlerParameters.push_back(nullptr); // pointer to leftover tasks, change this value later
+    loopHandlerParameters.push_back(nullptr); // pointer to leftover task selector, change this value later
     // copy the parent loop's start/max iteration
     for (auto i = 0; i < this->loopToLevel[loop]; i++) {
       loopHandlerParameters.push_back(hbTask->getIterationsVector()[i * 2]);
@@ -1366,9 +1366,7 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
   IRBuilder<> doallBuilder(this->entryPointOfParallelizedLoop);
   std::vector<Value *> loopSliceParameters;
   loopSliceParameters.push_back(contextArrayCasted);
-  if (this->containsLiveOut) {
-    loopSliceParameters.push_back(ConstantInt::get(doallBuilder.getInt64Ty(), 0));
-  }
+  loopSliceParameters.push_back(ConstantInt::get(doallBuilder.getInt64Ty(), 0));
   loopSliceParameters.push_back(firstIterationGoverningIVValue);
   loopSliceParameters.push_back(lastIterationGoverningIVValue);
   doallBuilder.CreateCall(
@@ -1689,10 +1687,8 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideCallerLoop (
   std::vector<Value *> parametersVec;
   // 1) the context void pointer
   parametersVec.push_back(callerHBTask->getContextArg());
-  // 2) myIndex if we contains live-out
-  if (this->hbTask->containsLiveOutOrNot()) {
-    parametersVec.push_back(liveInEnvBuilder.getInt64(0));
-  }
+  // 2) myIndex
+  parametersVec.push_back(liveInEnvBuilder.getInt64(0));
   // push the global iterations state from 0 to myLevel - 2
   auto iterationsVect = this->hbTask->getIterationsVector();
   for (int64_t i = 0; i < (int64_t)this->hbTask->getLevel() - 2; i++) {
@@ -2003,7 +1999,7 @@ void HeartBeatTransformation::executeLoopInChunk(LoopDependenceInfo *ldi) {
   if (this->numLevels == 1) {
     myStartIterIndexInCall += 2;
   } else {
-    myStartIterIndexInCall += 3;
+    myStartIterIndexInCall += 5;
   }
   this->getCallToLoopHandler()->setArgOperand(myStartIterIndexInCall, lowSubOneInst);
 

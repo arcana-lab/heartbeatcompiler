@@ -2,19 +2,20 @@
 
 using namespace llvm::noelle;
 
-bool HeartBeat::createLeftoverTasks(
+void HeartBeat::createLeftoverTasks(
   Noelle &noelle,
   std::set<LoopDependenceInfo *> &heartbeatLoops
 ) {
 
   auto tm = noelle.getTypesManager();
   auto &cxt = noelle.getProgram()->getContext();
+
   // leftover task type
-  std::vector<Type *> leftoverTaskTypes{ tm->getVoidPointerType() };  // void *cxt
-  if (this->containsLiveOut) {
-    leftoverTaskTypes.push_back(tm->getIntegerType(64));  // myIndex
-  }
-  leftoverTaskTypes.push_back(tm->getVoidPointerType());
+  std::vector<Type *> leftoverTaskTypes{ 
+    tm->getVoidPointerType(),   // void *cxt
+    tm->getIntegerType(64),     // uint64_t myIndex
+    tm->getVoidPointerType()    // void *itersArr
+  };
 
   for (auto receivingLoop : heartbeatLoops) {
     // no leftover task generated for root loop
@@ -53,7 +54,8 @@ bool HeartBeat::createLeftoverTasks(
       // create entry block and cast the iterationsArray to the correct type
       auto entryBlock = BasicBlock::Create(cxt, "entry", leftoverTask);
       IRBuilder<> entryBlockBuilder{ entryBlock };
-      auto iterationsArrayArgIndex = this->containsLiveOut ? 2 : 1;
+      // auto iterationsArrayArgIndex = this->containsLiveOut ? 2 : 1;
+      auto iterationsArrayArgIndex = 2;
       auto iterationsArray = entryBlockBuilder.CreateBitCast(
         cast<Value>(&*(leftoverTask->arg_begin() + iterationsArrayArgIndex)),
         PointerType::getUnqual(ArrayType::get(
@@ -119,9 +121,7 @@ bool HeartBeat::createLeftoverTasks(
 
         // Create the call to the heartbeat loop
         std::vector<Value *> loopSliceParameters{ &*(leftoverTask->arg_begin()) }; // void *cxt
-        if (this->containsLiveOut) {
-          loopSliceParameters.push_back(&*(leftoverTask->arg_begin() + 1));  // myIndex
-        }
+        loopSliceParameters.push_back(invokingBlockBuilder.getInt64(0));  // myIndex
         // put 0 as start/max iteration starting from level [0 to splittingLevel]
         for (auto i = 0; i <= splittingLevel; i++) {
           loopSliceParameters.push_back(invokingBlockBuilder.getInt64(0));
@@ -199,6 +199,40 @@ bool HeartBeat::createLeftoverTasks(
   );
   errs() << "created global leftoverTasks " << *leftoverTasksGlobal << "\n";
 
-  return false;
+  // now leftoverTasks global array has been generated, create a leftover selector function
+  // that returns the index of the leftover task giving receivingLevel and splittingLevel
+  std::vector<Type *> leftoverTaskIndexSelectorTypes{
+    tm->getIntegerType(64), // uint64_t receivingLevel
+    tm->getIntegerType(64)  // uint64_t splittingLevel
+  };
 
+  auto leftoverTaskIndexSelectorCallee = noelle.getProgram()->getOrInsertFunction(
+    std::string("leftover_task_index_selector"),
+    FunctionType::get(
+      tm->getIntegerType(64),
+      ArrayRef<Type *>({
+        leftoverTaskIndexSelectorTypes
+      }),
+      false /* isVarArg */
+    )
+  );
+  this->leftoverTaskIndexSelector = cast<Function>(leftoverTaskIndexSelectorCallee.getCallee());
+
+  // create exit block
+  auto exitBlock = BasicBlock::Create(cxt, "exit", leftoverTaskIndexSelector);
+  IRBuilder <> exitBlockBuilder{ exitBlock };
+
+  if (this->leftoverTasks.size() == 1) {
+    exitBlockBuilder.CreateRet(
+      exitBlockBuilder.getInt64(0)
+    );
+  } else {
+    // TODO
+    // when there're multiple leftover tasks, given the fact
+    // that the loop nest we're considering have at least level 3
+    // need to differentiate them
+  }
+  errs() << "leftover task index selector created" << *leftoverTaskIndexSelector << "\n";
+
+  return;
 }
