@@ -33,7 +33,7 @@ double HEARTBEAT_nest0_loop0(double *a, uint64_t lo, uint64_t hi) {
     double redArrLoop0LiveOut0[1 * CACHELINE];
     cxts[LIVE_OUT_ENV] = (uint64_t)redArrLoop0LiveOut0;
 
-    // invoke loop0 in heartbeat form
+    // invoke nest0_loop0 in heartbeat form
     HEARTBEAT_nest0_loop0_slice((void *)cxts, 0, lo, hi);
 
     // reduction
