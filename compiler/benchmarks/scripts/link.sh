@@ -18,9 +18,6 @@ for bench in `ls` ; do
   ln -s ../../../benchmarks/$bench/* . ;
 
   ln -s ../commons/Makefile Makefile_heartbeat ;
-  ln -s ../commons/loop_handler.hpp loop_handler.hpp ;
-  ln -s ../commons/loop_handler.cpp loop_handler.cpp ;
-  ln -s ../commons/generate_code.sh generate_code.sh ;
 
   cd ../ ;
 

@@ -16,13 +16,13 @@ benchmarks/spmv/*.dat
 
 # manual_transformation
 manual_transformation/tests/*/Makefile
+manual_transformation/benchmarks/*/main.cpp
 manual_transformation/benchmarks/*/bench.*
 manual_transformation/benchmarks/*/Makefile
 manual_transformation/benchmarks/*/Makefile_heartbeat
 manual_transformation/benchmarks/*/loop_handler.hpp
 manual_transformation/benchmarks/*/loop_handler.cpp
 manual_transformation/benchmarks/*/condor
-manual_transformation/benchmarks/*/main.cpp
 
 manual_transformation/benchmarks/spmv/*.dat
 manual_transformation/benchmarks/spmv/barplotSpeedup.py
@@ -31,17 +31,13 @@ manual_transformation/benchmarks/spmv/barplotSpeedup.py
 compiler/src/build
 compiler/src/compile_commands.json
 
+compiler/benchmarks/*/main.cpp
 compiler/benchmarks/*/bench.*
 compiler/benchmarks/*/Makefile
 compiler/benchmarks/*/Makefile_heartbeat
 compiler/benchmarks/*/loop_handler.hpp
 compiler/benchmarks/*/loop_handler.cpp
 compiler/benchmarks/*/condor
-compiler/benchmarks/*/generate_code.sh
-compiler/benchmarks/*/code_*.hpp
-compiler/benchmarks/*/main.cpp
-compiler/benchmarks/*/level.config
-compiler/benchmarks/*/live_out.config
 
 compiler/benchmarks/spmv/*.dat
 compiler/benchmarks/spmv/barplotSpeedup.py
