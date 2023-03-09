@@ -8,6 +8,10 @@
 
 using namespace mandelbrot;
 
+#if defined(USE_HB_COMPILER)
+bool run_heartbeat = true;
+#endif
+
 int main() {
 
   run_bench([&] {

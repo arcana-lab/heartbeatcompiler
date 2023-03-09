@@ -1,5 +1,6 @@
 #include "bench.hpp"
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cassert>
 #include <vector>
