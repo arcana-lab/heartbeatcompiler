@@ -201,7 +201,7 @@ int64_t loop_handler_level2(
     /*
      * Determine which leftover task to run
      */
-    uint64_t leftoverTaskIndex = leftover_selector(splittingLevel, receivingLevel);
+    uint64_t leftoverTaskIndex = leftover_selector(receivingLevel, splittingLevel);
     taskparts::tpalrts_promote_via_nativefj([&] {
       (*leftover_tasks[leftoverTaskIndex])((void *)cxtsLeftover, 0, (void *)itersArr);
     }, [&] {
