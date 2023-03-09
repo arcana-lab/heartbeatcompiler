@@ -25,7 +25,6 @@ manual_transformation/benchmarks/*/loop_handler.cpp
 manual_transformation/benchmarks/*/condor
 
 manual_transformation/benchmarks/spmv/*.dat
-manual_transformation/benchmarks/spmv/barplotSpeedup.py
 
 # compiler
 compiler/src/build
@@ -40,5 +39,3 @@ compiler/benchmarks/*/loop_handler.cpp
 compiler/benchmarks/*/condor
 
 compiler/benchmarks/spmv/*.dat
-compiler/benchmarks/spmv/barplotSpeedup.py
-
