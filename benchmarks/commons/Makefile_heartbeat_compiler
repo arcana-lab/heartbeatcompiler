@@ -1,0 +1,27 @@
+MACROS_HEARTBEAT_COMPILER += -DUSE_HB_COMPILER $(MACROS_HEARTBEAT)
+FRONTEND_FLAGS_HEARTBEAT_COMPILER = -O1 -Xclang -disable-llvm-passes -emit-llvm
+FLAGS_HEARTBEAT_COMPILER += $(FLAGS_HEARTBEAT)
+OPTS_HEARTBEAT_COMPILER += $(OPTS_HEARTBEAT)
+LIBS_HEARTBEAT_COMPILER += $(LIBS_HEARTBEAT)
+
+# ============================================
+# Heartbeat Compiler
+# ============================================
+main.bc: main.cpp
+	$(CXX) $(MACROS_HEARTBEAT_COMPILER) $(FRONTEND_FLAGS_HEARTBEAT_COMPILER) $(FLAGS_HEARTBEAT_COMPILER) -c $^ -o $@
+
+main_normalized.bc: main.bc
+	noelle-norm $^ -o $@
+
+heartbeat_compiler.bc: main_normalized.bc
+	noelle-parallel-load -noelle-verbose=2 -load /home/yso0488/CAT/lib/HeartBeat.so -heartbeat $(PASS_ARGUMENTS_HEARTBEAT_COMPILER) $^ -o $@
+
+hbc: heartbeat_compiler
+hb_compiler: heartbeat_compiler
+heartbeat_compiler: heartbeat_compiler.bc bench.cpp loop_handler.cpp
+	$(CXX) $(MACROS_HEARTBEAT_COMPILER) $(FLAGS_HEARTBEAT_COMPILER) $(OPTS_HEARTBEAT_COMPILER) $^ -o $@ $(LIBS_HEARTBEAT_COMPILER)
+
+run_hbc: run_heartbeat_compiler
+run_hb_compiler: run_heartbeat_compiler
+run_heartbeat_compiler: heartbeat_compiler
+	TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY_KHZ) ./$<

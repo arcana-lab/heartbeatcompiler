@@ -124,7 +124,47 @@ run_openmp: openmp
 # ============================================
 # Heartbeat
 # ============================================
--include Makefile_heartbeat
+ROLLFORWARD_PATH = $(ROOT_DIR)/rollforward/src
+ROLLFORWARD_INCLUDE = $(ROLLFORWARD_PATH)/x64
+ROLLFORWARDXX_PATH = $(TASKPARTS_PATH)/benchmark/tpal
+ROLLFORWARDXX = $(ROLLFORWARDXX_PATH)/rollforward++
+
+MACROS_HEARTBEAT += $(MACROS)
+
+# whether to enable heartbeat promotion
+# options: true, false
+ENABLE_HEARTBEAT_PROMOTION ?= true
+ifeq ($(ENABLE_HEARTBEAT_PROMOTION), true)
+	MACROS_HEARTBEAT += -DENABLE_HEARTBEAT_PROMOTION
+else
+	MACROS_HEARTBEAT += -DDISABLE_HEARTBEAT_PROMOTION
+endif
+
+# minimum remaining iteration size for heartbeat promotion
+# options: unsigned integer >= 2
+SMALLEST_GRANULARITY ?= 2
+MACROS_HEARTBEAT += -DSMALLEST_GRANULARITY=$(SMALLEST_GRANULARITY)
+
+# whether to chunk loop iterations before calling loop_handler
+# options: true, false
+CHUNK_LOOP_ITERATIONS ?= true
+ifeq ($(CHUNK_LOOP_ITERATIONS), true)
+	MACROS_HEARTBEAT += -DCHUNK_LOOP_ITERATIONS
+endif
+
+# include benchmark heartbeat specific settings
+-include heartbeat.config
+
+FLAGS_HEARTBEAT += $(FLAGS)
+ifeq ($(ENABLE_ROLLFORWARD), true)
+	FLAGS_HEARTBEAT += -I $(ROLLFORWARD_INCLUDE)
+endif
+
+OPTS_HEARTBEAT += $(OPTS)
+LIBS_HEARTBEAT += $(LIBS)
+
+-include Makefile_heartbeat_manual
+-include Makefile_heartbeat_compiler
 
 # ============================================
 # Evaluation
@@ -139,9 +179,10 @@ condor_clean:
 # Other
 # ============================================
 clean:
-	rm -rf baseline opencilk openmp heartbeat ;
-	rm -rf *.s *.o heartbeat_rf ;
+	rm -rf baseline opencilk openmp ;
+	rm -rf heartbeat_manual heartbeat_manual_rf ;
+	rm -rf heartbeat_compiler heartbeat_compiler_rf ;
+	rm -rf *.s *.o ;
 	rm -rf *.bc *.ll ;
-	rm -rf code_*.hpp ;
 
 .PHONY: condor clean
