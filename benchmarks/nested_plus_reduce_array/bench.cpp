@@ -1,23 +1,22 @@
 #include "bench.hpp"
 #include <cstdint>
-#include <cstdlib>
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 #include <functional>
 #include <taskparts/benchmark.hpp>
 #endif
 
-namespace plus_reduce_array {
+namespace nested_plus_reduce_array {
 
 #if defined(INPUT_BENCHMARKING)
-  uint64_t nb_items = 100 * 1000 * 1000;
-#elif defined(INPUT_TPAL)
-  uint64_t nb_items = 100 * 1000 * 1000;
+  uint64_t nb_items1 = 10 * 1000 ;
+  uint64_t nb_items2 = 10 * 1000 ;
 #elif defined(INPUT_TESTING)
-  uint64_t nb_items = 100 * 100 * 100;
+  uint64_t nb_items1 = 10 * 10 ;
+  uint64_t nb_items2 = 10 * 10 ;
 #else
-  #error "Need to select input size: INPUT_{BENCHMARKING, TPAL, TESTING}"
+  #error "Need to select input size: INPUT_{BENCHMARKING, TESTING}"
 #endif
-double *a;
+double **a;
 double result = 0.0;
 
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
@@ -35,22 +34,30 @@ void run_bench(std::function<void()> const &bench_body,
 #endif
 
 void setup() {
-  a = (double*)malloc(sizeof(double)*nb_items);
-  for (uint64_t i = 0; i < nb_items; i++) {
-    a[i] = 1.0;
+  a = (double **)malloc(sizeof(double *) * nb_items1);
+  for (uint64_t i = 0; i < nb_items1; i++) {
+    a[i] = (double *)malloc(sizeof(double) * nb_items1);
+    for (uint64_t j = 0; j < nb_items1; j++) {
+      a[i][j] = 1.0;
+    }
   }
 }
 
 void finishup() {
-  free(a);
+  for (uint64_t i = 0; i < nb_items1; i++) {
+    delete [] a[i];
+  }
+  delete [] a;
 }
 
 #if defined(USE_BASELINE) || defined(TEST_CORRECTNESS)
 
-double plus_reduce_array_serial(double* a, uint64_t lo, uint64_t hi) {
+double nested_plus_reduce_array_serial(double** a, uint64_t lo1, uint64_t hi1, uint64_t lo2, uint64_t hi2) {
   double r = 0.0;
-  for (uint64_t i = lo; i != hi; i++) {
-    r += a[i];
+  for (uint64_t i = lo1; i != hi1; i++) {
+    for (uint64_t j = lo2; j != hi2 ; j++) {
+      r += a[i][j];
+    }
   }
   return r;
 }
@@ -69,10 +76,12 @@ void add_double(void *left, void *right) {
   *(double *)left += *(double *)right;
 }
 
-double plus_reduce_array_opencilk(double* a, uint64_t lo, uint64_t hi) {
+double nested_plus_reduce_array_opencilk(double** a, uint64_t lo1, uint64_t hi1, uint64_t lo2, uint64_t hi2) {
   double cilk_reducer(zero_double, add_double) r;
-  for (uint64_t i = lo; i != hi; i++) {
-    r += a[i];
+  cilk_for (uint64_t i = lo1; i != hi1; i++) {
+    cilk_for (uint64_t j = lo2; j != hi2 ; j++) {
+      r += a[i][j];
+    }
   }
   return r;
 }
@@ -81,11 +90,14 @@ double plus_reduce_array_opencilk(double* a, uint64_t lo, uint64_t hi) {
 
 #include <omp.h>
 
-double plus_reduce_array_openmp(double* a, uint64_t lo, uint64_t hi) {
+double nested_plus_reduce_array_openmp(double** a, uint64_t lo1, uint64_t hi1, uint64_t lo2, uint64_t hi2) {
   double r = 0.0;
   #pragma omp parallel for schedule(static) reduction(+:r)
-  for (uint64_t i = lo; i != hi; i++) {
-    r += a[i];
+  for (uint64_t i = lo1; i != hi1; i++) {
+    #pragma omp parallel for schedule(static) reduction(+:r)
+    for (uint64_t j = lo2; j != hi2 ; j++) {
+      r += a[i][j];
+    }
   }
   return r;
 }
@@ -97,16 +109,17 @@ double plus_reduce_array_openmp(double* a, uint64_t lo, uint64_t hi) {
 #include <stdio.h>
 
 void test_correctness() {
-  double result_ref = plus_reduce_array_serial(a, 0, nb_items);
+  double result_ref = nested_plus_reduce_array_serial(a, 0, nb_items1, 0, nb_items2);
   double epsilon = 0.01;
   if (std::abs(result - result_ref) > epsilon) {
     printf("result = %.2f, result_ref = %.2f\n", result, result_ref);
     printf("\033[0;31mINCORRECT!\033[0m\n");
   } else {
+    printf("result = %.2f, result_ref = %.2f\n", result, result_ref);
     printf("\033[0;32mCORRECT!\033[0m\n");
   }
 }
 
 #endif
 
-} // namespace plus_reduce_array
+} // namespace nested_plus_reduce_array

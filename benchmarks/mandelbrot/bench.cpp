@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <emmintrin.h>
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
+#include <functional>
 #include <taskparts/benchmark.hpp>
 #endif
 

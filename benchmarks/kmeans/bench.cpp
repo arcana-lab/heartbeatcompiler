@@ -4,8 +4,8 @@
 #include <cstdio>
 #include <cassert>
 #include <thread>
-#include <functional>
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
+#include <functional>
 #include <taskparts/benchmark.hpp>
 #endif
 

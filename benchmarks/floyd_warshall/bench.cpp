@@ -3,8 +3,8 @@
 #include <cstdlib>
 #include <climits>
 #include <algorithm>
-#include <functional>
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
+#include <functional>
 #include <taskparts/benchmark.hpp>
 #endif
 
