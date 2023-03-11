@@ -17,7 +17,7 @@ rm -rf build/ ;
 # Build
 mkdir build ; 
 cd build ; 
-${CMAKE} -DCMAKE_INSTALL_PREFIX="~/CAT" -DCMAKE_BUILD_TYPE=Debug ../ ; 
+${CMAKE} -DCMAKE_INSTALL_PREFIX="./" -DCMAKE_BUILD_TYPE=Debug ../ ; 
 make -j ;
 make install ;
 cd ../ 

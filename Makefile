@@ -13,6 +13,7 @@ patches: runtime noelle
 
 build: patches
 	cd noelle ; make clean ; make uninstall ; make src ;
+	cd compiler ; make clean ; make compiler ;
 
 link:
 	make -C benchmarks link ;
