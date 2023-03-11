@@ -19,8 +19,8 @@ include(AddLLVM)
 
 message(STATUS "LLVM_DIR IS ${LLVM_CMAKE_DIR}.")
 
-include_directories(${LLVM_INCLUDE_DIRS} 
-  /home/yso0488/projects/noelle1/install/include
+include_directories(${LLVM_INCLUDE_DIRS}
+  ../../../noelle/install/include
   )
 
 # Declare the LLVM pass to compile

@@ -1,21 +1,19 @@
 .vscode/
 
-runtime/
-rollforward/
-tpal/
+noelle
+runtime
+rollforward
+tpal
 
-pythonVirtualEnv/
-results/
-plots/
+pythonVirtualEnv
+results
+plots
 
 # benchmarks
 benchmarks/*/Makefile*
 benchmarks/*/loop_handler.*
 benchmarks/*/condor
 benchmarks/spmv/*.dat
-
-# manual_transformation
-manual_transformation/tests/*/Makefile*
 
 # compiler
 compiler/src/build
