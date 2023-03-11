@@ -1,0 +1,31 @@
+# Set the universe
+Universe = vanilla
+
+Getenv = True
+
+# Describe the target machine
+Requirements = (Machine == "fix.cs.northwestern.edu")
+
+Rank = TARGET.Mips
+Copy_To_Spool = False
+
+# Notification
+Notification = error
+Notify_User = 
+
+# Log files
+Output = condor.out
+Error = condor.err
+Log = condor.log
+
+# Job type
++IsWholeMachineJob      = true
++IsSuspensionJob        = false
+
+# Job priority
+priority = 0
+
+# Job
+InitialDir = ./
+Executable = ./run.sh
+Queue
