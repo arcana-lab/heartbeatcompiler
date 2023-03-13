@@ -1,6 +1,6 @@
 #pragma once
 
-#include "HeartBeatTransformation.hpp"
+#include "HeartbeatTransformation.hpp"
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Support/raw_ostream.h"
@@ -29,11 +29,11 @@
 using namespace llvm ;
 using namespace llvm::noelle ;
 
-class HeartBeat : public ModulePass {
+class Heartbeat : public ModulePass {
   public:
     static char ID; 
 
-    HeartBeat();
+    Heartbeat();
 
     bool doInitialization (Module &M) override ;
 
@@ -46,7 +46,7 @@ class HeartBeat : public ModulePass {
     StringRef functionSubString;
 
     /*
-     * Step 1: Identify all loops in functions starts with "HEARTBEAT_"
+     * Step 1: Identify all loops in functions starts with "Heartbeat_"
      */
     std::set<LoopDependenceInfo *> selectHeartbeatLoops (
       Noelle &noelle,
@@ -58,7 +58,7 @@ class HeartBeat : public ModulePass {
      */
     void performLoopLevelAnalysis (
       Noelle &noelle,
-      const std::set<LoopDependenceInfo *> &heartbeatLoops
+      const std::set<LoopDependenceInfo *> &HeartbeatLoops
     );
 
     void setLoopLevelAndRoot (
@@ -84,7 +84,7 @@ class HeartBeat : public ModulePass {
      */
     void handleLiveOut (
       Noelle &noelle,
-      const std::set<LoopDependenceInfo *> &heartbeatLoops
+      const std::set<LoopDependenceInfo *> &HeartbeatLoops
     );
 
     bool containsLiveOut = false;
@@ -94,7 +94,7 @@ class HeartBeat : public ModulePass {
      */
     void performConstantLiveInAnalysis (
       Noelle &noelle,
-      const std::set<LoopDependenceInfo *> &heartbeatLoops
+      const std::set<LoopDependenceInfo *> &HeartbeatLoops
     );
 
     void constantLiveInToLoop(
@@ -118,7 +118,7 @@ class HeartBeat : public ModulePass {
     std::unordered_map<int, int> constantLiveInsArgIndexToIndex;
 
     /*
-     * Step 5: parallelize root loop into heartbeat form
+     * Step 5: parallelize root loop into Heartbeat form
      */
     bool parallelizeRootLoop (
       Noelle &noelle,
@@ -143,13 +143,13 @@ class HeartBeat : public ModulePass {
       LoopDependenceInfo *ldi
     );
 
-    bool createHeartBeatLoop (
+    bool createHeartbeatLoop (
       Noelle &noelle,
       LoopDependenceInfo *ldi,
       ParallelizationTechnique **usedTechnique
       );
 
-    std::unordered_map<LoopDependenceInfo *, HeartBeatTransformation *> loopToHeartBeatTransformation;
+    std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> loopToHeartbeatTransformation;
 
     /*
      * Step 7: create slice tasks wrapper
@@ -165,7 +165,7 @@ class HeartBeat : public ModulePass {
      */
     void createLeftoverTasks(
       Noelle &noelle,
-      std::set<LoopDependenceInfo *> &heartbeatLoops
+      std::set<LoopDependenceInfo *> &HeartbeatLoops
     );
 
     std::vector<Constant *> leftoverTasks;

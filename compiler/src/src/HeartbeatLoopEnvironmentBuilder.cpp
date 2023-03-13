@@ -1,7 +1,7 @@
-#include "HeartBeatLoopEnvironmentBuilder.hpp"
+#include "HeartbeatLoopEnvironmentBuilder.hpp"
 #include "noelle/core/Architecture.hpp"
 
-HeartBeatLoopEnvironmentBuilder::HeartBeatLoopEnvironmentBuilder(
+HeartbeatLoopEnvironmentBuilder::HeartbeatLoopEnvironmentBuilder(
   LLVMContext &cxt,
   LoopEnvironment *environment,
   std::function<bool(uint32_t variableID, bool isLiveOut)>
@@ -72,7 +72,7 @@ HeartBeatLoopEnvironmentBuilder::HeartBeatLoopEnvironmentBuilder(
   return;
 }
 
-void HeartBeatLoopEnvironmentBuilder::initializeBuilder(
+void HeartbeatLoopEnvironmentBuilder::initializeBuilder(
   const std::vector<Type *> &varTypes,
   const std::set<uint32_t> &singleVarIDs,
   const std::set<uint32_t> &reducibleVarIDs,
@@ -142,13 +142,13 @@ void HeartBeatLoopEnvironmentBuilder::initializeBuilder(
   return;
 }
 
-void HeartBeatLoopEnvironmentBuilder::createUsers(uint32_t numUsers) {
+void HeartbeatLoopEnvironmentBuilder::createUsers(uint32_t numUsers) {
   for (auto i = 0; i < numUsers; i++) {
-    this->envUsers.push_back(new HeartBeatLoopEnvironmentUser(this->singleEnvIDToIndex, this->reducibleEnvIDToIndex, this->constantVars));
+    this->envUsers.push_back(new HeartbeatLoopEnvironmentUser(this->singleEnvIDToIndex, this->reducibleEnvIDToIndex, this->constantVars));
   }
 }
 
-bool HeartBeatLoopEnvironmentBuilder::hasVariableBeenReduced(uint32_t id) const {
+bool HeartbeatLoopEnvironmentBuilder::hasVariableBeenReduced(uint32_t id) const {
   assert(this->singleEnvIDToIndex.find(id) != this->singleEnvIDToIndex.end() || this->reducibleEnvIDToIndex.find(id) != this->reducibleEnvIDToIndex.end() && "This environment variable is not included in the builder\n");
   bool isSingle = false;
   bool isReduce = false;
@@ -170,7 +170,7 @@ bool HeartBeatLoopEnvironmentBuilder::hasVariableBeenReduced(uint32_t id) const 
   return isReduce;
 }
 
-void HeartBeatLoopEnvironmentBuilder::allocateNextLevelReducibleEnvironmentArray(IRBuilder<> builder) {
+void HeartbeatLoopEnvironmentBuilder::allocateNextLevelReducibleEnvironmentArray(IRBuilder<> builder) {
   if (this->getReducibleEnvironmentSize() > 0) {
     auto int8 = IntegerType::get(builder.getContext(), 8);
     auto int8_ptr = PointerType::getUnqual(int8);
@@ -180,7 +180,7 @@ void HeartBeatLoopEnvironmentBuilder::allocateNextLevelReducibleEnvironmentArray
       "liveOutEnvForKids"
     );
 
-    auto envUser = (HeartBeatLoopEnvironmentUser *)this->getUser(0);
+    auto envUser = (HeartbeatLoopEnvironmentUser *)this->getUser(0);
     builder.CreateStore(
       this->reducibleEnvArrayNextLevel,
       envUser->getLiveOutEnvBitcastInst()
@@ -191,7 +191,7 @@ void HeartBeatLoopEnvironmentBuilder::allocateNextLevelReducibleEnvironmentArray
   return;
 }
 
-void HeartBeatLoopEnvironmentBuilder::generateNextLevelReducibleEnvironmentVariables(IRBuilder <> builder) {
+void HeartbeatLoopEnvironmentBuilder::generateNextLevelReducibleEnvironmentVariables(IRBuilder <> builder) {
   if (this->getReducibleEnvironmentSize() <= 0) {
     return;
   }
@@ -237,7 +237,7 @@ void HeartBeatLoopEnvironmentBuilder::generateNextLevelReducibleEnvironmentVaria
   return;
 }
 
-BasicBlock * HeartBeatLoopEnvironmentBuilder::reduceLiveOutVariablesInTask(
+BasicBlock * HeartbeatLoopEnvironmentBuilder::reduceLiveOutVariablesInTask(
     int taskIndex,
     BasicBlock *loopHandlerBB,
     IRBuilder<> loopHandlerBuilder,
@@ -362,7 +362,7 @@ BasicBlock * HeartBeatLoopEnvironmentBuilder::reduceLiveOutVariablesInTask(
   return afterReductionBB;
 }
 
-void HeartBeatLoopEnvironmentBuilder::allocateSingleEnvironmentArray(IRBuilder<> builder) {
+void HeartbeatLoopEnvironmentBuilder::allocateSingleEnvironmentArray(IRBuilder<> builder) {
   if (this->getSingleEnvironmentSize() > 0) {
     auto int8 = IntegerType::get(builder.getContext(), 8);
     auto ptrTy_int8 = PointerType::getUnqual(int8);
@@ -379,7 +379,7 @@ void HeartBeatLoopEnvironmentBuilder::allocateSingleEnvironmentArray(IRBuilder<>
   return;
 }
 
-void HeartBeatLoopEnvironmentBuilder::allocateReducibleEnvironmentArray(IRBuilder<> builder) {
+void HeartbeatLoopEnvironmentBuilder::allocateReducibleEnvironmentArray(IRBuilder<> builder) {
   if (this->getReducibleEnvironmentSize() > 0) {
     auto int8 = IntegerType::get(builder.getContext(), 8);
     auto ptrTy_int8 = PointerType::getUnqual(int8);
@@ -394,7 +394,7 @@ void HeartBeatLoopEnvironmentBuilder::allocateReducibleEnvironmentArray(IRBuilde
   return;
 }
 
-void HeartBeatLoopEnvironmentBuilder::generateEnvVariables(IRBuilder<> builder, uint32_t reducerCount) {
+void HeartbeatLoopEnvironmentBuilder::generateEnvVariables(IRBuilder<> builder, uint32_t reducerCount) {
 
   auto int64 = IntegerType::get(builder.getContext(), 64);
   auto zeroV = cast<Value>(ConstantInt::get(int64, 0));
@@ -507,7 +507,7 @@ void HeartBeatLoopEnvironmentBuilder::generateEnvVariables(IRBuilder<> builder, 
   return;
 }
 
-Value * HeartBeatLoopEnvironmentBuilder::getEnvironmentVariable(uint32_t id) const {
+Value * HeartbeatLoopEnvironmentBuilder::getEnvironmentVariable(uint32_t id) const {
   // Assumption: this function is only invoked to get the live-in environment variable
   assert(this->singleEnvIDToIndex.find(id) != this->singleEnvIDToIndex.end()
          && "The live-in environment variable is not included in the builder\n");
@@ -518,7 +518,7 @@ Value * HeartBeatLoopEnvironmentBuilder::getEnvironmentVariable(uint32_t id) con
   return (*iter).second;
 }
 
-BasicBlock * HeartBeatLoopEnvironmentBuilder::reduceLiveOutVariablesWithInitialValue(
+BasicBlock * HeartbeatLoopEnvironmentBuilder::reduceLiveOutVariablesWithInitialValue(
     BasicBlock *bb,
     IRBuilder<> &builder,
     const std::unordered_map<uint32_t, Instruction::BinaryOps> &reducibleBinaryOps,
@@ -577,7 +577,7 @@ BasicBlock * HeartBeatLoopEnvironmentBuilder::reduceLiveOutVariablesWithInitialV
   return afterReductionBB;
 }
 
-Value * HeartBeatLoopEnvironmentBuilder::getAccumulatedReducedEnvironmentVariable(uint32_t id) const {
+Value * HeartbeatLoopEnvironmentBuilder::getAccumulatedReducedEnvironmentVariable(uint32_t id) const {
   assert(this->reducibleEnvIDToIndex.find(id) != this->reducibleEnvIDToIndex.end()
          && "The environment variable is not included in the builder\n");
   auto ind = this->reducibleEnvIDToIndex.at(id);

@@ -2,7 +2,7 @@
 
 using namespace llvm::noelle;
 
-void HeartBeat::createLeftoverTasks(
+void Heartbeat::createLeftoverTasks(
   Noelle &noelle,
   std::set<LoopDependenceInfo *> &heartbeatLoops
 ) {
@@ -116,7 +116,7 @@ void HeartBeat::createLeftoverTasks(
 
         // find the slice task at the corresponding level
         auto loop = this->levelToLoop[level];
-        auto hbTask = this->loopToHeartBeatTransformation[loop]->getHeartBeatTask();
+        auto hbTask = this->loopToHeartbeatTransformation[loop]->getHeartbeatTask();
         assert(hbTask != nullptr && "No Heartbeat task found for this loop\n");
 
         // Create the call to the heartbeat loop

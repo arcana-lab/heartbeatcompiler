@@ -5,7 +5,7 @@ file(GLOB CATPassSrc "*.cpp")
 set_source_files_properties(${CATPassSrc} PROPERTIES COMPILE_FLAGS " -std=c++17")
 
 # Name of the LLVM pass
-set(CATPassName "HeartBeat")
+set(CATPassName "Heartbeat")
 
 # configure LLVM 
 find_package(LLVM REQUIRED CONFIG)

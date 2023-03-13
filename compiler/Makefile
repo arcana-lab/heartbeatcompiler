@@ -11,6 +11,5 @@ clean:
 	cd example ; make clean ;
 	find ./ -name .cache -exec rm -rv {} +
 	find ./ -name .clangd -exec rm -rv {} +
-	make -C benchmarks clean ;
 
 .PHONY: compiler clean

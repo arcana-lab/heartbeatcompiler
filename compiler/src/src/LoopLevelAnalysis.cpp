@@ -2,7 +2,7 @@
 
 using namespace llvm::noelle;
 
-void HeartBeat::performLoopLevelAnalysis (
+void Heartbeat::performLoopLevelAnalysis (
   Noelle &noelle,
   const std::set<LoopDependenceInfo *> &heartbeatLoops
 ) {
@@ -90,7 +90,7 @@ void HeartBeat::performLoopLevelAnalysis (
   return;
 }
 
-void HeartBeat::setLoopLevelAndRoot(
+void Heartbeat::setLoopLevelAndRoot(
     LoopDependenceInfo *ldi,
     std::unordered_map<LoopDependenceInfo *, CallGraphFunctionNode *> &loopToCallGraphNode,
     std::unordered_map<CallGraphFunctionNode *, LoopDependenceInfo *> &callGraphNodeToLoop,

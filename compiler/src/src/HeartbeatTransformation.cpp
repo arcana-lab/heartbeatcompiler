@@ -1,12 +1,12 @@
-#include "HeartBeatTask.hpp"
-#include "HeartBeatTransformation.hpp"
+#include "HeartbeatTask.hpp"
+#include "HeartbeatTransformation.hpp"
 #include "noelle/core/BinaryReductionSCC.hpp"
 #include "noelle/core/Architecture.hpp"
 
 using namespace llvm;
 using namespace llvm::noelle;
 
-HeartBeatTransformation::HeartBeatTransformation (
+HeartbeatTransformation::HeartbeatTransformation (
   Noelle &noelle,
   LoopDependenceInfo *ldi,
   uint64_t numLevels,
@@ -15,7 +15,7 @@ HeartBeatTransformation::HeartBeatTransformation (
   std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns,
   std::unordered_map<int, int> &constantLiveInsArgIndexToIndex,
   std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns,
-  std::unordered_map<LoopDependenceInfo *, HeartBeatTransformation *> &loopToHeartBeatTransformation,
+  std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> &loopToHeartbeatTransformation,
   std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop,
   std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToChunksize
 ) : DOALL{noelle},
@@ -28,7 +28,7 @@ HeartBeatTransformation::HeartBeatTransformation (
     constantLiveInsArgIndexToIndex{constantLiveInsArgIndexToIndex},
     loopToConstantLiveIns{loopToConstantLiveIns},
     hbTask{nullptr},
-    loopToHeartBeatTransformation{loopToHeartBeatTransformation},
+    loopToHeartbeatTransformation{loopToHeartbeatTransformation},
     loopToCallerLoop{loopToCallerLoop},
     loopToChunksize{loopToChunksize} {
 
@@ -55,7 +55,7 @@ HeartBeatTransformation::HeartBeatTransformation (
   return ;
 }
 
-bool HeartBeatTransformation::apply (
+bool HeartbeatTransformation::apply (
   LoopDependenceInfo *loop,
   Heuristics *h
 ) {
@@ -103,7 +103,7 @@ bool HeartBeatTransformation::apply (
   /*
    * Generate an empty task for the heartbeat execution.
    */
-  this->hbTask = new HeartBeatTask(this->sliceTaskSignature, *program, this->loopToLevel[this->ldi], this->containsLiveOut,
+  this->hbTask = new HeartbeatTask(this->sliceTaskSignature, *program, this->loopToLevel[this->ldi], this->containsLiveOut,
     std::string("HEARTBEAT_loop").append(std::to_string(this->loopToLevel[ldi])).append("_slice")
   );
   // hbTask->getTaskBody()->setName(std::string("HEARTBEAT_loop").append(std::to_string(this->loopToLevel[ldi])).append("_slice"));
@@ -142,7 +142,7 @@ bool HeartBeatTransformation::apply (
   this->initializeEnvironmentBuilder(loop, isReducible, shouldThisVariableBeSkipped, isConstantLiveInVariable);
 
   /*
-   * Clone loop into the single task used by HeartBeat
+   * Clone loop into the single task used by Heartbeat
    */
   this->cloneSequentialLoop(loop, 0);
   errs() << "task after cloning sequential loop: " << *(hbTask->getTaskBody()) << "\n";
@@ -150,7 +150,7 @@ bool HeartBeatTransformation::apply (
   /*
    * Load all loop live-in values at the entry point of the task.
    */
-  auto envUser = (HeartBeatLoopEnvironmentUser *)this->envBuilder->getUser(0);
+  auto envUser = (HeartbeatLoopEnvironmentUser *)this->envBuilder->getUser(0);
   for (auto envID : loopEnvironment->getEnvIDsOfLiveInVars()) {
     envUser->addLiveIn(envID);
   }
@@ -409,7 +409,7 @@ bool HeartBeatTransformation::apply (
   // auto singleEnvPtr = &*(argIter++);
   // auto reducibleEnvPtr = &*(argIter++);
   // auto taskID = &*(argIter++);
-  // auto hbEnvBuilder = (HeartBeatLoopEnvironmentBuilder *)this->envBuilder;
+  // auto hbEnvBuilder = (HeartbeatLoopEnvironmentBuilder *)this->envBuilder;
   // auto callToHandler = cast<CallInst>(bbBuilder.CreateCall(loopHandlerFunction, ArrayRef<Value *>({
   //   bbBuilder.CreateZExtOrTrunc(cloneCurrentIVValue, firstIterationValue->getType()),
   //   lastIterationValue,
@@ -622,7 +622,7 @@ bool HeartBeatTransformation::apply (
 
     // do the final reduction and store into reduction array for all live-outs
     for (auto liveOutEnvID : envUser->getEnvIDsOfLiveOutVars()) {
-      auto reductionArrayForKids = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getLiveOutReductionArray(liveOutEnvID);
+      auto reductionArrayForKids = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getLiveOutReductionArray(liveOutEnvID);
       errs() << "reduction array for liveOutEnv id: " << liveOutEnvID << " " << *reductionArrayForKids << "\n";
 
       auto int64 = IntegerType::get(this->noelle.getProgramContext(), 64);
@@ -741,10 +741,10 @@ bool HeartBeatTransformation::apply (
    * Add the call to the function that includes the heartbeat loop from the pre-header of the original loop.
    */
   if (this->loopToLevel[ldi] == 0) {  // the loop we're dealing with is a root loop, invoke this root loop in the original function
-    this->invokeHeartBeatFunctionAsideOriginalLoop(loop);
+    this->invokeHeartbeatFunctionAsideOriginalLoop(loop);
   } else {
     errs() << "the loop is not a root loop, need to invoke this loop from it's parent loop\n";
-    this->invokeHeartBeatFunctionAsideCallerLoop(loop);
+    this->invokeHeartbeatFunctionAsideCallerLoop(loop);
   }
 
   /*
@@ -761,7 +761,7 @@ bool HeartBeatTransformation::apply (
   return true;
 }
 
-void HeartBeatTransformation::initializeEnvironmentBuilder(
+void HeartbeatTransformation::initializeEnvironmentBuilder(
   LoopDependenceInfo *LDI, 
   std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeReduced,
   std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeSkipped,
@@ -780,7 +780,7 @@ void HeartBeatTransformation::initializeEnvironmentBuilder(
 
   auto program = this->noelle.getProgram();
   // envBuilder is a field in ParallelizationTechnique
-  this->envBuilder = new HeartBeatLoopEnvironmentBuilder(program->getContext(),
+  this->envBuilder = new HeartbeatLoopEnvironmentBuilder(program->getContext(),
                                                          environment,
                                                          shouldThisVariableBeReduced,
                                                          shouldThisVariableBeSkipped,
@@ -793,13 +793,13 @@ void HeartBeatTransformation::initializeEnvironmentBuilder(
   return;
 }
 
-void HeartBeatTransformation::initializeLoopEnvironmentUsers() {
+void HeartbeatTransformation::initializeLoopEnvironmentUsers() {
   for (auto i = 0; i < this->tasks.size(); ++i) {
-    auto task = (HeartBeatTask *)this->tasks[i];
+    auto task = (HeartbeatTask *)this->tasks[i];
     assert(task != nullptr);
-    auto envBuilder = (HeartBeatLoopEnvironmentBuilder *)this->envBuilder;
+    auto envBuilder = (HeartbeatLoopEnvironmentBuilder *)this->envBuilder;
     assert(envBuilder != nullptr);
-    auto envUser = (HeartBeatLoopEnvironmentUser *)this->envBuilder->getUser(i);
+    auto envUser = (HeartbeatLoopEnvironmentUser *)this->envBuilder->getUser(i);
     assert(envUser != nullptr);
 
     auto entryBlock = task->getEntry();
@@ -887,10 +887,10 @@ void HeartBeatTransformation::initializeLoopEnvironmentUsers() {
   return;
 }
 
-void HeartBeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceInfo *LDI, int taskIndex) {
+void HeartbeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceInfo *LDI, int taskIndex) {
   auto task = this->tasks[taskIndex];
   auto env = LDI->getEnvironment();
-  auto envUser = (HeartBeatLoopEnvironmentUser *)this->envBuilder->getUser(taskIndex);
+  auto envUser = (HeartbeatLoopEnvironmentUser *)this->envBuilder->getUser(taskIndex);
 
   IRBuilder<> builder{ task->getEntry() };
 
@@ -954,7 +954,7 @@ void HeartBeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceIn
   return;
 }
 
-void HeartBeatTransformation::setReducableVariablesToBeginAtIdentityValue(LoopDependenceInfo *LDI, int taskIndex) {
+void HeartbeatTransformation::setReducableVariablesToBeginAtIdentityValue(LoopDependenceInfo *LDI, int taskIndex) {
   assert(taskIndex < this->tasks.size());
   auto task = this->tasks[taskIndex];
   assert(task != nullptr);
@@ -977,7 +977,7 @@ void HeartBeatTransformation::setReducableVariablesToBeginAtIdentityValue(LoopDe
   auto sccdag = sccManager->getSCCDAG();
 
   for (auto envID : environment->getEnvIDsOfLiveOutVars()) {
-    auto isThisLiveOutVariableReducible = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->hasVariableBeenReduced(envID);
+    auto isThisLiveOutVariableReducible = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->hasVariableBeenReduced(envID);
     if (!isThisLiveOutVariableReducible) {
       continue;
     }
@@ -1004,7 +1004,7 @@ void HeartBeatTransformation::setReducableVariablesToBeginAtIdentityValue(LoopDe
   return;
 }
 
-void HeartBeatTransformation::generateCodeToStoreLiveOutVariables(LoopDependenceInfo *LDI, int taskIndex) {
+void HeartbeatTransformation::generateCodeToStoreLiveOutVariables(LoopDependenceInfo *LDI, int taskIndex) {
   auto mm = this->noelle.getMetadataManager();
   auto env = LDI->getEnvironment();
   auto task = this->tasks[taskIndex];
@@ -1031,7 +1031,7 @@ void HeartBeatTransformation::generateCodeToStoreLiveOutVariables(LoopDependence
   auto sccManager = LDI->getSCCManager();
   auto loopSCCDAG = sccManager->getSCCDAG();
 
-  auto envUser = (HeartBeatLoopEnvironmentUser *)this->envBuilder->getUser(taskIndex);
+  auto envUser = (HeartbeatLoopEnvironmentUser *)this->envBuilder->getUser(taskIndex);
   for (auto envID : envUser->getEnvIDsOfLiveOutVars()) {
     auto producer = cast<Instruction>(env->getProducer(envID));
     assert(producer != nullptr);
@@ -1044,9 +1044,9 @@ void HeartBeatTransformation::generateCodeToStoreLiveOutVariables(LoopDependence
     errs() << "size of producer clones: " << producerClones.size() << "\n";
 
     auto envType = producer->getType();
-    auto isReduced = (HeartBeatLoopEnvironmentBuilder *)this->envBuilder->hasVariableBeenReduced(envID);
+    auto isReduced = (HeartbeatLoopEnvironmentBuilder *)this->envBuilder->hasVariableBeenReduced(envID);
     if (isReduced) {
-      envUser->createReducableEnvPtr(entryBuilder, envID, envType, this->numTaskInstances, ((HeartBeatTask *)task)->getMyIndexArg());
+      envUser->createReducableEnvPtr(entryBuilder, envID, envType, this->numTaskInstances, ((HeartbeatTask *)task)->getMyIndexArg());
     } else {
       errs() << "All heartbeat loop live-outs must be reducible!\n";
       abort();
@@ -1108,7 +1108,7 @@ void HeartBeatTransformation::generateCodeToStoreLiveOutVariables(LoopDependence
   return;
 }
 
-void HeartBeatTransformation::allocateNextLevelReducibleEnvironmentInsideTask(LoopDependenceInfo *LDI, int taskIndex) {
+void HeartbeatTransformation::allocateNextLevelReducibleEnvironmentInsideTask(LoopDependenceInfo *LDI, int taskIndex) {
   auto loopStructure = LDI->getLoopStructure();
   auto loopFunction = loopStructure->getFunction();
 
@@ -1121,26 +1121,26 @@ void HeartBeatTransformation::allocateNextLevelReducibleEnvironmentInsideTask(Lo
 
   IRBuilder<> builder{ taskEntry };
   builder.SetInsertPoint(entryTerminator);
-  ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->allocateNextLevelReducibleEnvironmentArray(builder);
-  ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->generateNextLevelReducibleEnvironmentVariables(builder);
+  ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->allocateNextLevelReducibleEnvironmentArray(builder);
+  ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->generateNextLevelReducibleEnvironmentVariables(builder);
 
   // the pointer to the liveOutEnvironment array (if any)
   // is now pointing at the liveOutEnvironment array for kids,
   // need to reset it before returns
   // Fix: only reset the environment when there's a live-out environment for the loop
-  if (((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentSize() > 0) {
+  if (((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentSize() > 0) {
     auto taskExit = task->getExit();
     auto exitReturnInst = taskExit->getTerminator();
     errs() << "terminator of the exit block of task " << *exitReturnInst << "\n";
     IRBuilder exitBuilder { taskExit };
     exitBuilder.SetInsertPoint(exitReturnInst);
-    ((HeartBeatLoopEnvironmentUser *)this->envBuilder->getUser(0))->resetReducibleEnvironmentArray(exitBuilder);
+    ((HeartbeatLoopEnvironmentUser *)this->envBuilder->getUser(0))->resetReducibleEnvironmentArray(exitBuilder);
   }
 
   return;
 }
 
-BasicBlock * HeartBeatTransformation::performReductionAfterCallingLoopHandler(LoopDependenceInfo *LDI, int taskIndex,BasicBlock *loopHandlerBB, Instruction *cmpInst, BasicBlock *bottomHalfBB, Value *numOfReducerV) {
+BasicBlock * HeartbeatTransformation::performReductionAfterCallingLoopHandler(LoopDependenceInfo *LDI, int taskIndex,BasicBlock *loopHandlerBB, Instruction *cmpInst, BasicBlock *bottomHalfBB, Value *numOfReducerV) {
   IRBuilder<> builder { loopHandlerBB };
 
   auto loopStructure = LDI->getLoopStructure();
@@ -1153,7 +1153,7 @@ BasicBlock * HeartBeatTransformation::performReductionAfterCallingLoopHandler(Lo
   std::unordered_map<uint32_t, Instruction::BinaryOps> reducibleBinaryOps;
   std::unordered_map<uint32_t, Value *> initialValues;
   for (auto envID : environment->getEnvIDsOfLiveOutVars()) {
-    auto isReduced = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->hasVariableBeenReduced(envID);
+    auto isReduced = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->hasVariableBeenReduced(envID);
     if (!isReduced) {
       errs() << "Heartbeat live-outs must all be reducible\n";
       abort();
@@ -1177,12 +1177,12 @@ BasicBlock * HeartBeatTransformation::performReductionAfterCallingLoopHandler(Lo
     initialValues[envID] = castToCorrectReducibleType(builder, loopEntryProducerPHIClone, producer->getType());
   }
 
-  auto afterReductionBB = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->reduceLiveOutVariablesInTask(taskIndex, loopHandlerBB, builder, reducibleBinaryOps, initialValues, cmpInst, bottomHalfBB, numOfReducerV);
+  auto afterReductionBB = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->reduceLiveOutVariablesInTask(taskIndex, loopHandlerBB, builder, reducibleBinaryOps, initialValues, cmpInst, bottomHalfBB, numOfReducerV);
 
   return afterReductionBB;
 }
 
-void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
+void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   LoopDependenceInfo *LDI
 ) {
 
@@ -1253,10 +1253,10 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
   // Store the live-in/live-out environment into the context
   auto firstBBTerminator = &*firstBB->getTerminator();
   builder.SetInsertPoint(firstBBTerminator);
-  if (((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentSize() > 0) {
+  if (((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentSize() > 0) {
     errs() << "we have live-in environments" << "\n";
-    // auto liveInEnvCasted = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArrayPointer();
-    auto liveInEnv = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArray();
+    // auto liveInEnvCasted = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArrayPointer();
+    auto liveInEnv = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArray();
     auto gepInst = builder.CreateInBoundsGEP(
       contextArrayAlloca,
       ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine), ConstantInt::get(builder.getInt64Ty(), 0 /* the index for storing live-in environment */) })
@@ -1267,10 +1267,10 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
     );
     builder.CreateStore(liveInEnv, gepCasted);
   }
-  if (((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentSize() > 0) {
+  if (((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentSize() > 0) {
     errs() << "we have live-out environments" << "\n";
-    // auto liveOutEnvCasted = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArrayPointer();
-    auto liveOutEnv = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArray();
+    // auto liveOutEnvCasted = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArrayPointer();
+    auto liveOutEnv = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArray();
     auto gepInst = builder.CreateInBoundsGEP(
       contextArrayAlloca,
       ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine), ConstantInt::get(builder.getInt64Ty(), 1 /* the index for storing live-out environment */) })
@@ -1306,11 +1306,11 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
   /*
    * Fetch the pointer to the environment.
    */
-  auto singleEnvPtr = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArrayPointer();
+  auto singleEnvPtr = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArrayPointer();
   if (singleEnvPtr) {
     errs() << "singleEnvPtr" << *singleEnvPtr << "\n";
   }
-  auto reducibleEnvPtr = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArrayPointer();
+  auto reducibleEnvPtr = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArrayPointer();
   if (reducibleEnvPtr) {
     errs() << "reducibleEnvPtr" << *reducibleEnvPtr << "\n";
   }
@@ -1327,7 +1327,7 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
   // auto lastIteratioinArgument = &*(argIter++);
   // auto taskBody = this->tasks[0]->getTaskBody();
   // assert(taskBody != nullptr);
-  // auto hbEnvBuilder = (HeartBeatLoopEnvironmentBuilder *)this->envBuilder;
+  // auto hbEnvBuilder = (HeartbeatLoopEnvironmentBuilder *)this->envBuilder;
   // doallBuilder.CreateCall(loopDispatcherFunction, ArrayRef<Value *>({
   //   doallBuilder.CreateZExtOrTrunc(firstIterationGoverningIVValue, firstIterationArgument->getType()),
   //   doallBuilder.CreateZExtOrTrunc(lastIterationGoverningIVValue, lastIteratioinArgument->getType()),
@@ -1390,7 +1390,7 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideOriginalLoop (
   return ;
 }
 
-void HeartBeatTransformation::allocateEnvironmentArray(LoopDependenceInfo *LDI) {
+void HeartbeatTransformation::allocateEnvironmentArray(LoopDependenceInfo *LDI) {
   auto loopStructure = LDI->getLoopStructure();
   auto loopFunction = loopStructure->getFunction();
 
@@ -1408,12 +1408,12 @@ void HeartBeatTransformation::allocateEnvironmentArray(LoopDependenceInfo *LDI) 
    */
   uint32_t reducerCount = 1;
   IRBuilder<> builder{ firstBBTerminator };
-  ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->allocateSingleEnvironmentArray(builder);
-  ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->allocateReducibleEnvironmentArray(builder);
-  ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->generateEnvVariables(builder, reducerCount);
+  ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->allocateSingleEnvironmentArray(builder);
+  ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->allocateReducibleEnvironmentArray(builder);
+  ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->generateEnvVariables(builder, reducerCount);
 }
 
-void HeartBeatTransformation::allocateEnvironmentArrayInCallerTask(HeartBeatTask *callerHBTask) {
+void HeartbeatTransformation::allocateEnvironmentArrayInCallerTask(HeartbeatTask *callerHBTask) {
   auto callerFunction = callerHBTask->getTaskBody();
 
   auto firstBB = callerFunction->begin();
@@ -1421,12 +1421,12 @@ void HeartBeatTransformation::allocateEnvironmentArrayInCallerTask(HeartBeatTask
 
   uint32_t reducerCount = 1;
   IRBuilder<> builder{ firstBBTerminator };
-  ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->allocateSingleEnvironmentArray(builder);
-  ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->allocateReducibleEnvironmentArray(builder);
-  ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->generateEnvVariables(builder, reducerCount);
+  ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->allocateSingleEnvironmentArray(builder);
+  ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->allocateReducibleEnvironmentArray(builder);
+  ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->generateEnvVariables(builder, reducerCount);
 }
 
-void HeartBeatTransformation::populateLiveInEnvironment(LoopDependenceInfo *LDI) {
+void HeartbeatTransformation::populateLiveInEnvironment(LoopDependenceInfo *LDI) {
   auto mm = this->noelle.getMetadataManager();
   auto env = LDI->getEnvironment();
   IRBuilder<> builder(this->entryPointOfParallelizedLoop);
@@ -1435,12 +1435,12 @@ void HeartBeatTransformation::populateLiveInEnvironment(LoopDependenceInfo *LDI)
     /*
      * Skip the environment variable if it's not included in the builder
      */
-    if (!((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->isIncludedEnvironmentVariable(envID)) {
+    if (!((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->isIncludedEnvironmentVariable(envID)) {
       continue;
     }
 
     auto producerOfLiveIn = env->getProducer(envID);
-    auto environmentVariable = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getEnvironmentVariable(envID);
+    auto environmentVariable = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getEnvironmentVariable(envID);
     auto newStore = builder.CreateStore(producerOfLiveIn, environmentVariable);
     mm->addMetadata(newStore, "heartbeat.environment_variable.live_in.store_pointer", std::to_string(envID));
   }
@@ -1448,7 +1448,7 @@ void HeartBeatTransformation::populateLiveInEnvironment(LoopDependenceInfo *LDI)
   return;
 }
 
-BasicBlock * HeartBeatTransformation::performReductionWithInitialValueToAllReducibleLiveOutVariables(LoopDependenceInfo *LDI) {
+BasicBlock * HeartbeatTransformation::performReductionWithInitialValueToAllReducibleLiveOutVariables(LoopDependenceInfo *LDI) {
   IRBuilder<> builder { this->entryPointOfParallelizedLoop };
 
   auto loopStructure = LDI->getLoopStructure();
@@ -1466,7 +1466,7 @@ BasicBlock * HeartBeatTransformation::performReductionWithInitialValueToAllReduc
   std::unordered_map<uint32_t, Value *> initialValues;
   for (auto envID : environment->getEnvIDsOfLiveOutVars()) {
 
-    auto isReduced = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->hasVariableBeenReduced(envID);
+    auto isReduced = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->hasVariableBeenReduced(envID);
     if (!isReduced) {
       errs() << "Heartbeat live-outs must all be reducible\n";
       abort();
@@ -1495,7 +1495,7 @@ BasicBlock * HeartBeatTransformation::performReductionWithInitialValueToAllReduc
     initialValues[envID] = castToCorrectReducibleType(builder, initialValue, producer->getType());
   }
 
-  auto afterReductionB = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->reduceLiveOutVariablesWithInitialValue(
+  auto afterReductionB = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->reduceLiveOutVariablesWithInitialValue(
       this->entryPointOfParallelizedLoop,
       builder,
       reducableBinaryOps,
@@ -1519,10 +1519,10 @@ BasicBlock * HeartBeatTransformation::performReductionWithInitialValueToAllReduc
      * If the environment variable isn't reduced, it is held in allocated memory
      * that needs to be loaded from in order to retrieve the value.
      */
-    auto isReduced = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->hasVariableBeenReduced(envID);
+    auto isReduced = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->hasVariableBeenReduced(envID);
     Value *envVar;
     if (isReduced) {
-      envVar = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getAccumulatedReducedEnvironmentVariable(envID);
+      envVar = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getAccumulatedReducedEnvironmentVariable(envID);
     } else {
       errs() << "heartbeat live-outs must all be reducible\n";
       abort();
@@ -1551,7 +1551,7 @@ BasicBlock * HeartBeatTransformation::performReductionWithInitialValueToAllReduc
   return afterReductionB;
 }
 
-void HeartBeatTransformation::invokeHeartBeatFunctionAsideCallerLoop (
+void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
   LoopDependenceInfo *LDI
 ) {
 
@@ -1560,7 +1560,7 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideCallerLoop (
   auto callerLoop = this->loopToCallerLoop[LDI];
   errs() << "caller function is " << callerLoop->getLoopStructure()->getFunction()->getName() << "\n";
 
-  auto callerHBTask = this->loopToHeartBeatTransformation[callerLoop]->getHeartBeatTask();
+  auto callerHBTask = this->loopToHeartbeatTransformation[callerLoop]->getHeartbeatTask();
   assert(callerHBTask != nullptr && "callerHBTask hasn't been generated\n");
 
   // 2) find the call instruction inside the hbTask
@@ -1587,12 +1587,12 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideCallerLoop (
   auto zeroV = builder.getInt64(0);
 
   // Store the live-in/live-out environment into the context
-  if (((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentSize() > 0) {
+  if (((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentSize() > 0) {
     errs() << "we have live-in environments" << "\n";
-    // auto liveInEnvCasted = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArrayPointer();
-    auto liveInEnv = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArray();
+    // auto liveInEnvCasted = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArrayPointer();
+    auto liveInEnv = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArray();
     auto gepInst = builder.CreateInBoundsGEP(
-      this->loopToHeartBeatTransformation[callerLoop]->getContextBitCastInst(),
+      this->loopToHeartbeatTransformation[callerLoop]->getContextBitCastInst(),
       ArrayRef<Value *>({
         zeroV,
         ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine)
@@ -1605,12 +1605,12 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideCallerLoop (
     );
     builder.CreateStore(liveInEnv, gepCasted);
   }
-  if (((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentSize() > 0) {
+  if (((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentSize() > 0) {
     errs() << "we have live-out environments" << "\n";
-    // auto liveOutEnvCasted = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArrayPointer();
-    auto liveOutEnv = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArray();
+    // auto liveOutEnvCasted = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArrayPointer();
+    auto liveOutEnv = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArray();
     auto gepInst = builder.CreateInBoundsGEP(
-      this->loopToHeartBeatTransformation[callerLoop]->getContextBitCastInst(),
+      this->loopToHeartbeatTransformation[callerLoop]->getContextBitCastInst(),
       ArrayRef<Value *>({
         zeroV,
         ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine + 1)
@@ -1630,7 +1630,7 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideCallerLoop (
   std::set<uint32_t> liveInArgumentIndexInOriginalFunction;
   auto env = LDI->getEnvironment();
   for (auto liveInID : env->getEnvIDsOfLiveInVars()) {
-    if (!((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->isIncludedEnvironmentVariable(liveInID)) {
+    if (!((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->isIncludedEnvironmentVariable(liveInID)) {
       continue;
     }
     errs() << "found a liveIn with ID: " << liveInID << "\n";
@@ -1660,13 +1660,13 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideCallerLoop (
 
     // now we found the orignal value corresponding to the live-in of the callee function,
     // we then need to find it's clone and let the hbTask to prepare the liveIn environment
-    auto callerParameterClone = this->loopToHeartBeatTransformation[callerLoop]->getHeartBeatTask()->getCloneOfOriginalInstruction(cast<Instruction>(callerParameter));
+    auto callerParameterClone = this->loopToHeartbeatTransformation[callerLoop]->getHeartbeatTask()->getCloneOfOriginalInstruction(cast<Instruction>(callerParameter));
     errs() << "clone of the liveIn in caller's hbTask: " << *callerParameterClone << "\n";
 
     // we finally found the correct liveIn in caller's hbTask, now let caller's hbTask to store the address of this liveIn
-    auto liveInEnvArray = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArray();
+    auto liveInEnvArray = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArray();
     errs() << "liveInEnvArray: " << *liveInEnvArray << "\n";
-    auto liveInIndex = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getIndexOLiveIn(liveInID);
+    auto liveInIndex = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getIndexOLiveIn(liveInID);
     errs() << "liveInIndex: " << liveInIndex << "\n";
 
     // gep in the liveInEnvArray
@@ -1743,11 +1743,11 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideCallerLoop (
     assert(env->getLiveOutSize() == 1 && " invoking a callee function that has multiple live-outs!\n");
     auto liveOutID = *(env->getEnvIDsOfLiveOutVars().begin());
     errs() << "liveOutID: " << liveOutID << "\n";
-    auto liveOutIndex = ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getIndexOfLiveOut(liveOutID);
+    auto liveOutIndex = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getIndexOfLiveOut(liveOutID);
     errs() << "liveOutIndex: " << liveOutIndex << "\n";
     // now we have the index of the liveOutIndex, now load the result from the reductionArray allocated for the nest loop
     auto liveOutResult = liveInEnvBuilder.CreateLoad(
-      ((HeartBeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleVariableOfIndexGivenEnvIndex(liveOutIndex, 0)
+      ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleVariableOfIndexGivenEnvIndex(liveOutIndex, 0)
     );
 
     callToLoopInCallerInst->replaceAllUsesWith(liveOutResult);
@@ -1758,8 +1758,8 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideCallerLoop (
 
   // now the call to the nested loop is done, we need to use the return code of the this call to
   // decide whether to update the exitCondition
-  auto loopHandlerBlock = this->loopToHeartBeatTransformation[callerLoop]->getLoopHandlerBlock();
-  auto modifyExitConditionBlock = this->loopToHeartBeatTransformation[callerLoop]->getModifyExitConditionBlock();
+  auto loopHandlerBlock = this->loopToHeartbeatTransformation[callerLoop]->getLoopHandlerBlock();
+  auto modifyExitConditionBlock = this->loopToHeartbeatTransformation[callerLoop]->getModifyExitConditionBlock();
   auto preLoopHandlerBlock = loopHandlerBlock->getSinglePredecessor();
   auto preTerminator = preLoopHandlerBlock->getTerminator();
   liveInEnvBuilder.SetInsertPoint(preTerminator);
@@ -1792,7 +1792,7 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideCallerLoop (
     calleeHBTaskCallInst->getParent()
   );
   returnCodeTakenFromLoopHandlerBlockPhi->addIncoming(
-    this->loopToHeartBeatTransformation[callerLoop]->getCallToLoopHandler(),
+    this->loopToHeartbeatTransformation[callerLoop]->getCallToLoopHandler(),
     loopHandlerBlock
   );
 
@@ -1814,13 +1814,13 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideCallerLoop (
     modifyExitConditionBlock
   );
   returnCodeWithPotentialNoPromotionPhi->addIncoming(
-    this->loopToHeartBeatTransformation[callerLoop]->getCallToLoopHandler(),
+    this->loopToHeartbeatTransformation[callerLoop]->getCallToLoopHandler(),
     loopHandlerBlock
   );
 
   // 3. now found the original phi to determine the return code in the header
   // and replace the incoming value from the latchBB to be the new phi value
-  auto originalReturnCodePhi = this->loopToHeartBeatTransformation[callerLoop]->getReturnCodePhiInst();
+  auto originalReturnCodePhi = this->loopToHeartbeatTransformation[callerLoop]->getReturnCodePhiInst();
   originalReturnCodePhi->setIncomingValueForBlock(
     latchBBClone,
     returnCodeWithPotentialNoPromotionPhi
@@ -1830,7 +1830,7 @@ void HeartBeatTransformation::invokeHeartBeatFunctionAsideCallerLoop (
   return ;
 }
 
-void HeartBeatTransformation::executeLoopInChunk(LoopDependenceInfo *ldi) {
+void HeartbeatTransformation::executeLoopInChunk(LoopDependenceInfo *ldi) {
   // errs() << "current task before chunking\n";
   // errs() << *(this->hbTask->getTaskBody()) << "\n";
 
@@ -2009,7 +2009,7 @@ void HeartBeatTransformation::executeLoopInChunk(LoopDependenceInfo *ldi) {
   return;
 }
 
-void HeartBeatTransformation::replaceAllUsesInsideLoopBody(LoopDependenceInfo *ldi, Value *originalVal, Value *replacedVal) {
+void HeartbeatTransformation::replaceAllUsesInsideLoopBody(LoopDependenceInfo *ldi, Value *originalVal, Value *replacedVal) {
   // Step 1: collect all body basic blocks
   auto ls = ldi->getLoopStructure();
   auto bbs = ls->getBasicBlocks();

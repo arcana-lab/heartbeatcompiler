@@ -1,14 +1,14 @@
 #pragma once
 
 #include "noelle/core/LoopEnvironmentBuilder.hpp"
-#include "HeartBeatLoopEnvironmentUser.hpp"
+#include "HeartbeatLoopEnvironmentUser.hpp"
 
 using namespace llvm::noelle;
 
-class HeartBeatLoopEnvironmentBuilder : public LoopEnvironmentBuilder {
+class HeartbeatLoopEnvironmentBuilder : public LoopEnvironmentBuilder {
 
 public:
-  HeartBeatLoopEnvironmentBuilder(
+  HeartbeatLoopEnvironmentBuilder(
     LLVMContext &cxt,
     LoopEnvironment *env,
     std::function<bool(uint32_t variableID, bool isLiveOut)>

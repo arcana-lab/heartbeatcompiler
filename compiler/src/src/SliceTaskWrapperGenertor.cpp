@@ -2,7 +2,7 @@
 
 using namespace llvm::noelle;
 
-void HeartBeat::createSliceTasksWrapper(
+void Heartbeat::createSliceTasksWrapper(
   Noelle &noelle
 ) {
 
@@ -20,7 +20,7 @@ void HeartBeat::createSliceTasksWrapper(
   for (uint64_t level = 0; level < this->numLevels; level++) {
     // find the slice task at the corresponding level
     auto loop = this->levelToLoop[level];
-    auto hbTask = this->loopToHeartBeatTransformation[loop]->getHeartBeatTask();
+    auto hbTask = this->loopToHeartbeatTransformation[loop]->getHeartbeatTask();
     assert(hbTask != nullptr && "No Heartbeat task found for this loop\n");
 
     // create the slice task wrapper function

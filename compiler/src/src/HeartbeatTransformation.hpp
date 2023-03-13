@@ -22,19 +22,19 @@
 #include "noelle/tools/ParallelizationTechnique.hpp"
 #include "noelle/tools/DOALL.hpp"
 
-#include "HeartBeatLoopEnvironmentBuilder.hpp"
-#include "HeartBeatLoopEnvironmentUser.hpp"
-#include "HeartBeatTask.hpp"
+#include "HeartbeatLoopEnvironmentBuilder.hpp"
+#include "HeartbeatLoopEnvironmentUser.hpp"
+#include "HeartbeatTask.hpp"
 
 using namespace llvm::noelle;
 
-class HeartBeatTransformation : public DOALL {
+class HeartbeatTransformation : public DOALL {
   public:
 
     /*
      * Methods
      */
-    HeartBeatTransformation (
+    HeartbeatTransformation (
       Noelle &noelle,
       LoopDependenceInfo *ldi,
       uint64_t numLevels,
@@ -43,7 +43,7 @@ class HeartBeatTransformation : public DOALL {
       std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns,
       std::unordered_map<int, int> &constantLiveInsArgIndexToIndex,
       std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns,
-      std::unordered_map<LoopDependenceInfo *, HeartBeatTransformation *> &loopToHeartBeatTransformation,
+      std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> &loopToHeartbeatTransformation,
       std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop,
       std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToChunksize
     );
@@ -53,7 +53,7 @@ class HeartBeatTransformation : public DOALL {
       Heuristics *h
     ) override ;
 
-    inline HeartBeatTask *getHeartBeatTask() {
+    inline HeartbeatTask *getHeartbeatTask() {
       assert(this->hbTask != nullptr && "hbTask hasn't been created yet\n");
       return this->hbTask;
     }
@@ -92,11 +92,11 @@ class HeartBeatTransformation : public DOALL {
     /*
      * Helpers
      */
-    void invokeHeartBeatFunctionAsideOriginalLoop (
+    void invokeHeartbeatFunctionAsideOriginalLoop (
         LoopDependenceInfo *LDI
         );
 
-    void invokeHeartBeatFunctionAsideCallerLoop (
+    void invokeHeartbeatFunctionAsideCallerLoop (
         LoopDependenceInfo *LDI
         );
     
@@ -118,15 +118,15 @@ class HeartBeatTransformation : public DOALL {
     void allocateNextLevelReducibleEnvironmentInsideTask(LoopDependenceInfo *LDI, int taskIndex);
     BasicBlock *performReductionAfterCallingLoopHandler(LoopDependenceInfo *LDI, int taskIndex, BasicBlock *loopHandlerBB, Instruction *cmpInst, BasicBlock *bottomHalfBB, Value *numOfReducerV);
     void allocateEnvironmentArray(LoopDependenceInfo *LDI) override;
-    void allocateEnvironmentArrayInCallerTask(HeartBeatTask *callerHBTask);
+    void allocateEnvironmentArrayInCallerTask(HeartbeatTask *callerHBTask);
     void populateLiveInEnvironment(LoopDependenceInfo *LDI) override;
     BasicBlock * performReductionWithInitialValueToAllReducibleLiveOutVariables(LoopDependenceInfo *LDI);
 
     FunctionType *sliceTaskSignature;
     PHINode *returnCodePhiInst;
     std::unordered_map<uint32_t, Value *> liveOutVariableToAccumulatedPrivateCopy;
-    HeartBeatTask *hbTask;
-    std::unordered_map<LoopDependenceInfo *, HeartBeatTransformation *> &loopToHeartBeatTransformation;
+    HeartbeatTask *hbTask;
+    std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> &loopToHeartbeatTransformation;
     std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop;
     std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToChunksize;
     Value *contextBitcastInst;

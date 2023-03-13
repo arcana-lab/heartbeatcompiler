@@ -5,37 +5,37 @@ using namespace llvm::noelle;
 
 static cl::list<std::string> Chunksize("chunksize", cl::desc("Specify the chunksize for each level of nested loop"), cl::OneOrMore);
 
-HeartBeat::HeartBeat () 
+Heartbeat::Heartbeat () 
   : ModulePass(ID) 
-  , outputPrefix("HeartBeat: ")
+  , outputPrefix("Heartbeat: ")
   , functionSubString("HEARTBEAT_")
 {
   return ;
 }
 
-bool HeartBeat::doInitialization (Module &M) {
+bool Heartbeat::doInitialization (Module &M) {
   return false;
 }
 
-bool HeartBeat::runOnModule (Module &M) {
+bool Heartbeat::runOnModule (Module &M) {
   auto modified = false;
   errs() << this->outputPrefix << "Start\n";
 
   /*
-   * Fetch NOELLE and select heartbeat loops
+   * Fetch NOELLE and select Heartbeat loops
    */
   auto &noelle = getAnalysis<Noelle>();
   auto allLoops = noelle.getLoopStructures();
-  auto heartbeatLoops = this->selectHeartbeatLoops(noelle, allLoops);
-  errs() << this->outputPrefix << heartbeatLoops.size() << " loops will be parallelized\n";
-  for (auto selectedLoop : heartbeatLoops) {
+  auto HeartbeatLoops = this->selectHeartbeatLoops(noelle, allLoops);
+  errs() << this->outputPrefix << HeartbeatLoops.size() << " loops will be parallelized\n";
+  for (auto selectedLoop : HeartbeatLoops) {
     errs() << this->outputPrefix << selectedLoop->getLoopStructure()->getFunction()->getName() << "\n";
   }
 
   /*
-   * Determine the level of the targeted heartbeat loop, and the root loop for each targeted loop
+   * Determine the level of the targeted Heartbeat loop, and the root loop for each targeted loop
    */
-  this->performLoopLevelAnalysis(noelle, heartbeatLoops);
+  this->performLoopLevelAnalysis(noelle, HeartbeatLoops);
 
   /*
    * Set the chunksize using command line arguments
@@ -47,14 +47,14 @@ bool HeartBeat::runOnModule (Module &M) {
   }
 
   /*
-   * Determine if any heartbeat loop contains live-out variables
+   * Determine if any Heartbeat loop contains live-out variables
    */
-  this->handleLiveOut(noelle, heartbeatLoops);
+  this->handleLiveOut(noelle, HeartbeatLoops);
 
   /*
    * Constant live-in analysis to determine the set of constant live-ins of each loop
    */
-  this->performConstantLiveInAnalysis(noelle, heartbeatLoops);
+  this->performConstantLiveInAnalysis(noelle, HeartbeatLoops);
 
   /*
    * Create constant live-ins global pointer
@@ -69,7 +69,7 @@ bool HeartBeat::runOnModule (Module &M) {
     errs() << this->outputPrefix << "  The root loop has been modified\n";
   }
 
-  for (auto loop : heartbeatLoops) {
+  for (auto loop : HeartbeatLoops) {
     if (loop == this->rootLoop) {
       // root loop has already been parallelized, skip it
       continue;
@@ -80,26 +80,26 @@ bool HeartBeat::runOnModule (Module &M) {
 
   errs() << "parallelization completed!\n";
   errs() << "original root loop after parallelization" << *(this->rootLoop->getLoopStructure()->getFunction()) << "\n";
-  errs() << "cloned root loop after parallelization" << *(this->loopToHeartBeatTransformation[rootLoop]->getHeartBeatTask()->getTaskBody()) << "\n";
-  for (auto pair : this->loopToHeartBeatTransformation) {
+  errs() << "cloned root loop after parallelization" << *(this->loopToHeartbeatTransformation[rootLoop]->getHeartbeatTask()->getTaskBody()) << "\n";
+  for (auto pair : this->loopToHeartbeatTransformation) {
     if (pair.first == this->rootLoop) {
       continue;
     }
-    errs() << "cloned loop of level " << this->loopToLevel[pair.first] << *(pair.second->getHeartBeatTask()->getTaskBody()) << "\n";
+    errs() << "cloned loop of level " << this->loopToLevel[pair.first] << *(pair.second->getHeartbeatTask()->getTaskBody()) << "\n";
   }
 
   if (this->numLevels > 1) {
-    // all heartbeat loops are generated,
+    // all Heartbeat loops are generated,
     // create the slices wrapper function and the global
     createSliceTasksWrapper(noelle);
 
-    // now we've created all the heartbeat loops, it's time to create the leftover tasks per gap between heartbeat loops
-    createLeftoverTasks(noelle, heartbeatLoops);
+    // now we've created all the Heartbeat loops, it's time to create the leftover tasks per gap between Heartbeat loops
+    createLeftoverTasks(noelle, HeartbeatLoops);
 
     // all leftover tasks have been created
     // 1. need to fix the call to loop_handler to use the leftoverTasks global
     // 2. need to fix the call to loop_handler to use the leftoverTaskIndexSelector
-    for (auto pair : this->loopToHeartBeatTransformation) {
+    for (auto pair : this->loopToHeartbeatTransformation) {
       auto callInst = cast<CallInst>(pair.second->getCallToLoopHandler());
 
       IRBuilder<> builder{ callInst };
@@ -129,19 +129,19 @@ bool HeartBeat::runOnModule (Module &M) {
   return modified;
 }
 
-void HeartBeat::getAnalysisUsage(AnalysisUsage &AU) const {
+void Heartbeat::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<Noelle>(); // so that LLVM knows this pass depends on noelle
 }
 
 // Next there is code to register your pass to "opt"
-char HeartBeat::ID = 0;
-static RegisterPass<HeartBeat> X("heartbeat", "Heartbeat transformation");
+char Heartbeat::ID = 0;
+static RegisterPass<Heartbeat> X("heartbeat", "Heartbeat transformation");
 
 // Next there is code to register your pass to "clang"
-static HeartBeat * _PassMaker = NULL;
+static Heartbeat * _PassMaker = NULL;
 static RegisterStandardPasses _RegPass1(PassManagerBuilder::EP_OptimizerLast,
     [](const PassManagerBuilder&, legacy::PassManagerBase& PM) {
-        if(!_PassMaker){ PM.add(_PassMaker = new HeartBeat());}}); // ** for -Ox
+        if(!_PassMaker){ PM.add(_PassMaker = new Heartbeat());}}); // ** for -Ox
 static RegisterStandardPasses _RegPass2(PassManagerBuilder::EP_EnabledOnOptLevel0,
     [](const PassManagerBuilder&, legacy::PassManagerBase& PM) {
-        if(!_PassMaker){ PM.add(_PassMaker = new HeartBeat()); }}); // ** for -O0
+        if(!_PassMaker){ PM.add(_PassMaker = new Heartbeat()); }}); // ** for -O0

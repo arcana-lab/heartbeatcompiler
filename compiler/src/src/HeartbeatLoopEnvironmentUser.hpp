@@ -5,10 +5,10 @@
 using namespace llvm::noelle;
 using namespace llvm;
 
-class HeartBeatLoopEnvironmentUser : public LoopEnvironmentUser {
+class HeartbeatLoopEnvironmentUser : public LoopEnvironmentUser {
 
 public:
-  HeartBeatLoopEnvironmentUser(std::unordered_map<uint32_t, uint32_t> &singleEnvIDToIndex,
+  HeartbeatLoopEnvironmentUser(std::unordered_map<uint32_t, uint32_t> &singleEnvIDToIndex,
                                std::unordered_map<uint32_t, uint32_t> &reducibleEnvIDToIndex,
                                std::set<uint32_t> &constantVars);
 

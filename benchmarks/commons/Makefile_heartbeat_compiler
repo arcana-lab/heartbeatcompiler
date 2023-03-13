@@ -14,7 +14,7 @@ main_normalized.bc: main.bc
 	noelle-norm $^ -o $@
 
 heartbeat_compiler.bc: main_normalized.bc
-	noelle-parallel-load -noelle-verbose=2 -load $(ROOT_DIR)/compiler/src/build/lib/HeartBeat.so -heartbeat $(PASS_ARGUMENTS_HEARTBEAT_COMPILER) $^ -o $@
+	noelle-parallel-load -noelle-verbose=2 -load $(ROOT_DIR)/compiler/src/build/lib/Heartbeat.so -heartbeat $(PASS_ARGUMENTS_HEARTBEAT_COMPILER) $^ -o $@
 
 hbc: heartbeat_compiler
 hb_compiler: heartbeat_compiler

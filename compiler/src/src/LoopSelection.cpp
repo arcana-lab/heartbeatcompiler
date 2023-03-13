@@ -2,7 +2,7 @@
 
 using namespace llvm::noelle;
 
-std::set<LoopDependenceInfo *> HeartBeat::selectHeartbeatLoops (
+std::set<LoopDependenceInfo *> Heartbeat::selectHeartbeatLoops (
   Noelle &noelle,
   const std::vector<LoopStructure *> *allLoops
 ) {

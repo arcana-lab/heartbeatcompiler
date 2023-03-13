@@ -2,7 +2,7 @@
 
 using namespace llvm::noelle;
 
-void HeartBeat::performConstantLiveInAnalysis (
+void Heartbeat::performConstantLiveInAnalysis (
   Noelle &noelle,
   const std::set<LoopDependenceInfo *> &heartbeatLoops
 ) {
@@ -54,7 +54,7 @@ void HeartBeat::performConstantLiveInAnalysis (
   return ;
 }
 
-void HeartBeat::constantLiveInToLoop(llvm::Argument &arg, int arg_index, LoopDependenceInfo *ldi) {
+void Heartbeat::constantLiveInToLoop(llvm::Argument &arg, int arg_index, LoopDependenceInfo *ldi) {
   auto fn = ldi->getLoopStructure()->getFunction();
   errs() << "inside function " << fn->getName() << "\n";
 
@@ -134,7 +134,7 @@ void HeartBeat::constantLiveInToLoop(llvm::Argument &arg, int arg_index, LoopDep
   return;
 }
 
-bool HeartBeat::isArgStartOrExitValue(llvm::Argument &arg, LoopDependenceInfo *ldi) {
+bool Heartbeat::isArgStartOrExitValue(llvm::Argument &arg, LoopDependenceInfo *ldi) {
   auto ls = ldi->getLoopStructure();
 
   auto ivManager = ldi->getInductionVariableManager();
@@ -151,7 +151,7 @@ bool HeartBeat::isArgStartOrExitValue(llvm::Argument &arg, LoopDependenceInfo *l
   return false;
 }
 
-void HeartBeat::createConstantLiveInsGlobalPointer(Noelle &noelle) {
+void Heartbeat::createConstantLiveInsGlobalPointer(Noelle &noelle) {
   auto M = noelle.getProgram();
   IRBuilder<> builder { M->getContext() };
 

@@ -1,15 +1,15 @@
 #include "Pass.hpp"
-#include "HeartBeatTransformation.hpp"
+#include "HeartbeatTransformation.hpp"
 #include "noelle/core/Architecture.hpp"
 
 using namespace llvm::noelle;
 
-bool HeartBeat::parallelizeRootLoop (
+bool Heartbeat::parallelizeRootLoop (
   Noelle &noelle,
   LoopDependenceInfo *ldi
 ) {
   errs() << "Start to parallelize loop in function " << ldi->getLoopStructure()->getFunction()->getName() << "\n";
-  HeartBeatTransformation *HB = new HeartBeatTransformation(
+  HeartbeatTransformation *HB = new HeartbeatTransformation(
     noelle,
     ldi,
     this->numLevels,
@@ -18,11 +18,11 @@ bool HeartBeat::parallelizeRootLoop (
     this->loopToSkippedLiveIns,
     this->constantLiveInsArgIndexToIndex,
     this->loopToConstantLiveIns,
-    this->loopToHeartBeatTransformation,
+    this->loopToHeartbeatTransformation,
     this->loopToCallerLoop,
     this->loopToChunksize
   );
-  this->loopToHeartBeatTransformation[ldi] = HB;
+  this->loopToHeartbeatTransformation[ldi] = HB;
 
   /*
    * Check if the loop is a DOALL
@@ -87,7 +87,7 @@ bool HeartBeat::parallelizeRootLoop (
   return true;
 }
 
-void HeartBeat::linkTransformedLoopToOriginalFunction(
+void Heartbeat::linkTransformedLoopToOriginalFunction(
     BasicBlock *originalPreHeader,
     BasicBlock *startOfParLoopInOriginalFunc,
     BasicBlock *endOfParLoopInOriginalFunc,
@@ -186,12 +186,12 @@ void HeartBeat::linkTransformedLoopToOriginalFunction(
 }
 
 
-bool HeartBeat::parallelizeNestedLoop (
+bool Heartbeat::parallelizeNestedLoop (
   Noelle &noelle,
   LoopDependenceInfo *ldi
 ) {
   errs() << "Start to parallelize loop in function " << ldi->getLoopStructure()->getFunction()->getName() << "\n";
-  HeartBeatTransformation *HB = new HeartBeatTransformation(
+  HeartbeatTransformation *HB = new HeartbeatTransformation(
     noelle,
     ldi,
     this->numLevels,
@@ -200,11 +200,11 @@ bool HeartBeat::parallelizeNestedLoop (
     this->loopToSkippedLiveIns,
     this->constantLiveInsArgIndexToIndex,
     this->loopToConstantLiveIns,
-    this->loopToHeartBeatTransformation,
+    this->loopToHeartbeatTransformation,
     this->loopToCallerLoop,
     this->loopToChunksize
   );
-  this->loopToHeartBeatTransformation[ldi] = HB;
+  this->loopToHeartbeatTransformation[ldi] = HB;
 
   /*
    * Check if the loop is a DOALL

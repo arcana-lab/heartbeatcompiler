@@ -1,7 +1,7 @@
-#include "HeartBeatLoopEnvironmentUser.hpp"
+#include "HeartbeatLoopEnvironmentUser.hpp"
 #include "noelle/core/Architecture.hpp"
 
-HeartBeatLoopEnvironmentUser::HeartBeatLoopEnvironmentUser(
+HeartbeatLoopEnvironmentUser::HeartbeatLoopEnvironmentUser(
   std::unordered_map<uint32_t, uint32_t> &singleEnvIDToIndex,
   std::unordered_map<uint32_t, uint32_t> &reducibleEnvIDToIndex,
   std::set<uint32_t> &constLiveInIDs)
@@ -15,7 +15,7 @@ HeartBeatLoopEnvironmentUser::HeartBeatLoopEnvironmentUser(
   return;
 }
 
-Instruction * HeartBeatLoopEnvironmentUser::createSingleEnvironmentVariablePointer(IRBuilder<> builder, uint32_t envID, Type *type) {
+Instruction * HeartbeatLoopEnvironmentUser::createSingleEnvironmentVariablePointer(IRBuilder<> builder, uint32_t envID, Type *type) {
   if (!this->singleEnvArray) {
     errs() << "A bitcast inst to the single environment array has not been set for this user!\n";
   }
@@ -37,7 +37,7 @@ Instruction * HeartBeatLoopEnvironmentUser::createSingleEnvironmentVariablePoint
   return ptrInst;
 }
 
-void HeartBeatLoopEnvironmentUser::createReducableEnvPtr(IRBuilder<> builder, uint32_t envID, Type *type, uint32_t reducerCount, Value *reducerIndV) {
+void HeartbeatLoopEnvironmentUser::createReducableEnvPtr(IRBuilder<> builder, uint32_t envID, Type *type, uint32_t reducerCount, Value *reducerIndV) {
   if (!this->reducibleEnvArray) {
     errs() << "A reference to the environment array has not been set for this user!\n";
     abort();
@@ -91,11 +91,11 @@ void HeartBeatLoopEnvironmentUser::createReducableEnvPtr(IRBuilder<> builder, ui
   return;
 }
 
-Instruction * HeartBeatLoopEnvironmentUser::getEnvPtr(uint32_t id) {
+Instruction * HeartbeatLoopEnvironmentUser::getEnvPtr(uint32_t id) {
 
   assert((this->singleEnvIDToIndex.find(id) != this->singleEnvIDToIndex.end() || this->reducibleEnvIDToIndex.find(id) != this->reducibleEnvIDToIndex.end()) && "The environment variable is not included in the user\n");
 
-  errs() << "inside HeartBeatLoopEnvironmentUser::getEnvPtr\n";
+  errs() << "inside HeartbeatLoopEnvironmentUser::getEnvPtr\n";
   for (auto pair : this->reducibleEnvIDToIndex) {
     errs() << pair.first << ", " << pair.second << "\n";
   }
@@ -115,6 +115,6 @@ Instruction * HeartBeatLoopEnvironmentUser::getEnvPtr(uint32_t id) {
   return ptr;
 }
 
-iterator_range<std::set<uint32_t>::iterator> HeartBeatLoopEnvironmentUser::getEnvIDsOfConstantLiveInVars() {
+iterator_range<std::set<uint32_t>::iterator> HeartbeatLoopEnvironmentUser::getEnvIDsOfConstantLiveInVars() {
   return make_range(this->constLiveInIDs.begin(), this->constLiveInIDs.end());
 }

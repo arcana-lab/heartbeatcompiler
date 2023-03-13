@@ -2,7 +2,7 @@
 
 using namespace llvm::noelle;
 
-void HeartBeat::handleLiveOut(
+void Heartbeat::handleLiveOut(
   Noelle &noelle,
   const std::set<LoopDependenceInfo *> &heartbeatLoops
 ) {

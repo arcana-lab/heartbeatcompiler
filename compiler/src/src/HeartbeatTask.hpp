@@ -14,10 +14,10 @@
 
 using namespace llvm::noelle ;
 
-class HeartBeatTask : public llvm::noelle::DOALLTask {
+class HeartbeatTask : public llvm::noelle::DOALLTask {
   public:
 
-    HeartBeatTask (
+    HeartbeatTask (
       FunctionType *sliceTaskSignature,
       Module &M,
       uint64_t level,
