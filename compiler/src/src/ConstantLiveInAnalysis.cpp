@@ -151,13 +151,14 @@ bool Heartbeat::isArgStartOrExitValue(llvm::Argument &arg, LoopDependenceInfo *l
   return false;
 }
 
-void Heartbeat::createConstantLiveInsGlobalPointer(Noelle &noelle) {
+void Heartbeat::createConstantLiveInsGlobalPointer(Noelle &noelle, uint64_t nestID) {
   auto M = noelle.getProgram();
   IRBuilder<> builder { M->getContext() };
 
-  M->getOrInsertGlobal("constantLiveInsPointer", builder.getInt8PtrTy());
+  std::string constantLiveInsGlobalName = std::string("constantLiveInsPointer_nest").append(std::to_string(nestID));
+  M->getOrInsertGlobal(constantLiveInsGlobalName, builder.getInt8PtrTy());
   
-  auto constantLiveInsGlobalPointer = M->getNamedGlobal("constantLiveInsPointer");
+  auto constantLiveInsGlobalPointer = M->getNamedGlobal(constantLiveInsGlobalName);
   constantLiveInsGlobalPointer->setLinkage(GlobalValue::CommonLinkage);
   constantLiveInsGlobalPointer->setInitializer(Constant::getNullValue(builder.getInt8PtrTy()));
   constantLiveInsGlobalPointer->setAlignment(8);

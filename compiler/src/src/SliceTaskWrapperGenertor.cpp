@@ -3,7 +3,8 @@
 using namespace llvm::noelle;
 
 void Heartbeat::createSliceTasksWrapper(
-  Noelle &noelle
+  Noelle &noelle,
+  uint64_t nestID
 ) {
 
   auto tm = noelle.getTypesManager();
@@ -83,11 +84,12 @@ void Heartbeat::createSliceTasksWrapper(
     ),
     this->sliceTasksWrapper.size()
   );
+  std::string sliceTasksWrapperName = std::string("sliceTasksWrapper_nest").append(std::to_string(nestID));
   noelle.getProgram()->getOrInsertGlobal(
-    "sliceTasksWrapper",
+    sliceTasksWrapperName,
     sliceTasksWrapperType
   );
-  auto sliceTasksWrapperGlobal = noelle.getProgram()->getNamedGlobal("sliceTasksWrapper");
+  auto sliceTasksWrapperGlobal = noelle.getProgram()->getNamedGlobal(sliceTasksWrapperName);
   sliceTasksWrapperGlobal->setAlignment(8);
   sliceTasksWrapperGlobal->setInitializer(
     ConstantArray::get(

@@ -54,11 +54,36 @@ class Heartbeat : public ModulePass {
     );
 
     /*
+     * Step 1.5: Loop nest analysis, identify all loops grouped per loop nest
+     */
+    void performLoopNestAnalysis (
+      Noelle &noelle,
+      const std::set<LoopDependenceInfo *> &heartbeatLoops
+    );
+
+    void setLoopNestAndRoot (
+      LoopDependenceInfo *ldi,
+      std::unordered_map<LoopDependenceInfo *, CallGraphFunctionNode *> &loopToCallGraphNode,
+      std::unordered_map<CallGraphFunctionNode *, LoopDependenceInfo *> &callGraphNodeToLoop,
+      llvm::noelle::CallGraph &callGraph
+    );
+
+    /*
+     * Results for loop-nest analysis
+     */
+    uint64_t nestID = 0;
+    std::unordered_map<LoopDependenceInfo *, uint64_t> rootToNestID;
+    std::unordered_map<uint64_t, LoopDependenceInfo *> nestIDToRoot;
+    std::unordered_map<uint64_t, std::set<LoopDependenceInfo *>> nestIDToLoops;
+
+    void reset();
+
+    /*
      * Step 2
      */
     void performLoopLevelAnalysis (
       Noelle &noelle,
-      const std::set<LoopDependenceInfo *> &HeartbeatLoops
+      const std::set<LoopDependenceInfo *> &heartbeatLoops
     );
 
     void setLoopLevelAndRoot (
@@ -84,7 +109,7 @@ class Heartbeat : public ModulePass {
      */
     void handleLiveOut (
       Noelle &noelle,
-      const std::set<LoopDependenceInfo *> &HeartbeatLoops
+      const std::set<LoopDependenceInfo *> &heartbeatLoops
     );
 
     bool containsLiveOut = false;
@@ -94,7 +119,7 @@ class Heartbeat : public ModulePass {
      */
     void performConstantLiveInAnalysis (
       Noelle &noelle,
-      const std::set<LoopDependenceInfo *> &HeartbeatLoops
+      const std::set<LoopDependenceInfo *> &heartbeatLoops
     );
 
     void constantLiveInToLoop(
@@ -109,7 +134,8 @@ class Heartbeat : public ModulePass {
     );
 
     void createConstantLiveInsGlobalPointer(
-      Noelle &noelle
+      Noelle &noelle,
+      uint64_t nestID
     );
 
     std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> loopToSkippedLiveIns;
@@ -122,6 +148,7 @@ class Heartbeat : public ModulePass {
      */
     bool parallelizeRootLoop (
       Noelle &noelle,
+      uint64_t nestID,
       LoopDependenceInfo *ldi
     );
 
@@ -140,6 +167,7 @@ class Heartbeat : public ModulePass {
      */
     bool parallelizeNestedLoop (
       Noelle &noelle,
+      uint64_t nestID,
       LoopDependenceInfo *ldi
     );
 
@@ -155,7 +183,8 @@ class Heartbeat : public ModulePass {
      * Step 7: create slice tasks wrapper
      */
     void createSliceTasksWrapper(
-      Noelle &noelle
+      Noelle &noelle,
+      uint64_t nestID
     );
 
     std::vector<Constant *> sliceTasksWrapper;
@@ -165,11 +194,12 @@ class Heartbeat : public ModulePass {
      */
     void createLeftoverTasks(
       Noelle &noelle,
-      std::set<LoopDependenceInfo *> &HeartbeatLoops
+      uint64_t nestID,
+      std::set<LoopDependenceInfo *> &heartbeatLoops
     );
 
     std::vector<Constant *> leftoverTasks;
-    Function *leftoverTaskIndexSelector;
+    Function *leftoverTaskIndexSelector = nullptr;
 
     /*
      * Chunking info

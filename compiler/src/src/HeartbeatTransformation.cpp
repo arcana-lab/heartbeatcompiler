@@ -8,6 +8,7 @@ using namespace llvm::noelle;
 
 HeartbeatTransformation::HeartbeatTransformation (
   Noelle &noelle,
+  uint64_t nestID,
   LoopDependenceInfo *ldi,
   uint64_t numLevels,
   bool containsLiveOut,
@@ -19,6 +20,7 @@ HeartbeatTransformation::HeartbeatTransformation (
   std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop,
   std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToChunksize
 ) : DOALL{noelle},
+    nestID{nestID},
     ldi{ldi},
     n{noelle},
     numLevels{numLevels},
@@ -104,7 +106,7 @@ bool HeartbeatTransformation::apply (
    * Generate an empty task for the heartbeat execution.
    */
   this->hbTask = new HeartbeatTask(this->sliceTaskSignature, *program, this->loopToLevel[this->ldi], this->containsLiveOut,
-    std::string("HEARTBEAT_loop").append(std::to_string(this->loopToLevel[ldi])).append("_slice")
+    std::string("HEARTBEAT_nest").append(std::to_string(this->nestID)).append("_loop").append(std::to_string(this->loopToLevel[ldi])).append("_slice")
   );
   // hbTask->getTaskBody()->setName(std::string("HEARTBEAT_loop").append(std::to_string(this->loopToLevel[ldi])).append("_slice"));
   errs() << "initial task body:" << *(hbTask->getTaskBody()) << "\n";
@@ -895,7 +897,8 @@ void HeartbeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceIn
   IRBuilder<> builder{ task->getEntry() };
 
   // Cast constLiveInsPointer to its correct type
-  auto constantLiveInsPointerGlobal = this->noelle.getProgram()->getNamedGlobal("constantLiveInsPointer");
+  std::string constantLiveInsGlobalName = std::string("constantLiveInsPointer_nest").append(std::to_string(this->nestID));
+  auto constantLiveInsPointerGlobal = this->noelle.getProgram()->getNamedGlobal(constantLiveInsGlobalName);
   assert(constantLiveInsPointerGlobal != nullptr);
   errs() << "constant live-ins pointer " << *constantLiveInsPointerGlobal << "\n";
   auto constantLiveInsArrayBitCastInst = builder.CreateBitCast(
@@ -1200,7 +1203,8 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   );
 
   // store constant live-ins array into global
-  auto constantLiveInsGlobal = this->noelle.getProgram()->getNamedGlobal("constantLiveInsPointer");
+  std::string constantLiveInsGlobalName = std::string("constantLiveInsPointer_nest").append(std::to_string(this->nestID));
+  auto constantLiveInsGlobal = this->noelle.getProgram()->getNamedGlobal(constantLiveInsGlobalName);
   auto castInst = builder.CreateBitCast(
     constantLiveIns,
     PointerType::getUnqual(builder.getInt8Ty())

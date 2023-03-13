@@ -6,11 +6,13 @@ using namespace llvm::noelle;
 
 bool Heartbeat::parallelizeRootLoop (
   Noelle &noelle,
+  uint64_t nestID,
   LoopDependenceInfo *ldi
 ) {
   errs() << "Start to parallelize loop in function " << ldi->getLoopStructure()->getFunction()->getName() << "\n";
   HeartbeatTransformation *HB = new HeartbeatTransformation(
     noelle,
+    nestID,
     ldi,
     this->numLevels,
     this->containsLiveOut,
@@ -188,11 +190,13 @@ void Heartbeat::linkTransformedLoopToOriginalFunction(
 
 bool Heartbeat::parallelizeNestedLoop (
   Noelle &noelle,
+  uint64_t nestID,
   LoopDependenceInfo *ldi
 ) {
   errs() << "Start to parallelize loop in function " << ldi->getLoopStructure()->getFunction()->getName() << "\n";
   HeartbeatTransformation *HB = new HeartbeatTransformation(
     noelle,
+    nestID,
     ldi,
     this->numLevels,
     this->containsLiveOut,

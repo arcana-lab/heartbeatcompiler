@@ -36,6 +36,7 @@ class HeartbeatTransformation : public DOALL {
      */
     HeartbeatTransformation (
       Noelle &noelle,
+      uint64_t nestID,
       LoopDependenceInfo *ldi,
       uint64_t numLevels,
       bool containsLiveOut,
@@ -80,6 +81,7 @@ class HeartbeatTransformation : public DOALL {
 
   protected:
     Noelle &n;
+    uint64_t nestID;
     LoopDependenceInfo *ldi;
     uint64_t numLevels;
     bool containsLiveOut;

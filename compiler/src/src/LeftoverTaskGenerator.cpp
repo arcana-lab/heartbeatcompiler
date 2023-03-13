@@ -4,6 +4,7 @@ using namespace llvm::noelle;
 
 void Heartbeat::createLeftoverTasks(
   Noelle &noelle,
+  uint64_t nestID,
   std::set<LoopDependenceInfo *> &heartbeatLoops
 ) {
 
@@ -35,7 +36,9 @@ void Heartbeat::createLeftoverTasks(
       errs() << "Creating leftover task from " << receivingLevel << " to " << splittingLevel << "\n";
 
       auto leftoverTaskCallee = noelle.getProgram()->getOrInsertFunction(
-        std::string("HEARTBEAT_loop_")
+        std::string("HEARTBEAT_nest")
+          .append(std::to_string(nestID))
+          .append("_loop_")
           .append(std::to_string(receivingLevel))
           .append("_")
           .append(std::to_string(splittingLevel))
@@ -183,11 +186,12 @@ void Heartbeat::createLeftoverTasks(
     ),
     this->leftoverTasks.size()
   );
+  std::string leftoverTasksGlobalName = std::string("leftoverTasks_nest").append(std::to_string(nestID));
   noelle.getProgram()->getOrInsertGlobal(
-    "leftoverTasks",
+    leftoverTasksGlobalName,
     leftoverTasksType
   );
-  auto leftoverTasksGlobal = noelle.getProgram()->getNamedGlobal("leftoverTasks");
+  auto leftoverTasksGlobal = noelle.getProgram()->getNamedGlobal(leftoverTasksGlobalName);
   leftoverTasksGlobal->setAlignment(8);
   leftoverTasksGlobal->setInitializer(
     ConstantArray::get(
@@ -207,7 +211,7 @@ void Heartbeat::createLeftoverTasks(
   };
 
   auto leftoverTaskIndexSelectorCallee = noelle.getProgram()->getOrInsertFunction(
-    std::string("leftover_task_index_selector"),
+    std::string("leftover_task_index_selector_nest").append(std::to_string(nestID)),
     FunctionType::get(
       tm->getIntegerType(64),
       ArrayRef<Type *>({
