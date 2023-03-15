@@ -24,7 +24,7 @@ mkdir -p ${results} ;
 
 source /project/extra/burnCPU/enable
 source /project/extra/llvm/9.0.0/enable
-source /home/yso0488/projects/noelle1/enable
+source /nfs-scratch/yso0488/heartbeatcompiler0/noelle/enable
 source /nfs-scratch/yso0488/jemalloc/enable
 
 function run_parallel {
