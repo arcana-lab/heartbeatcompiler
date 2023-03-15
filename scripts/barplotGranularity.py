@@ -12,6 +12,15 @@ def collectBenchmarks(pathToBenchmarkSuite):
 
   return benchmarks
 
+def collectChunksizes(pathToBenchmarkSuite, benchmarks, inputSize):
+  chunksizes = {}
+  for benchmark in benchmarks:
+    chunksizes[benchmark] = []
+    for chunksize in os.listdir(pathToBenchmarkSuite + '/' + benchmark + '/' + inputSize):
+      chunksizes[benchmark].append(chunksize)
+
+  return chunksizes
+
 def getMedianTime(pathToTimeFile):
   if os.path.isfile(pathToTimeFile):
     times = []
@@ -77,7 +86,7 @@ def collectSpeedups(benchmark, pathToBenchmarkSuite, inputSize, techniques, conf
       minSpeedup = 0.0
       maxSpeedup = 0.0
       stdev = 0.0
-      fileName = pathToBenchmarkSuite + '/' + benchmark + '/' + inputSize + '/' + technique + '/time' + config + '.txt'
+      fileName = pathToBenchmarkSuite + '/' + benchmark + '/' + inputSize + '/' + technique + '/granularity' + config + '.txt'
       if os.path.isfile(fileName) and getMedianTime(fileName) != 0.0:
         medianSpeedup = round(baselineTime[benchmark] / getMedianTime(fileName), 2)
         minSpeedup = round(baselineTime[benchmark] / getMaxTime(fileName), 2)
@@ -120,7 +129,7 @@ def plot(benchmark, inputSize, speedups, techniques, configs, maxSpeedUp):
   xTicksAcc.append(xTicksShifted)
   rects = []
   i = 0
-  for technique, name in zip(techniques, technique_names):
+  for technique, name in zip(techniques, techniques):
     rects.append(ax.bar(xTicks, speedups[technique]['median'], yerr=speedups[technique]['stdev'], width=barWidth, color = colors[i], label = name))
     xTicks = [elem + barIncrement for elem in xTicks]
     xTicksShifted = [elem - barWidth/2 - gap/2 for elem in xTicks]
@@ -161,33 +170,20 @@ def plot(benchmark, inputSize, speedups, techniques, configs, maxSpeedUp):
   ax.set_aspect(0.3)
 
   plt.tight_layout()
-  plt.savefig('../plots/time/' + benchmark + '_' + inputSize + '.pdf', format = 'pdf')
+  plt.savefig('../plots/granularity/' + benchmark + '_' + inputSize + '.pdf', format = 'pdf')
 
 # Global settings
-pathToBenchmarkSuite = '../results/time'
+pathToBenchmarkSuite = '../results/granularity'
 inputSize = 'tpal'
 # https://matplotlib.org/stable/gallery/color/named_colors.html
 colors = [
   'tomato',
+  'sandybrown',
   'turquoise',
   'cornflowerblue',
   'mediumpurple',
   'purple',
   'pink'
-]
-techniques = [
-  'tpal',
-  'heartbeat_manual_software_polling',
-  'heartbeat_manual_rollforward',
-  'heartbeat_compiler_software_polling',
-  'heartbeat_compiler_rollforward'
-]
-technique_names = [
-  'TPAL (interrupt_ping_thread)',
-  'HB Manual (Software Polling)',
-  'HB Manual (Rollforward)',
-  'HB Compiler (Software Polling)',
-  'HB Compiler (Rollforward)'
 ]
 configs = ['1', '2', '4', '8', '16', '28', '56_2_sockets']
 config_names = ['1 Physical Core', '2 Physical Cores', '4 Physical Cores', '8 Physical Cores', '16 Physical Cores', '28 Physical Cores', '56 Physical Cores - 2 Sockets']
@@ -195,15 +191,18 @@ config_names = ['1 Physical Core', '2 Physical Cores', '4 Physical Cores', '8 Ph
 # Collect all benchmarks
 benchmarks = collectBenchmarks(pathToBenchmarkSuite)
 
+# Collect all chunksizes
+chunksizes = collectChunksizes(pathToBenchmarkSuite, benchmarks, inputSize)
+
 # Calculate baseline median time
 baselineTime = {}
 for benchmark in benchmarks:
-  baselineTime[benchmark] = getMedianTime(pathToBenchmarkSuite + '/' + benchmark + '/' + inputSize + '/baseline/time1.txt')
+  baselineTime[benchmark] = getMedianTime('../results/time' + '/' + benchmark + '/' + inputSize + '/baseline/time1.txt')
 print(baselineTime)
 
 # Plot speedup plot per benchmark
 for benchmark in benchmarks:
-  speedups = collectSpeedups(benchmark, pathToBenchmarkSuite, inputSize, techniques, configs)
+  speedups = collectSpeedups(benchmark, pathToBenchmarkSuite, inputSize, chunksizes[benchmark], configs)
   print(benchmark, speedups)
   maxSpeedUp = findMaxSpeedUp(speedups)
-  plot(benchmark, inputSize, speedups, techniques, configs, maxSpeedUp)
+  plot(benchmark, inputSize, speedups, chunksizes[benchmark], configs, maxSpeedUp)
