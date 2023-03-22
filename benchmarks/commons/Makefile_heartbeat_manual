@@ -33,8 +33,8 @@ heartbeat_manual.rf.s: heartbeat_manual.s
 heartbeat_manual.rf.o: heartbeat_manual.rf.s
 	$(CXX) -I $(ROLLFORWARD_INCLUDE) $< -c -o $@
 
-rollforward.o: $(ROLLFORWARD_INCLUDE)/rollforward.c
+rollforward_manual.o: $(ROLLFORWARD_INCLUDE)/rollforward.c
 	$(CXX) $< -c -o $@
 
-heartbeat_manual_rf: main.cpp bench.cpp heartbeat_manual.rf.o rollforward.o loop_handler.cpp
+heartbeat_manual_rf: main.cpp bench.cpp heartbeat_manual.rf.o rollforward_manual.o loop_handler.cpp
 	$(CXX) $(MACROS_HEARTBEAT_MANUAL) $(FLAGS_HEARTBEAT_MANUAL) $(OPTS_HEARTBEAT_MANUAL) $^ -o $@ $(LIBS_HEARTBEAT_MANUAL)

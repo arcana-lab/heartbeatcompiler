@@ -19,9 +19,32 @@ heartbeat_compiler.bc: main_normalized.bc
 hbc: heartbeat_compiler
 hb_compiler: heartbeat_compiler
 heartbeat_compiler: heartbeat_compiler.bc bench.cpp loop_handler.cpp
+ifeq ($(ENABLE_ROLLFORWARD), true)
+	make heartbeat_compiler_rf
+	cp heartbeat_compiler_rf $@
+else
 	$(CXX) $(MACROS_HEARTBEAT_COMPILER) $(FLAGS_HEARTBEAT_COMPILER) $(OPTS_HEARTBEAT_COMPILER) $^ -o $@ $(LIBS_HEARTBEAT_COMPILER)
+endif
 
 run_hbc: run_heartbeat_compiler
 run_hb_compiler: run_heartbeat_compiler
 run_heartbeat_compiler: heartbeat_compiler
 	TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY_KHZ) ./$<
+
+# ============================================
+# Heartbeat Compiler (Rollforward)
+# ============================================
+heartbeat_compiler.s: heartbeat_compiler.bc
+	$(CXX) $(MACROS_HEARTBEAT_COMPILER) $(FLAGS_HEARTBEAT_COMPILER) $(OPTS_HEARTBEAT_COMPILER) $< -S -o $@
+
+heartbeat_compiler.rf.s: heartbeat_compiler.s
+	ROLLFORWARD_PATH=$(ROLLFORWARD_PATH) $(ROLLFORWARDXX) $< $@
+
+heartbeat_compiler.rf.o: heartbeat_compiler.rf.s
+	$(CXX) -I $(ROLLFORWARD_INCLUDE) $< -c -o $@
+
+rollforward_compiler.o: $(ROLLFORWARD_INCLUDE)/rollforward.c
+	$(CXX) $< -c -o $@
+
+heartbeat_compiler_rf: bench.cpp heartbeat_compiler.rf.o rollforward_compiler.o loop_handler.cpp
+	$(CXX) $(MACROS_HEARTBEAT_COMPILER) $(FLAGS_HEARTBEAT_COMPILER) $(OPTS_HEARTBEAT_COMPILER) $^ -o $@ $(LIBS_HEARTBEAT_COMPILER)

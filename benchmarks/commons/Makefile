@@ -25,7 +25,6 @@ endif
 # options: true, false
 ENABLE_ROLLFORWARD ?= false
 ifeq ($(ENABLE_ROLLFORWARD), true)
-	CXX = g++
 	MACROS += -DENABLE_ROLLFORWARD
 else
 	MACROS += -DDISABLE_ROLLFORWARD
