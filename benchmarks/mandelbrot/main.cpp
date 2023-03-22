@@ -44,6 +44,15 @@ int main() {
     0, 0,
     0, 0
   );
+#if defined(ENABLE_ROLLFORWARD)
+  int64_t rc = 0;
+  __rf_handle_level2_wrapper(
+    rc, nullptr, 0,
+    nullptr, nullptr, nullptr,
+    0, 0,
+    0, 0
+  );
+#endif
 #endif
 
   return 0;

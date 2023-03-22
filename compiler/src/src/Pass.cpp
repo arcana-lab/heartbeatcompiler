@@ -4,6 +4,7 @@ using namespace llvm;
 using namespace llvm::noelle;
 
 static cl::list<std::string> Chunksize("chunksize", cl::desc("Specify the chunksize for each level of nested loop"), cl::OneOrMore);
+static cl::opt<bool> Enable_Rollforward ("enable_rollforward", cl::desc("Enable rollforward compilation"));
 
 Heartbeat::Heartbeat () 
   : ModulePass(ID) 
@@ -134,6 +135,10 @@ bool Heartbeat::runOnModule (Module &M) {
         errs() << "updated loop_handler function in loop level " << this->loopToLevel[pair.first] << *callInst << "\n";
       }
     }
+
+    if (Enable_Rollforward) {
+      replaceWithRollforwardHandler(noelle);
+    }
   }
 
   errs() << this->outputPrefix << "Exit\n";
@@ -164,6 +169,51 @@ void Heartbeat::reset() {
   this->leftoverTaskIndexSelector = nullptr;
 
   this->loopToChunksize.clear();
+}
+
+void Heartbeat::replaceWithRollforwardHandler(Noelle &noelle) {
+  // Decide to use the rollforward loop handler
+  // 1. allocate a stack space for rc (return code) at the beginning of the function
+  // 2. pass the pointer of the stack space as the first argument to the rollforward loop handler
+  // 3. load the value from the stack space after return
+  // 4. replace all uses with the previous loop_handler_return_code
+  for (auto pair : this->loopToHeartbeatTransformation) {
+    auto callInst = cast<CallInst>(pair.second->getCallToLoopHandler());
+
+    IRBuilder<> entryBuilder{ pair.second->getHeartbeatTask()->getTaskBody()->begin()->getFirstNonPHI() };
+    // create a int64 stack space for return code
+    auto rcPointer = entryBuilder.CreateAlloca(
+      entryBuilder.getInt64Ty(),
+      nullptr,
+      "rollforward_handler_return_code_pointer"
+    );
+    entryBuilder.CreateStore(
+      entryBuilder.getInt64(0),
+      rcPointer
+    );
+
+    IRBuilder<> builder{ callInst };
+    auto rollforwardHandlerFunction = noelle.getProgram()->getFunction(std::string("__rf_handle_level").append(std::to_string(this->numLevels)).append("_wrapper"));
+    assert(rollforwardHandlerFunction != nullptr);
+    std::vector<Value *> rollforwardHandlerParameters { rcPointer };
+    rollforwardHandlerParameters.insert(rollforwardHandlerParameters.end(), callInst->arg_begin(), callInst->arg_end());
+    auto rfCallInst = builder.CreateCall(
+      rollforwardHandlerFunction,
+      ArrayRef<Value *>({
+        rollforwardHandlerParameters
+      })
+    );
+
+    auto rc = builder.CreateLoad(
+      rcPointer,
+      "rollforward_handler_return_code"
+    );
+
+    callInst->replaceAllUsesWith(rc);
+    callInst->eraseFromParent();
+
+    // errs() << "heartbeat task after using rollforward handler " << *(pair.second->getHeartbeatTask()->getTaskBody()) << "\n";
+  }
 }
 
 void Heartbeat::getAnalysisUsage(AnalysisUsage &AU) const {
