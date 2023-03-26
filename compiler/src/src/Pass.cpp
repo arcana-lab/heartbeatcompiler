@@ -174,8 +174,9 @@ void Heartbeat::reset() {
 void Heartbeat::replaceWithRollforwardHandler(Noelle &noelle) {
   // Decide to use the rollforward loop handler
   // 1. allocate a stack space for rc (return code) at the beginning of the function
+  // 2. initialize rc with value 0 on stack
   // 2. pass the pointer of the stack space as the first argument to the rollforward loop handler
-  // 3. load the value from the stack space after return
+  // 3. load the value from the stack space after calling
   // 4. replace all uses with the previous loop_handler_return_code
   for (auto pair : this->loopToHeartbeatTransformation) {
     auto callInst = cast<CallInst>(pair.second->getCallToLoopHandler());
@@ -212,6 +213,7 @@ void Heartbeat::replaceWithRollforwardHandler(Noelle &noelle) {
     callInst->replaceAllUsesWith(rc);
     callInst->eraseFromParent();
 
+    errs() << "replace original loop_handler call with rollforward handler call " << *rfCallInst << "\n";
     // errs() << "heartbeat task after using rollforward handler " << *(pair.second->getHeartbeatTask()->getTaskBody()) << "\n";
   }
 }
