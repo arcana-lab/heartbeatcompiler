@@ -205,6 +205,7 @@ class Heartbeat : public ModulePass {
      * Chunking info
      */
     std::unordered_map<LoopDependenceInfo *, uint64_t> loopToChunksize;
+    bool chunkLoopIterations = false;
 
     /*
      * Replace call to rollforward_handler if Enable_Rollforward is specified

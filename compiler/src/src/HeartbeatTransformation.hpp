@@ -46,6 +46,7 @@ class HeartbeatTransformation : public DOALL {
       std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns,
       std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> &loopToHeartbeatTransformation,
       std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop,
+      bool chunkLoopIterations,
       std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToChunksize
     );
 
@@ -130,6 +131,7 @@ class HeartbeatTransformation : public DOALL {
     HeartbeatTask *hbTask;
     std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> &loopToHeartbeatTransformation;
     std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop;
+    bool chunkLoopIterations;
     std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToChunksize;
     Value *contextBitcastInst;
     BasicBlock *loopHandlerBlock;

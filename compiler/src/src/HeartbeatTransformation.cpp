@@ -18,6 +18,7 @@ HeartbeatTransformation::HeartbeatTransformation (
   std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns,
   std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> &loopToHeartbeatTransformation,
   std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop,
+  bool chunkLoopIterations,
   std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToChunksize
 ) : DOALL{noelle},
     nestID{nestID},
@@ -32,6 +33,7 @@ HeartbeatTransformation::HeartbeatTransformation (
     hbTask{nullptr},
     loopToHeartbeatTransformation{loopToHeartbeatTransformation},
     loopToCallerLoop{loopToCallerLoop},
+    chunkLoopIterations{chunkLoopIterations},
     loopToChunksize{loopToChunksize} {
 
   // set cacheline element size
@@ -753,11 +755,13 @@ bool HeartbeatTransformation::apply (
    * Execute the leaf loop in chunk
    * Chunksize is supposed to be passed from the command line
    */
-  if (this->loopToLevel[ldi] == this->numLevels - 1) {
-    // if (this->loopToChunksize[ldi] > 1) {
-      errs() << "found a loop that needs to be executed in chunk, do the chunking transformation\n";
-      this->executeLoopInChunk(ldi);
-    // }
+  if (this->chunkLoopIterations) {
+    if (this->loopToLevel[ldi] == this->numLevels - 1) {
+      // if (this->loopToChunksize[ldi] > 1) {
+        errs() << "found a loop that needs to be executed in chunk, do the chunking transformation\n";
+        this->executeLoopInChunk(ldi);
+      // }
+    }
   }
 
   return true;

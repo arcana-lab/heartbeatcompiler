@@ -23,7 +23,7 @@ endif
 
 # whether to enable the rollforward compilation
 # options: true, false
-ENABLE_ROLLFORWARD ?= false
+ENABLE_ROLLFORWARD ?= true
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	MACROS += -DENABLE_ROLLFORWARD
 	PASS_ARGUMENTS_HEARTBEAT_COMPILER += -enable_rollforward
@@ -150,6 +150,7 @@ MACROS_HEARTBEAT += -DSMALLEST_GRANULARITY=$(SMALLEST_GRANULARITY)
 CHUNK_LOOP_ITERATIONS ?= true
 ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 	MACROS_HEARTBEAT += -DCHUNK_LOOP_ITERATIONS
+	PASS_ARGUMENTS_HEARTBEAT_COMPILER += -chunk_loop_iterations
 endif
 
 # include benchmark heartbeat specific settings

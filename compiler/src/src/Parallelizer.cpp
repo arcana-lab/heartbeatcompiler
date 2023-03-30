@@ -22,6 +22,7 @@ bool Heartbeat::parallelizeRootLoop (
     this->loopToConstantLiveIns,
     this->loopToHeartbeatTransformation,
     this->loopToCallerLoop,
+    this->chunkLoopIterations,
     this->loopToChunksize
   );
   this->loopToHeartbeatTransformation[ldi] = HB;
@@ -206,6 +207,7 @@ bool Heartbeat::parallelizeNestedLoop (
     this->loopToConstantLiveIns,
     this->loopToHeartbeatTransformation,
     this->loopToCallerLoop,
+    this->chunkLoopIterations,
     this->loopToChunksize
   );
   this->loopToHeartbeatTransformation[ldi] = HB;

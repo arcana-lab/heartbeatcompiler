@@ -3,8 +3,9 @@
 using namespace llvm;
 using namespace llvm::noelle;
 
+static cl::opt<bool> Chunk_Loop_Iterations("chunk_loop_iterations", cl::desc("Execute loop iterations in chunk"));
 static cl::list<std::string> Chunksize("chunksize", cl::desc("Specify the chunksize for each level of nested loop"), cl::OneOrMore);
-static cl::opt<bool> Enable_Rollforward ("enable_rollforward", cl::desc("Enable rollforward compilation"));
+static cl::opt<bool> Enable_Rollforward("enable_rollforward", cl::desc("Enable rollforward compilation"));
 
 Heartbeat::Heartbeat () 
   : ModulePass(ID) 
@@ -51,10 +52,13 @@ bool Heartbeat::runOnModule (Module &M) {
     /*
      * Set the chunksize using command line arguments
      */
-    uint64_t index = 0;
-    for (auto &chunksize : Chunksize) {
-      this->loopToChunksize[this->levelToLoop[index]] = stoi(chunksize);
-      index++;
+    if (Chunk_Loop_Iterations) {
+      this->chunkLoopIterations = true;
+      uint64_t index = 0;
+      for (auto &chunksize : Chunksize) {
+        this->loopToChunksize[this->levelToLoop[index]] = stoi(chunksize);
+        index++;
+      }
     }
 
     /*
