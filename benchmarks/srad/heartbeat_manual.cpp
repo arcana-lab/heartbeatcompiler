@@ -339,10 +339,21 @@ int64_t HEARTBEAT_nest0_loop1_slice(void *cxts, uint64_t myIndex, uint64_t s0, u
 // Leftover tasks
 void HEARTBEAT_nest0_loop_1_0_leftover(void *cxts, uint64_t myIndex, void *itersArr) {
   // load startIter and maxIter
-  uint64_t startIter = ((uint64_t *)itersArr)[LEVEL_ONE * 2 + START_ITER];
-  uint64_t maxIter   = ((uint64_t *)itersArr)[LEVEL_ONE * 2 + MAX_ITER];
+  uint64_t startIter0 = ((uint64_t *)itersArr)[LEVEL_ZERO * 2 + START_ITER];
+  uint64_t maxIter0   = ((uint64_t *)itersArr)[LEVEL_ZERO * 2 + MAX_ITER];
+  uint64_t startIter1 = ((uint64_t *)itersArr)[LEVEL_ONE * 2 + START_ITER];
+  uint64_t maxIter1   = ((uint64_t *)itersArr)[LEVEL_ONE * 2 + MAX_ITER];
 
-  HEARTBEAT_nest0_loop1_slice(cxts, 0, 0, 0, startIter, maxIter);
+  int64_t rc = 0;
+  rc = HEARTBEAT_nest0_loop1_slice(cxts, myIndex, startIter0, maxIter0, startIter1, maxIter1);
+  if (rc > 0) {
+    return;
+  }
+
+  rc = HEARTBEAT_nest0_loop0_slice(cxts, myIndex, startIter0+1, maxIter0);
+  if (rc > 0) {
+    return;
+  }
 
   return;
 }
@@ -628,12 +639,21 @@ int64_t HEARTBEAT_nest1_loop1_slice(void *cxts, uint64_t myIndex, uint64_t s0, u
 // Leftover tasks
 void HEARTBEAT_nest1_loop_1_0_leftover(void *cxts, uint64_t myIndex, void *itersArr) {
   // load startIter and maxIter
-  uint64_t startIter = ((uint64_t *)itersArr)[LEVEL_ONE * 2 + START_ITER];
-  uint64_t maxIter   = ((uint64_t *)itersArr)[LEVEL_ONE * 2 + MAX_ITER];
+  uint64_t startIter0 = ((uint64_t *)itersArr)[LEVEL_ZERO * 2 + START_ITER];
+  uint64_t maxIter0   = ((uint64_t *)itersArr)[LEVEL_ZERO * 2 + MAX_ITER];
+  uint64_t startIter1 = ((uint64_t *)itersArr)[LEVEL_ONE * 2 + START_ITER];
+  uint64_t maxIter1   = ((uint64_t *)itersArr)[LEVEL_ONE * 2 + MAX_ITER];
 
-  HEARTBEAT_nest1_loop1_slice(cxts, 0, 0, 0, startIter, maxIter);
+  int64_t rc = 0;
+  rc = HEARTBEAT_nest1_loop1_slice(cxts, myIndex, startIter0, maxIter0, startIter1, maxIter1);
+  if (rc > 0) {
+    return;
+  }
 
-  return;
+  rc = HEARTBEAT_nest1_loop0_slice(cxts, myIndex, startIter0+1, maxIter0);
+  if (rc > 0) {
+    return;
+  }
 }
 
 } // namespace srad

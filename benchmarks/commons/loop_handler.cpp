@@ -5,6 +5,7 @@
 #if defined(ENABLE_ROLLFORWARD)
 #include <rollforward.h>
 #endif
+#include <stdio.h>
 
 extern "C" {
 
@@ -177,37 +178,52 @@ int64_t loop_handler_level2(
       slice_tasks[receivingLevel]((void *)cxtsSecond, 1, mid, itersArr[receivingLevel * 2 + MAX_ITER]);
     }, [] { }, taskparts::bench_scheduler());
   
-  } else { // build up the leftover task
-    /*
-     * Allocate cxts for leftover task
-     */
-    uint64_t cxtsLeftover[2 * CACHELINE];
+  } else { // the first task needs to compose the leftover work
+
+// printf("GIS recorded\n");
+// for (uint64_t i = 0; i < 2; i++) {
+//   printf("level %ld - startIter: %ld, maxIter: %ld\n", i, itersArr[i * 2 + START_ITER], itersArr[i * 2 + MAX_ITER]);
+// }
 
     /*
-     * Construct the context starting from splittingLevel + 1 up to receivingLevel for leftover task
+     * Construct the context starting from splittingLevel + 1 up to receivingLevel for the leftover work
      */
     for (uint64_t level = splittingLevel + 1; level <= receivingLevel; level++) {
-      cxtsLeftover[level * CACHELINE + LIVE_IN_ENV]  = ((uint64_t *)cxts)[level * CACHELINE + LIVE_IN_ENV];
-      cxtsLeftover[level * CACHELINE + LIVE_OUT_ENV] = ((uint64_t *)cxts)[level * CACHELINE + LIVE_OUT_ENV];
+      cxtsFirst[level * CACHELINE + LIVE_IN_ENV]  = ((uint64_t *)cxts)[level * CACHELINE + LIVE_IN_ENV];
+      cxtsFirst[level * CACHELINE + LIVE_OUT_ENV] = ((uint64_t *)cxts)[level * CACHELINE + LIVE_OUT_ENV];
 
       /*
-       * Set the startIter in itersArr for leftover task to start from
+       * Set the startIter in itersArr for the leftover work to start from
        */
       itersArr[level * 2 + START_ITER] += 1;
     }
+
+    /*
+     * Get the maxIter used by the second task
+     */
+    uint64_t max = itersArr[splittingLevel * 2 + MAX_ITER];
+
+    /*
+     * Set the startIter in itersArr at the splittingLevel for the leftover task
+     */
+    // itersArr[splittingLevel * 2 + START_ITER] += 1;
+    itersArr[splittingLevel * 2 + MAX_ITER] = mid;
+
+// printf("GIS for the leftover task\n");
+// for (int64_t i = 1; i >= 0; i--) {
+//   printf("level %ld - startIter: %ld, maxIter: %ld\n", i, itersArr[i * 2 + START_ITER], itersArr[i * 2 + MAX_ITER]);
+// }
+// printf("GIS for the second task\n");
+// printf("level %ld - startIter: %ld, maxIter: %ld\n", 0, mid, max);
 
     /*
      * Determine which leftover task to run
      */
     uint64_t leftoverTaskIndex = leftover_selector(receivingLevel, splittingLevel);
     taskparts::tpalrts_promote_via_nativefj([&] {
-      (*leftover_tasks[leftoverTaskIndex])((void *)cxtsLeftover, 0, (void *)itersArr);
+      (*leftover_tasks[leftoverTaskIndex])((void *)cxtsFirst, 0, (void *)itersArr);
     }, [&] {
-      taskparts::tpalrts_promote_via_nativefj([&] {
-        slice_tasks[splittingLevel]((void *)cxtsFirst, 0, itersArr[splittingLevel * 2 + START_ITER]+1, mid);
-      }, [&] {
-        slice_tasks[splittingLevel]((void *)cxtsSecond, 1, mid, itersArr[splittingLevel * 2 + MAX_ITER]);
-      }, [] { }, taskparts::bench_scheduler());
+      slice_tasks[splittingLevel]((void *)cxtsSecond, 1, mid, max);
     }, [&] { }, taskparts::bench_scheduler());
   }
 
