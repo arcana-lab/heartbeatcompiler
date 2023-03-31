@@ -1,4 +1,4 @@
-all: build link
+all: patches build-noelle build-compiler
 
 runtime:
 	git clone https://github.com/mikerainey/taskparts.git runtime ;
@@ -13,8 +13,10 @@ noelle:
 patches: runtime noelle
 	cp -r patches/* . ;
 
-build: patches
+build-noelle: noelle
 	cd noelle ; make clean ; make uninstall ; make src ;
+
+build-compiler: noelle
 	cd compiler ; make clean ; make compiler ;
 
 link:
@@ -22,6 +24,7 @@ link:
 
 clean:
 	make -C benchmarks clean ;
+	make -C compiler clean ;
 
 uninstall:
 	rm -rf runtime rollforward noelle ;
