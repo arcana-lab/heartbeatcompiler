@@ -22,8 +22,10 @@ ifeq ($(TEST_CORRECTNESS), true)
 endif
 
 # whether to enable the rollforward compilation
+# and whether to use the heartbeat linux module
 # options: true, false
 ENABLE_ROLLFORWARD ?= true
+USE_HB_KMOD ?= false
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	MACROS_HEARTBEAT += -DENABLE_ROLLFORWARD
 	PASS_ARGUMENTS_HEARTBEAT_COMPILER += -enable_rollforward
@@ -45,14 +47,18 @@ TASKPARTS_FLAGS = \
 	$(TASKPARTS_PLATFORM) \
 	-DTASKPARTS_TPALRTS \
 	-DTASKPARTS_STATS
-ifeq ($(ENABLE_ROLLFORWARD), false)
+ifeq ($(ENABLE_ROLLFORWARD), true)
+	ifeq ($(USE_HB_KMOD), true)
+  	TASKPARTS_FLAGS += -DTASKPARTS_TPALRTS_HBTIMER_KMOD
+	endif
+else
 	TASKPARTS_FLAGS += -DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING
 endif
 MACROS += $(TASKPARTS_FLAGS)
 
 FLAGS = \
 	--std=c++17 \
-	-I $(TASKPARTS_INCLUDE)
+	-I$(TASKPARTS_INCLUDE)
 
 OPTS = \
 	-O3 -march=native \
@@ -124,6 +130,7 @@ run_openmp: openmp
 # ============================================
 # Heartbeat
 # ============================================
+HEARTBEAT_LINUX = $(ROOT_DIR)/heartbeat-linux
 ROLLFORWARD_PATH = $(ROOT_DIR)/rollforward/src
 ROLLFORWARD_INCLUDE = $(ROLLFORWARD_PATH)/x64
 ROLLFORWARDXX_PATH = $(TASKPARTS_PATH)/benchmark/tpal
@@ -158,10 +165,18 @@ endif
 
 FLAGS_HEARTBEAT += $(FLAGS)
 ifeq ($(ENABLE_ROLLFORWARD), true)
-	FLAGS_HEARTBEAT += -I $(ROLLFORWARD_INCLUDE)
+	FLAGS_HEARTBEAT += -I$(ROLLFORWARD_INCLUDE)
+	ifeq ($(USE_HB_KMOD), true)
+		FLAGS_HEARTBEAT += -I$(HEARTBEAT_LINUX)/user
+	endif
 endif
 
 OPTS_HEARTBEAT += $(OPTS)
+ifeq ($(ENABLE_ROLLFORWARD), true)
+	ifeq ($(USE_HB_KMOD), true)
+		LIBS_HEARTBEAT += -L$(HEARTBEAT_LINUX) -lhb
+	endif
+endif
 LIBS_HEARTBEAT += $(LIBS)
 
 -include Makefile_heartbeat_manual
