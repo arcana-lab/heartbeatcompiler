@@ -1,4 +1,5 @@
 #include "bench.hpp"
+#include "utility.hpp"
 #include <cstdint>
 #include <cstdlib>
 #include <cstdio>
@@ -44,6 +45,7 @@ float **cluster_centres=NULL;
 void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
                std::function<void()> const &bench_end) {
+#if defined(USE_BASELINE)
   taskparts::benchmark_nativeforkjoin([&] (auto sched) {
     bench_body();
   }, [&] (auto sched) {
@@ -51,6 +53,15 @@ void run_bench(std::function<void()> const &bench_body,
   }, [&] (auto sched) {
     bench_end();
   });
+#else
+  utility::run([&] {
+    bench_body();
+  }, [&] {
+    bench_start();
+  }, [&] {
+    bench_end();
+  });
+#endif
 }
 #endif
 
