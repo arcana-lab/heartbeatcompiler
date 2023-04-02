@@ -180,11 +180,6 @@ int64_t loop_handler_level2(
   
   } else { // the first task needs to compose the leftover work
 
-// printf("GIS recorded\n");
-// for (uint64_t i = 0; i < 2; i++) {
-//   printf("level %ld - startIter: %ld, maxIter: %ld\n", i, itersArr[i * 2 + START_ITER], itersArr[i * 2 + MAX_ITER]);
-// }
-
     /*
      * Construct the context starting from splittingLevel + 1 up to receivingLevel for the leftover work
      */
@@ -204,17 +199,9 @@ int64_t loop_handler_level2(
     uint64_t max = itersArr[splittingLevel * 2 + MAX_ITER];
 
     /*
-     * Set the startIter in itersArr at the splittingLevel for the leftover task
+     * Set the maxIter in itersArr at the splittingLevel for the leftover task
      */
-    // itersArr[splittingLevel * 2 + START_ITER] += 1;
     itersArr[splittingLevel * 2 + MAX_ITER] = mid;
-
-// printf("GIS for the leftover task\n");
-// for (int64_t i = 1; i >= 0; i--) {
-//   printf("level %ld - startIter: %ld, maxIter: %ld\n", i, itersArr[i * 2 + START_ITER], itersArr[i * 2 + MAX_ITER]);
-// }
-// printf("GIS for the second task\n");
-// printf("level %ld - startIter: %ld, maxIter: %ld\n", 0, mid, max);
 
     /*
      * Determine which leftover task to run

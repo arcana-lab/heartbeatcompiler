@@ -292,9 +292,6 @@ int64_t HEARTBEAT_nest0_loop1_slice(void *cxts, uint64_t myIndex, uint64_t s0, u
   return rc - 1;
 }
 
-#include <stdio.h>
-#include <cassert>
-
 // Leftover tasks
 void HEARTBEAT_nest0_loop_1_0_leftover(void *cxts, uint64_t myIndex, void *itersArr) {
   // load startIter and maxIter
@@ -303,6 +300,12 @@ void HEARTBEAT_nest0_loop_1_0_leftover(void *cxts, uint64_t myIndex, void *iters
   uint64_t startIter1 = ((uint64_t *)itersArr)[LEVEL_ONE * 2 + START_ITER];
   uint64_t maxIter1   = ((uint64_t *)itersArr)[LEVEL_ONE * 2 + MAX_ITER];
 
+  // KNOWN BUG HERE:
+  // In the leftover task and the heartbeat arrives, and it promotes outer parallelism
+  // then the second part of the slice task will work on the second entry of the reduction array
+  // (if the outer loop contains live-out environment)
+  // The reason is because the reduction array for kids of the outer loop hasn't been allocate
+  // therefore there will be a data race between the new right slice task and the original right slice task
   int64_t rc = 0;
   rc = HEARTBEAT_nest0_loop1_slice(cxts, myIndex, startIter0, maxIter0, startIter1, maxIter1);
   if (rc > 0) {
