@@ -48,8 +48,15 @@ FLAGS += \
 # ============================================
 # Global OPTS used by all implementations
 # ============================================
-OPTS = \
-	-O3 -march=native \
+DEBUG ?= false
+ifeq ($(DEBUG), false)
+	OPTS += -O3
+else
+	OPTS += -O0 -g
+endif
+
+OPTS += \
+	-march=native \
 	-fno-stack-protector \
 	-fno-asynchronous-unwind-tables \
 	-fno-verbose-asm -fno-rtti -fno-pic -fno-pie
