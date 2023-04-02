@@ -46,7 +46,8 @@ TASKPARTS_PLATFORM ?= -DTASKPARTS_POSIX -DTASKPARTS_X64
 TASKPARTS_FLAGS = \
 	$(TASKPARTS_PLATFORM) \
 	-DTASKPARTS_TPALRTS \
-	-DTASKPARTS_STATS
+	-DTASKPARTS_STATS \
+	-DTASKPARTS_USE_CHASELEV_DEQUE  # can in certain cases prevent deque overflow
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	ifeq ($(USE_HB_KMOD), true)
   	TASKPARTS_FLAGS += -DTASKPARTS_TPALRTS_HBTIMER_KMOD
@@ -64,7 +65,7 @@ OPTS = \
 	-O3 -march=native \
 	-fno-stack-protector \
 	-fno-asynchronous-unwind-tables \
-	-fomit-frame-pointer
+	-fno-verbose-asm -fno-rtti -fno-pic -fno-pie 
 ifeq ($(CXX), clang++)
 	OPTS += -fno-vectorize -fno-slp-vectorize
 else ifeq ($(CXX), g++)
@@ -72,7 +73,9 @@ else ifeq ($(CXX), g++)
 endif
 
 LIBS = -lm -lstdc++ -pthread -ldl
-ifeq (, $(shell which jemalloc-config))
+ifeq (-ljemalloc, $(shell pkg-config jemalloc --libs))
+	LIBS += $(shell pkg-config jemalloc --libs)
+else ifeq (, $(shell which jemalloc-config))
 	CUSTOM_MALLOC =
 else
 	JEMALLOCLD = $(shell jemalloc-config --libdir)
