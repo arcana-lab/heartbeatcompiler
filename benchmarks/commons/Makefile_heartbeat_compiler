@@ -38,7 +38,7 @@ heartbeat_compiler.s: heartbeat_compiler.bc
 	$(CXX) $(MACROS_HEARTBEAT_COMPILER) $(FLAGS_HEARTBEAT_COMPILER) $(OPTS_HEARTBEAT_COMPILER) $< -S -o $@
 
 heartbeat_compiler.rf.s: heartbeat_compiler.s
-	ROLLFORWARD_PATH=$(ROLLFORWARD_PATH) $(ROLLFORWARDXX) $< $@
+	ROLLFORWARD_PATH=$(ROLLFORWARD_PATH) $(ROLLFORWARD_COMPILER) $< $@
 
 heartbeat_compiler.rf.o: heartbeat_compiler.rf.s
 	$(CXX) -I $(ROLLFORWARD_INCLUDE) $< -c -o $@

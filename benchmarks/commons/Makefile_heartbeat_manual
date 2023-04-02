@@ -28,7 +28,7 @@ heartbeat_manual.s: heartbeat_manual.cpp
 	$(CXX) $(MACROS_HEARTBEAT_MANUAL) $(FLAGS_HEARTBEAT_MANUAL) $(OPTS_HEARTBEAT_MANUAL) $< -S -o $@
 
 heartbeat_manual.rf.s: heartbeat_manual.s
-	ROLLFORWARD_PATH=$(ROLLFORWARD_PATH) $(ROLLFORWARDXX) $< $@
+	ROLLFORWARD_PATH=$(ROLLFORWARD_PATH) $(ROLLFORWARD_COMPILER) $< $@
 
 heartbeat_manual.rf.o: heartbeat_manual.rf.s
 	$(CXX) -I $(ROLLFORWARD_INCLUDE) $< -c -o $@

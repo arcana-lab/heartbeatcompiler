@@ -6,7 +6,7 @@
 #include <string>
 #include <taskparts/posix/steadyclock.hpp>
 
-using namespace taskparts::steadyclock;
+using namespace taskparts;
 
 namespace utility {
 
@@ -26,6 +26,7 @@ void run(std::function<void()> const &bench_body,
     warmup_secs = (double)std::stoi(env_p);
   }
 
+  // UTILITY_BENCHMARK_VERBOSE
   bool verbose = false;
   if (const auto env_p = std::getenv("UTILITY_BENCHMARK_VERBOSE")) {
     verbose = std::stoi(env_p);
@@ -34,11 +35,11 @@ void run(std::function<void()> const &bench_body,
   auto warmup = [&] {
     if (warmup_secs >= 0.0) {
       if (verbose) printf("======== WARMUP ========\n");
-      auto warmup_start = taskparts::steadyclock::now();
-      while (taskparts::steadyclock::since(warmup_start) < warmup_secs) {
-        auto st = taskparts::steadyclock::now();
+      auto warmup_start = steadyclock::now();
+      while (steadyclock::since(warmup_start) < warmup_secs) {
+        auto st = steadyclock::now();
         bench_body();
-        auto el = taskparts::steadyclock::since(st);
+        auto el = steadyclock::since(st);
         if (verbose) printf("warmup_run %.3f\n", el);
       }
       if (verbose) printf ("======== END WARMUP ========\n");
@@ -48,10 +49,10 @@ void run(std::function<void()> const &bench_body,
   bench_start();
   warmup();
   for (size_t i = 0; i < repeat; i++) {
-    auto st = taskparts::steadyclock::now();
+    auto st = steadyclock::now();
     bench_body();
-    auto el = taskparts::steadyclock::since(st);
-    fprintf(stdout, "\"exectime\": %.3f\n", el);
+    auto el = steadyclock::since(st);
+    printf("\"exectime\": %.3f\n", el);
   }
   bench_end();
 

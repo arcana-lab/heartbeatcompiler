@@ -3,7 +3,6 @@
 #include <cstdint>
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 #include <functional>
-#include <taskparts/benchmark.hpp>
 #endif
 
 namespace nested_plus_reduce_array {
@@ -24,15 +23,6 @@ double result = 0.0;
 void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
                std::function<void()> const &bench_end) {
-#if defined(USE_BASELINE)
-  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
-    bench_body();
-  }, [&] (auto sched) {
-    bench_start();
-  }, [&] (auto sched) {
-    bench_end();
-  });
-#else
   utility::run([&] {
     bench_body();
   }, [&] {
@@ -40,7 +30,6 @@ void run_bench(std::function<void()> const &bench_body,
   }, [&] {
     bench_end();
   });
-#endif
 }
 #endif
 

@@ -6,7 +6,6 @@
 #include <algorithm>
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 #include <functional>
-#include <taskparts/benchmark.hpp>
 #endif
 
 #define SUB(array, row_sz, i, j) (array[i * row_sz + j])
@@ -35,15 +34,6 @@ int *dist = nullptr;
 void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
                std::function<void()> const &bench_end) {
-#if defined(USE_BASELINE)
-  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
-    bench_body();
-  }, [&] (auto sched) {
-    bench_start();
-  }, [&] (auto sched) {
-    bench_end();
-  });
-#else
   utility::run([&] {
     bench_body();
   }, [&] {
@@ -51,7 +41,6 @@ void run_bench(std::function<void()> const &bench_body,
   }, [&] {
     bench_end();
   });
-#endif
 }
 #endif
 

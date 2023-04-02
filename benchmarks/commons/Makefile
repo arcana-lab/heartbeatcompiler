@@ -3,6 +3,16 @@ ROOT_DIR = $(shell git rev-parse --show-toplevel)
 CC = clang
 CXX = clang++
 
+# ============================================
+# TASKPARTS definitions
+# ============================================
+TASKPARTS_PATH = $(ROOT_DIR)/runtime
+TASKPARTS_INCLUDE = $(TASKPARTS_PATH)/include
+TASKPARTS_PLATFORM ?= -DTASKPARTS_POSIX -DTASKPARTS_X64
+
+# ============================================
+# Global MACROS used by all implementations
+# ============================================
 # size of input, either benchmarking, tpal or testing
 # options: benchmarking, tpal, testing
 INPUT_SIZE ?= testing
@@ -19,59 +29,39 @@ endif
 TEST_CORRECTNESS ?= false
 ifeq ($(TEST_CORRECTNESS), true)
 	MACROS += -DTEST_CORRECTNESS
-endif
-
-# whether to enable the rollforward compilation
-# and whether to use the heartbeat linux module
-# options: true, false
-ENABLE_ROLLFORWARD ?= true
-USE_HB_KMOD ?= false
-ifeq ($(ENABLE_ROLLFORWARD), true)
-	MACROS_HEARTBEAT += -DENABLE_ROLLFORWARD
-	PASS_ARGUMENTS_HEARTBEAT_COMPILER += -enable_rollforward
 else
-	MACROS += -DDISABLE_ROLLFORWARD
+	MACROS += -DDONT_TEST_CORRECTNESS
 endif
 
 # include benchmark specific settings
 -include bench.config
 
-# taskparts definitions
-CPU_BASE_FREQUENCY_KHZ ?= 2800000
-TASKPARTS_PATH = $(ROOT_DIR)/runtime
-TASKPARTS_INCLUDE = $(TASKPARTS_PATH)/include
+MACROS += $(TASKPARTS_PLATFORM)
 
-# macros used for taskparts runtime
-TASKPARTS_PLATFORM ?= -DTASKPARTS_POSIX -DTASKPARTS_X64
-TASKPARTS_FLAGS = \
-	$(TASKPARTS_PLATFORM) \
-	-DTASKPARTS_TPALRTS \
-	-DTASKPARTS_STATS \
-	-DTASKPARTS_USE_CHASELEV_DEQUE  # can in certain cases prevent deque overflow
-ifeq ($(ENABLE_ROLLFORWARD), true)
-	ifeq ($(USE_HB_KMOD), true)
-  	TASKPARTS_FLAGS += -DTASKPARTS_TPALRTS_HBTIMER_KMOD
-	endif
-else
-	TASKPARTS_FLAGS += -DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING
-endif
-MACROS += $(TASKPARTS_FLAGS)
-
-FLAGS = \
+# ============================================
+# Global FLAGS used by all implementations
+# ============================================
+FLAGS += \
 	--std=c++17 \
 	-I$(TASKPARTS_INCLUDE)
 
+# ============================================
+# Global OPTS used by all implementations
+# ============================================
 OPTS = \
 	-O3 -march=native \
 	-fno-stack-protector \
 	-fno-asynchronous-unwind-tables \
-	-fno-verbose-asm -fno-rtti -fno-pic -fno-pie 
+	-fno-verbose-asm -fno-rtti -fno-pic -fno-pie
 ifeq ($(CXX), clang++)
 	OPTS += -fno-vectorize -fno-slp-vectorize
 else ifeq ($(CXX), g++)
 	OPTS += -fno-tree-vectorize
 endif
 
+# ============================================
+# Global LIBS used by all implementations
+# ============================================
 LIBS = -lm -lstdc++ -pthread -ldl
 ifeq (-ljemalloc, $(shell pkg-config jemalloc --libs))
 	LIBS += $(shell pkg-config jemalloc --libs)
@@ -95,7 +85,7 @@ baseline: main.cpp bench.cpp
 	$(CXX) $(MACROS_BASELINE) $(FLAGS_BASELINE) $(OPTS_BASELINE) $^ -o $@ $(LIBS_BASELINE)
 
 run_baseline: baseline
-	TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY_KHZ) ./$<
+	./$<
 
 # ============================================
 # OpenCilk
@@ -114,7 +104,7 @@ opencilk: main.cpp bench.cpp
 	$(OPENCILK_COMPILER) $(MACROS_OPENCILK) $(FLAGS_OPENCILK) $(OPTS_OPENCILK) $^ -o $@ $(LIBS_OPENCILK)
 
 run_opencilk: opencilk
-	TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY_KHZ) ./$<
+	./$<
 
 # ============================================
 # OpenMP
@@ -128,18 +118,32 @@ openmp: main.cpp bench.cpp
 	$(CXX) $(MACROS_OPENMP) $(FLAGS_OPENMP) $(OPTS_OPENMP) $^ -o $@ $(LIBS_OPENMP)
 
 run_openmp: openmp
-	TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_BASE_FREQUENCY_KHZ) ./$<
+	./$<
 
 # ============================================
 # Heartbeat
 # ============================================
-HEARTBEAT_LINUX = $(ROOT_DIR)/heartbeat-linux
+CPU_BASE_FREQUENCY_KHZ ?= 2800000
+HEARTBEAT_LINUX_PATH = $(ROOT_DIR)/heartbeat-linux
+HEARTBEAT_LINUX_INCLUDE =$(HEARTBEAT_LINUX_PATH)/user
 ROLLFORWARD_PATH = $(ROOT_DIR)/rollforward/src
 ROLLFORWARD_INCLUDE = $(ROLLFORWARD_PATH)/x64
-ROLLFORWARDXX_PATH = $(TASKPARTS_PATH)/benchmark/tpal
-ROLLFORWARDXX = $(ROLLFORWARDXX_PATH)/rollforward++
+ROLLFORWARD_COMPILER_PATH = $(TASKPARTS_PATH)/benchmark/tpal
+ROLLFORWARD_COMPILER = $(ROLLFORWARD_COMPILER_PATH)/rollforward++
 
 MACROS_HEARTBEAT += $(MACROS)
+
+# whether to enable the rollforward compilation
+# and whether to use the heartbeat linux module
+# options: true, false
+ENABLE_ROLLFORWARD ?= true
+USE_HB_KMOD ?= false
+ifeq ($(ENABLE_ROLLFORWARD), true)
+	MACROS_HEARTBEAT += -DENABLE_ROLLFORWARD
+	PASS_ARGUMENTS_HEARTBEAT_COMPILER += -enable_rollforward
+else
+	MACROS += -DDISABLE_ROLLFORWARD
+endif
 
 # whether to enable heartbeat promotion
 # options: true, false
@@ -166,18 +170,32 @@ endif
 # include benchmark heartbeat specific settings
 -include heartbeat.config
 
+# macros need to enable taskparts runtime
+MACROS_HEARTBEAT += \
+	-DTASKPARTS_TPALRTS \
+	-DTASKPARTS_STATS \
+	-DTASKPARTS_USE_CHASELEV_DEQUE # can in certain cases prevent deque overflow
+ifeq ($(ENABLE_ROLLFORWARD), true)
+	ifeq ($(USE_HB_KMOD), true)
+  	MACROS_HEARTBEAT += -DTASKPARTS_TPALRTS_HBTIMER_KMOD # required by the linux kernel module
+	endif
+else
+	MACROS_HEARTBEAT += -DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING # to enable software polling
+endif
+
 FLAGS_HEARTBEAT += $(FLAGS)
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	FLAGS_HEARTBEAT += -I$(ROLLFORWARD_INCLUDE)
 	ifeq ($(USE_HB_KMOD), true)
-		FLAGS_HEARTBEAT += -I$(HEARTBEAT_LINUX)/user
+		FLAGS_HEARTBEAT += -I$(HEARTBEAT_LINUX_INCLUDE)
 	endif
 endif
 
 OPTS_HEARTBEAT += $(OPTS)
+
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	ifeq ($(USE_HB_KMOD), true)
-		LIBS_HEARTBEAT += -L$(HEARTBEAT_LINUX) -lhb
+		LIBS_HEARTBEAT += -L$(HEARTBEAT_LINUX_PATH) -lhb
 	endif
 endif
 LIBS_HEARTBEAT += $(LIBS)
