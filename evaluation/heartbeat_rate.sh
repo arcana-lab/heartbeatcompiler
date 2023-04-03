@@ -32,8 +32,8 @@ function run_testing {
     TASKPARTS_BENCHMARK_NUM_REPEAT=${runs} \
     TASKPARTS_BENCHMARK_VERBOSE=${verbose} \
     make run_${impl} > ${tmp} 2>&1 ;
-    cat ${tmp} | grep ${keyword} | awk '{ print $2 }' | tr -d ',' >> ${path}/${metric}${kappa_usec}.txt ;
-    cat ${tmp} >> ${path}/output${kappa_usec}.txt ;
+    cat ${tmp} | grep ${keyword} | awk '{ print $2 }' | tr -d ',' >> ${path}/${metric}_${kappa_usec}.txt ;
+    cat ${tmp} >> ${path}/output_${kappa_usec}.txt ;
   done
 
   rm -rf ${tmp} ;
