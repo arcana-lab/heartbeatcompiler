@@ -905,17 +905,16 @@ void HeartbeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceIn
   auto constantLiveInsPointerGlobal = this->noelle.getProgram()->getNamedGlobal(constantLiveInsGlobalName);
   assert(constantLiveInsPointerGlobal != nullptr);
   errs() << "constant live-ins pointer " << *constantLiveInsPointerGlobal << "\n";
-  auto constantLiveInsArrayBitCastInst = builder.CreateBitCast(
-    cast<Value>(constantLiveInsPointerGlobal),
-    PointerType::getUnqual(PointerType::getUnqual(ArrayType::get(builder.getInt64Ty(), this->constantLiveInsArgIndexToIndex.size()))),
-    "constantLiveInsPtrCasted"
-  );
   auto constantLiveInsLoadInst = builder.CreateLoad(
-    constantLiveInsArrayBitCastInst,
+    builder.CreateBitCast(
+      cast<Value>(constantLiveInsPointerGlobal),
+      PointerType::getUnqual(PointerType::getUnqual(ArrayType::get(builder.getInt64Ty(), this->constantLiveInsArgIndexToIndex.size())))
+    ),
     "constantLiveIns"
   );
 
   // Load constant live-in variables
+  // double *a = (double *)constLiveIns[0];
   for (const auto constEnvID : envUser->getEnvIDsOfConstantLiveInVars()) {
     auto producer = env->getProducer(constEnvID);
     errs() << "constEnvID: " << constEnvID << ", value: " << *producer << "\n";
@@ -929,23 +928,48 @@ void HeartbeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceIn
     auto constLiveInGEPInst = builder.CreateInBoundsGEP(
       cast<Value>(constantLiveInsLoadInst),
       ArrayRef<Value *>({ zeroV, const_index_V }),
-      std::string("constantLiveIn_").append(std::to_string(const_index)).append("_Ptr")
-    );
-
-    // cast to the correct type of constant variable
-    auto constLiveInPointerInst = builder.CreateBitCast(
-      constLiveInGEPInst, 
-      PointerType::getUnqual(producer->getType()),
-      std::string("constantLiveIn_").append(std::to_string(const_index)).append("_Casted")
+      std::string("constantLiveIn_").append(std::to_string(const_index)).append("_addr")
     );
 
     // load from casted instruction
     auto constLiveInLoadInst = builder.CreateLoad(
-      constLiveInPointerInst,
-      std::string("constantLiveIn_").append(std::to_string(const_index))
+      constLiveInGEPInst,
+      std::string("constantLiveIn_").append(std::to_string(const_index)).append("_casted")
     );
 
-    task->addLiveIn(producer, constLiveInLoadInst);
+    // cast to the correct type of constant variable
+    Value *constLiveInCastedInst;
+    switch (producer->getType()->getTypeID()) {
+      case Type::PointerTyID:
+        constLiveInCastedInst = builder.CreateIntToPtr(
+          constLiveInLoadInst,
+          producer->getType(),
+          std::string("constantLiveIn_").append(std::to_string(const_index))
+        );
+        break;
+      case Type::IntegerTyID:
+        constLiveInCastedInst = builder.CreateSExtOrTrunc(
+          constLiveInLoadInst, 
+          producer->getType(),
+          std::string("constantLiveIn_").append(std::to_string(const_index))
+        );
+        break;
+      case Type::FloatTyID:
+      case Type::DoubleTyID:
+        constLiveInCastedInst = builder.CreateLoad(
+          builder.CreateIntToPtr(
+            constLiveInLoadInst,
+            PointerType::getUnqual(producer->getType())
+          ),
+          std::string("constantLiveIn_").append(std::to_string(const_index))
+        );
+        break;
+      default:
+        assert(false && "constLiveIn is a type other than ptr, int, float or double\n");
+        exit(1);
+    }
+
+    task->addLiveIn(producer, constLiveInCastedInst);
   }
 
   // Load live-in variables pointer, then load from the pointer to get the live-in variable
@@ -1221,6 +1245,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   );
 
   // store the args into constant live-ins array
+  // constLiveIns[0] = (uint64_t)a;
   for (auto pair : this->constantLiveInsArgIndexToIndex) {
     auto argIndex = pair.first;
     auto arrayIndex = pair.second;
@@ -1229,16 +1254,52 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
     auto constantLiveInArray_element_ptr = builder.CreateInBoundsGEP(
       constantLiveIns,
       ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), 0), ConstantInt::get(builder.getInt64Ty(), arrayIndex) }),
-      std::string("constantLiveIn_").append(std::to_string(arrayIndex)).append("_Ptr")
+      std::string("constantLiveIn_").append(std::to_string(arrayIndex)).append("_addr")
     );
-    auto constantLiveInArray_element_ptr_casted = builder.CreateBitCast(
-      constantLiveInArray_element_ptr,
-      PointerType::getUnqual(argV->getType()),
-      std::string("constantLiveIn_").append(std::to_string(arrayIndex)).append("_Ptr_casted")
-    );
+    Value *constLiveInCastedInst = nullptr;
+    Value *allocaFloatOrDoubleInst = nullptr;
+    std::string constantLiveInNameString = std::string("constantLiveIn_").append(std::to_string(arrayIndex)).append("_casted");
+    // build the cast instruction based on the type of the argV
+    switch (argV->getType()->getTypeID()) {
+      case Type::PointerTyID:
+        constLiveInCastedInst = builder.CreatePtrToInt(
+          argV,
+          builder.getInt64Ty(),
+          constantLiveInNameString
+        );
+        break;
+      case Type::IntegerTyID:
+        constLiveInCastedInst = builder.CreateSExtOrTrunc(
+          argV,
+          builder.getInt64Ty(),
+          constantLiveInNameString
+        );
+        break;
+      case Type::FloatTyID:
+      case Type::DoubleTyID:
+        // when the type is float or double, instead of storing the value we store the address
+        // constLiveIns[1] = (uint64_t)&b;
+        allocaFloatOrDoubleInst = builder.CreateAlloca(
+          argV->getType()
+        );
+        builder.CreateStore(
+          argV,
+          allocaFloatOrDoubleInst
+        );
+        constLiveInCastedInst = builder.CreatePtrToInt(
+          allocaFloatOrDoubleInst,
+          builder.getInt64Ty(),
+          constantLiveInNameString
+        );
+        break;
+      default:
+        assert(false && "constLiveIn is a type other than ptr, int, float or double\n");
+        exit(1);
+    };
+    assert(constLiveInCastedInst != nullptr && "constLiveInCastedInst hasn't been set");
     builder.CreateStore(
-      argV,
-      constantLiveInArray_element_ptr_casted
+      constLiveInCastedInst,
+      constantLiveInArray_element_ptr
     );
   }
 
