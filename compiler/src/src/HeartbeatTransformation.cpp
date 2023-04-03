@@ -1198,8 +1198,11 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   auto loopFunction = loopStructure->getFunction();
   auto firstBB = loopFunction->begin();
   auto firstI = firstBB->begin();
-  uint32_t reducerCount = 1;
+  // uint32_t reducerCount = 1;
   IRBuilder<> builder{ &*firstI };
+
+  // allocate the constLiveIns using alloca
+  // constLiveIns = (uint64_t *)alloca(sizeof(uint64_t) * 1);
   auto constantLiveIns = builder.CreateAlloca(
     ArrayType::get(builder.getInt64Ty(), this->constantLiveInsArgIndexToIndex.size()),
     nullptr,
@@ -1209,12 +1212,11 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   // store constant live-ins array into global
   std::string constantLiveInsGlobalName = std::string("constantLiveInsPointer_nest").append(std::to_string(this->nestID));
   auto constantLiveInsGlobal = this->noelle.getProgram()->getNamedGlobal(constantLiveInsGlobalName);
-  auto castInst = builder.CreateBitCast(
-    constantLiveIns,
-    PointerType::getUnqual(builder.getInt8Ty())
-  );
   builder.CreateStore(
-    castInst,
+    builder.CreateBitCast(
+      constantLiveIns,
+      PointerType::getUnqual(builder.getInt64Ty())
+    ),
     constantLiveInsGlobal
   );
 
