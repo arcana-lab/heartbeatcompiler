@@ -115,16 +115,17 @@ void Heartbeat::linkTransformedLoopToOriginalFunction(
    */
   auto originalHeader = originalTerminator->getSuccessor(0);
 
+  // The following code snippt does the if (run_heartbeat) check
   IRBuilder<> loopSwitchBuilder(originalTerminator);
   auto runHeartbeatBoolGlobal = noelle.getProgram()->getNamedGlobal("run_heartbeat");
   assert(runHeartbeatBoolGlobal != nullptr && "run_heartbeat global isn't found!\n");
   auto loadRunHeartbeatBool = loopSwitchBuilder.CreateLoad(runHeartbeatBoolGlobal);
-  auto cmpInst = loopSwitchBuilder.CreateICmpEQ(
+  auto loadRunHeartbeatBoolTruncated = loopSwitchBuilder.CreateTrunc(
     loadRunHeartbeatBool,
-    ConstantInt::get(loadRunHeartbeatBool->getType(), 1)
+    tm->getIntegerType(1)
   );
   loopSwitchBuilder.CreateCondBr(
-    cmpInst,
+    loadRunHeartbeatBoolTruncated,
     startOfParLoopInOriginalFunc,
     originalHeader
   );

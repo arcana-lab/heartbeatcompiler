@@ -159,7 +159,7 @@ void Heartbeat::createConstantLiveInsGlobalPointer(Noelle &noelle, uint64_t nest
   M->getOrInsertGlobal(constantLiveInsGlobalName, builder.getInt8PtrTy());
   
   auto constantLiveInsGlobalPointer = M->getNamedGlobal(constantLiveInsGlobalName);
-  constantLiveInsGlobalPointer->setLinkage(GlobalValue::CommonLinkage);
+  constantLiveInsGlobalPointer->setDSOLocal(true);
   constantLiveInsGlobalPointer->setInitializer(Constant::getNullValue(builder.getInt8PtrTy()));
   constantLiveInsGlobalPointer->setAlignment(8);
 
