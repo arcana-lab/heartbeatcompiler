@@ -223,8 +223,8 @@ void Heartbeat::replaceWithRollforwardHandler(Noelle &noelle) {
     auto M = noelle.getProgram();
     M->getOrInsertGlobal("__rf_signal", branchBuilder.getInt32Ty());
     auto rfSignalGlobal = M->getNamedGlobal("__rf_signal");
-    rfSignalGlobal->setLinkage(GlobalValue::InternalLinkage);
-    rfSignalGlobal->setInitializer(ConstantInt::get(branchBuilder.getInt32Ty(), 0));
+    rfSignalGlobal->setLinkage(GlobalValue::ExternalLinkage);
+    // rfSignalGlobal->setInitializer(ConstantInt::get(branchBuilder.getInt32Ty(), 0));
     rfSignalGlobal->setAlignment(4);
     errs() << "__rf_signal" << *rfSignalGlobal << "\n";
 
