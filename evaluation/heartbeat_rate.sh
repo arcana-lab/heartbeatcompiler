@@ -4,8 +4,7 @@ ROOT_DIR=`git rev-parse --show-toplevel`
 
 # experiment settings
 experiment=heartbeat_rate
-# benchmarks=('floyd_warshall' 'kmeans' 'mandelbrot' 'plus_reduce_array' 'spmv' 'srad')
-benchmarks=('plus_reduce_array')
+benchmarks=('floyd_warshall' 'kmeans' 'mandelbrot' 'plus_reduce_array' 'spmv' 'srad')
 input_size=tpal
 heartbeat_rates=(2 10 30 100 1000 10000 100000)
 metric=time
