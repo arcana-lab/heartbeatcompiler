@@ -32,8 +32,8 @@ function run_testing {
   TASKPARTS_BENCHMARK_NUM_REPEAT=${runs} \
   TASKPARTS_KAPPA_USEC=${kappa} \
   make run_hbc > ${tmp} 2>&1 ;
-  rm -f ${path}/${metric}${kappa}.txt
-  rm -f ${path}/output${kappa}.txt
+  rm -f ${path}/${metric}${kappa}.txt ;
+  rm -f ${path}/output${kappa}.txt ;
   cat ${tmp} | grep ${keyword} | awk '{ print $2 }' | tr -d ',' >> ${path}/${metric}${kappa}.txt ;
   cat ${tmp} >> ${path}/output${kappa}.txt ;
   rm ${tmp} ;
