@@ -47,8 +47,12 @@ heartbeat_compiler.rf.s: heartbeat_compiler.s
 heartbeat_compiler.rf.o: heartbeat_compiler.rf.s
 	$(CXX) -I $(ROLLFORWARD_INCLUDE) $< -c -o $@
 
+# resolve the "undefined reference to __rf_signal" error
+heartbeat_compiler.rf.ld.o: heartbeat_compiler.rf.o
+	ld -r --defsym=__rf_signal=0x42 $< -o $@
+
 rollforward_compiler.o: $(ROLLFORWARD_INCLUDE)/rollforward.c
 	$(CXX) $< -c -o $@
 
-heartbeat_compiler_rf: heartbeat_compiler.rf.o rollforward_compiler.o loop_handler.cpp bench.cpp
+heartbeat_compiler_rf: heartbeat_compiler.rf.ld.o rollforward_compiler.o loop_handler.cpp bench.cpp
 	$(CXX) $(MACROS_HEARTBEAT_COMPILER) $(FLAGS_HEARTBEAT_COMPILER) $(OPTS_HEARTBEAT_COMPILER) $^ -o $@ $(LIBS_HEARTBEAT_COMPILER)
