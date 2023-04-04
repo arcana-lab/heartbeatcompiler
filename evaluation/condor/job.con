@@ -4,7 +4,7 @@ Universe = vanilla
 Getenv = True
 
 # Describe the target machine
-Requirements = (Machine == "fix.cs.northwestern.edu")
+# Requirements = (Machine == "fix.cs.northwestern.edu")
 
 Rank = TARGET.Mips
 Copy_To_Spool = False
@@ -28,4 +28,6 @@ priority = 0
 # Job
 InitialDir = ./
 Executable = ./run.sh
+# Put the path to the heartbeatcompiler repo here
+Arguments = /nfs-scratch/yso0488/heartbeatcompiler0
 Queue
