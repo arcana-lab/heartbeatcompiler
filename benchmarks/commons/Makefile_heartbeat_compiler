@@ -18,6 +18,10 @@ main_normalized.bc: main.bc
 	noelle-norm $^ -o $@
 
 heartbeat_compiler.bc: main_normalized.bc
+ifeq ($(ENABLE_ROLLFORWARD), true)
+	make rf_test.bc
+	llvm-link rf_test.bc $< -o $<
+endif
 	noelle-parallel-load -noelle-verbose=2 -load $(ROOT_DIR)/compiler/src/build/lib/Heartbeat.so -enable-new-pm=0 -heartbeat $(PASS_ARGUMENTS_HEARTBEAT_COMPILER) $^ -o $@
 
 hbc: heartbeat_compiler
@@ -38,6 +42,9 @@ run_heartbeat_compiler: heartbeat_compiler
 # ============================================
 # Heartbeat Compiler (Rollforward)
 # ============================================
+rf_test.bc: rf_test.cpp
+	$(CXX) -fno-pie -O3 -emit-llvm -c $< -o $@
+
 heartbeat_compiler.s: heartbeat_compiler.bc
 	$(CXX) $(MACROS_HEARTBEAT_COMPILER) $(FLAGS_HEARTBEAT_COMPILER) $(OPTS_HEARTBEAT_COMPILER) $< -S -o $@
 

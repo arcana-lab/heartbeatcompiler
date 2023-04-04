@@ -211,37 +211,46 @@ void Heartbeat::replaceWithRollforwardHandler(Noelle &noelle) {
     // Split the loop_handler block into two
     BasicBlock::iterator splitPoint = BasicBlock::iterator(callInst->getParent()->getFirstNonPHI());
     BasicBlock *currentBlock = callInst->getParent();
-    BasicBlock *splitBlock = currentBlock->splitBasicBlock(splitPoint, "handler_prison_block");
+    BasicBlock *prisonBlock = currentBlock->splitBasicBlock(splitPoint, "handler_prison_block");
     errs() << "current block" << *currentBlock << "\n";
-    errs() << "split block" << *splitBlock << "\n";
+    errs() << "split block" << *prisonBlock << "\n";
     currentBlock->getTerminator()->eraseFromParent();
 
     // Builder for the loop_handler block and set insert point to be the beginning
     IRBuilder<> branchBuilder{ currentBlock };
 
-    // create global __rf_signal
-    auto M = noelle.getProgram();
-    M->getOrInsertGlobal("__rf_signal", branchBuilder.getInt32Ty());
-    auto rfSignalGlobal = M->getNamedGlobal("__rf_signal");
-    rfSignalGlobal->setLinkage(GlobalValue::ExternalLinkage);
-    // rfSignalGlobal->setInitializer(ConstantInt::get(branchBuilder.getInt32Ty(), 0));
-    rfSignalGlobal->setAlignment(4);
-    errs() << "__rf_signal" << *rfSignalGlobal << "\n";
+    // // create global __rf_signal
+    // auto M = noelle.getProgram();
+    // M->getOrInsertGlobal("__rf_signal", branchBuilder.getInt32Ty());
+    // auto rfSignalGlobal = M->getNamedGlobal("__rf_signal");
+    // rfSignalGlobal->setLinkage(GlobalValue::ExternalLinkage);
+    // // rfSignalGlobal->setInitializer(ConstantInt::get(branchBuilder.getInt32Ty(), 0));
+    // rfSignalGlobal->setAlignment(4);
+    // errs() << "__rf_signal" << *rfSignalGlobal << "\n";
 
-    // create branch
-    // if (__builtin_expect(&__rf_signal == (void*)1UL, 0))
+    // // create branch
+    // // if (__builtin_expect(&__rf_signal == (void*)1UL, 0))
+    // auto brInst = branchBuilder.CreateCondBr(
+    //   branchBuilder.CreateICmpEQ(
+    //     branchBuilder.CreateBitCast(
+    //       rfSignalGlobal,
+    //       branchBuilder.getInt8PtrTy()
+    //     ),
+    //     branchBuilder.CreateIntToPtr(
+    //       ConstantInt::get(branchBuilder.getInt64Ty(), 1),
+    //       branchBuilder.getInt8PtrTy()
+    //     )
+    //   ),
+    //   prisonBlock,
+    //   loopContinueBlock
+    // );
+
+    auto rfTestFunction = noelle.getProgram()->getFunction(std::string("__rf_test"));
+    assert(rfTestFunction != nullptr);
+    auto rfTestCallInst = branchBuilder.CreateCall(rfTestFunction);
     auto brInst = branchBuilder.CreateCondBr(
-      branchBuilder.CreateICmpEQ(
-        branchBuilder.CreateBitCast(
-          rfSignalGlobal,
-          branchBuilder.getInt8PtrTy()
-        ),
-        branchBuilder.CreateIntToPtr(
-          ConstantInt::get(branchBuilder.getInt64Ty(), 1),
-          branchBuilder.getInt8PtrTy()
-        )
-      ),
-      splitBlock,
+      rfTestCallInst,
+      prisonBlock,
       loopContinueBlock
     );
 
@@ -264,7 +273,7 @@ void Heartbeat::replaceWithRollforwardHandler(Noelle &noelle) {
     );
 
     BasicBlock::iterator splitPoint2 = BasicBlock::iterator(rc);
-    BasicBlock *splitBlock2 = splitBlock->splitBasicBlock(splitPoint2, "handler_return_block");
+    BasicBlock *splitBlock2 = prisonBlock->splitBasicBlock(splitPoint2, "handler_continue_block");
     brInst->setSuccessor(1, splitBlock2);
 
     callInst->replaceAllUsesWith(rc);
