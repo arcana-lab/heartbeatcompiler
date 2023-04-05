@@ -88,8 +88,8 @@ function run_experiment {
   TASKPARTS_BENCHMARK_NUM_REPEAT=${runs} \
   TASKPARTS_BENCHMARK_VERBOSE=${verbose} \
   make run_${implementation} > ${tmp} 2>&1 ;
-  rm -f ${result_path}/${metric}_${config}.txt
-  rm -f ${result_path}/output_${config}.txt
+  rm -f ${result_path}/${metric}_${config}.txt ;
+  rm -f ${result_path}/output_${config}.txt ; 
   cat ${tmp} | grep ${keyword} | awk '{ print $2 }' | tr -d ',' >> ${result_path}/${metric}_${config}.txt ;
   cat ${tmp} >> ${result_path}/output_${config}.txt ;
 
