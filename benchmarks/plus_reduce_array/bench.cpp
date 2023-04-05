@@ -71,7 +71,7 @@ void add_double(void *left, void *right) {
 
 double plus_reduce_array_opencilk(double* a, uint64_t lo, uint64_t hi) {
   double cilk_reducer(zero_double, add_double) r;
-  for (uint64_t i = lo; i != hi; i++) {
+  cilk_for (uint64_t i = lo; i != hi; i++) {
     r += a[i];
   }
   return r;

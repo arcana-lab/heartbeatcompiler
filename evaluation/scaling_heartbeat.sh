@@ -6,7 +6,7 @@ source ${ROOT_DIR}/noelle/enable
 source /nfs-scratch/yso0488/jemalloc/enable
 
 # experiment settings
-experiment=heartbeat_rate
+experiment=scaling
 benchmarks=('floyd_warshall' 'kmeans' 'mandelbrot' 'plus_reduce_array' 'spmv' 'srad')
 input_size=tpal
 signal_mechanisms=('rollforward' 'software_polling')
@@ -14,8 +14,8 @@ metric=time
 keyword="exectime"
 
 # runtime settings
-num_worker=16
-heartbeat_rates=(2 10 30 100 1000 10000 100000)
+num_workers=(1 2 4 8 16 28 56)
+heartbeat_rate=100
 warmup_secs=3.0
 runs=10
 verbose=1
@@ -44,8 +44,8 @@ function evaluate_benchmark {
     echo -e "\tresult path: " ${result_path} ;
 
     # run the benchmark binary
-    for heartbeat_rate in ${heartbeat_rates[@]} ; do
-      run_experiment "heartbeat_compiler" ${result_path} ${heartbeat_rate} ;
+    for num_worker in ${num_workers[@]} ; do
+      run_experiment "heartbeat_compiler" ${result_path} ${num_worker} ;
     done
 
     make clean &> /dev/null ;
@@ -59,8 +59,8 @@ function run_experiment {
   tmp=`mktemp`
   echo -e "\t\tconfig: " ${config} ;
 
-  TASKPARTS_NUM_WORKERS=${num_worker} \
-  TASKPARTS_KAPPA_USEC=${config} \
+  TASKPARTS_NUM_WORKERS=${config} \
+  TASKPARTS_KAPPA_USEC=${heartbeat_rate} \
   TASKPARTS_BENCHMARK_WARMUP_SECS=${warmup_secs} \
   TASKPARTS_BENCHMARK_NUM_REPEAT=${runs} \
   TASKPARTS_BENCHMARK_VERBOSE=${verbose} \
