@@ -1,4 +1,11 @@
 #!/bin/bash
+
+# This evaluation script does the following things
+# 1. compile the heartbeat binary of each benchmark (including various input classes)
+# 2. using rollforward and software_polling as signaling mechanism separately
+# 2. run the heartbeat binary on a various number of heartbeat rate
+# 3. collect the time result
+
 # source environment
 ROOT_DIR=`git rev-parse --show-toplevel`
 source /project/extra/llvm/9.0.0/enable
@@ -21,9 +28,9 @@ runs=10
 verbose=1
 
 function evaluate_benchmark {
-  bench=$1
+  bench_name=$1
   input_class=$2
-  echo -e "benchmark: " ${bench} ;
+  echo -e "benchmark: " ${bench_name} ;
 
   for signal_mechanism in ${signal_mechanisms[@]} ; do
     echo -e "\tsignal_mechanism: " ${signal_mechanism} ;
@@ -39,7 +46,7 @@ function evaluate_benchmark {
     INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ENABLE_ROLLFORWARD=${enable_rollforward} make heartbeat_compiler &> /dev/null ;
     
     # generate the path to store results
-    result_path=${results}/${experiment}/${bench}/${input_size}/heartbeat_compiler_${signal_mechanism}
+    result_path=${results}/${experiment}/${bench_name}/${input_size}/heartbeat_compiler_${signal_mechanism}
     mkdir -p ${result_path} ;
     echo -e "\tresult path: " ${result_path} ;
 

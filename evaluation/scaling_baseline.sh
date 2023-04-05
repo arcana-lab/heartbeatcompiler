@@ -1,4 +1,10 @@
 #!/bin/bash
+
+# This evaluation script does the following things
+# 1. compile the baseline binary of each benchmark (including various input classes)
+# 2. run the baseline binary
+# 3. collect the time result
+
 # source environment
 ROOT_DIR=`git rev-parse --show-toplevel`
 source /project/extra/llvm/9.0.0/enable
@@ -17,16 +23,16 @@ runs=10
 verbose=1
 
 function evaluate_benchmark {
-  bench=$1
+  bench_name=$1
   input_class=$2
-  echo -e "benchmark: " ${bench} ;
+  echo -e "benchmark: " ${bench_name} ;
 
   # compile the benchmark
   make clean &> /dev/null ;
   INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} make baseline &> /dev/null ;
   
   # generate the path to store results
-  result_path=${results}/${experiment}/${bench}/${input_size}/baseline
+  result_path=${results}/${experiment}/${bench_name}/${input_size}/baseline
   mkdir -p ${result_path} ;
   echo -e "\tresult path: " ${result_path} ;
 
