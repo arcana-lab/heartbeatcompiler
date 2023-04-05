@@ -14,6 +14,7 @@ evaluation/pythonVirtualEnv
 benchmarks/*/Makefile*
 benchmarks/*/loop_handler.*
 benchmarks/*/utility.hpp
+benchmarks/*/rf_test.cpp
 benchmarks/*/condor
 benchmarks/spmv/*.dat
 
