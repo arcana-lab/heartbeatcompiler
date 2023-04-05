@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # This evaluation script does the following things
-# 1. compile the heartbeat binary of each benchmark (including various input classes)
+# 1. compile the heartbeat binary of each benchmark (including various input classes) using various chunk sizes (and no chunking)
 # 2. using rollforward and software_polling as signaling mechanism separately
-# 2. run the heartbeat binary on a various number of heartbeat rate
-# 3. collect the time result
+# 3. run the heartbeat binary
+# 4. collect the time result
 
 # source environment
 ROOT_DIR=`git rev-parse --show-toplevel`
