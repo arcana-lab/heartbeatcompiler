@@ -5,9 +5,10 @@ runtime
 rollforward
 tpal
 
-pythonVirtualEnv
-results
-plots
+# evaluation
+evaluation/results
+evaluation/plots
+evaluation/pythonVirtualEnv
 
 # benchmarks
 benchmarks/*/Makefile*
