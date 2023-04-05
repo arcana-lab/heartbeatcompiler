@@ -21,7 +21,7 @@ def getMedianTime(pathToTimeFile):
           times.append(float(line))
         except:
           return 0.0 # take 0.0 if execution time is missing/wrong
-    return statistics.median(times)
+    return statistics.median(times) if (len(times) > 0) else 0.0
 
   return 0.0
 
@@ -34,7 +34,7 @@ def getMinTime(pathToTimeFile):
           times.append(float(line))
         except:
           return 0.0 # take 0.0 if execution time is missing/wrong
-    return min(times)
+    return min(times) if (len(times) > 0) else 0.0
 
   return 0.0
 
@@ -47,7 +47,7 @@ def getMaxTime(pathToTimeFile):
           times.append(float(line))
         except:
           return 0.0 # take 0.0 if execution time is missing/wrong
-    return max(times)
+    return max(times) if (len(times) > 0) else 0.0
 
   return 0.0
 
@@ -77,7 +77,7 @@ def collectSpeedups(benchmark, pathToBenchmarkSuite, inputSize, techniques, conf
       minSpeedup = 0.0
       maxSpeedup = 0.0
       stdev = 0.0
-      fileName = pathToBenchmarkSuite + '/' + benchmark + '/' + inputSize + '/' + technique + '/time' + config + '.txt'
+      fileName = pathToBenchmarkSuite + '/' + benchmark + '/' + inputSize + '/' + technique + '/time_' + config + '.txt'
       if os.path.isfile(fileName) and getMedianTime(fileName) != 0.0:
         medianSpeedup = round(baselineTime[benchmark] / getMedianTime(fileName), 2)
         minSpeedup = round(baselineTime[benchmark] / getMaxTime(fileName), 2)
@@ -132,8 +132,8 @@ def plot(benchmark, inputSize, speedups, techniques, configs, maxSpeedUp):
     x.append(np.median([elem[i] for elem in xTicksAcc]))
 
   ymin = 0
-  # ymax = int(maxSpeedUp * 1.2)
-  ymax = 17
+  ymax = int(maxSpeedUp * 1.2)
+  # ymax = 17
   ystep = 2
 
   plt.xticks(x, config_names, fontsize = 5, rotation = 45, ha = 'right')
@@ -161,10 +161,10 @@ def plot(benchmark, inputSize, speedups, techniques, configs, maxSpeedUp):
   ax.set_aspect(0.3)
 
   plt.tight_layout()
-  plt.savefig('../plots/time/' + benchmark + '_' + inputSize + '.pdf', format = 'pdf')
+  plt.savefig('plots/scaling/' + benchmark + '_' + inputSize + '.pdf', format = 'pdf')
 
 # Global settings
-pathToBenchmarkSuite = '../results/time'
+pathToBenchmarkSuite = 'results/scaling'
 inputSize = 'tpal'
 # https://matplotlib.org/stable/gallery/color/named_colors.html
 colors = [
@@ -176,21 +176,19 @@ colors = [
   'pink'
 ]
 techniques = [
-  'tpal',
-  'heartbeat_manual_software_polling',
-  'heartbeat_manual_rollforward',
+  'openmp',
+  'opencilk',
   'heartbeat_compiler_software_polling',
   'heartbeat_compiler_rollforward'
 ]
 technique_names = [
-  'TPAL (interrupt_ping_thread)',
-  'HB Manual (Software Polling)',
-  'HB Manual (Rollforward)',
-  'HB Compiler (Software Polling)',
-  'HB Compiler (Rollforward)'
+  'OpenMP',
+  'OpenCilk',
+  'Heartbeat Compiler (Software Polling)',
+  'Heartbeat Compiler (Rollforward)'
 ]
-configs = ['1', '2', '4', '8', '16', '28', '56_2_sockets']
-config_names = ['1 Physical Core', '2 Physical Cores', '4 Physical Cores', '8 Physical Cores', '16 Physical Cores', '28 Physical Cores', '56 Physical Cores - 2 Sockets']
+configs = ['1', '2', '4', '8', '16', '28', '56']
+config_names = ['1 Core', '2 Cores', '4 Cores', '8 Cores', '16 Cores', '28 Cores', '56 Cores']
 
 # Collect all benchmarks
 benchmarks = collectBenchmarks(pathToBenchmarkSuite)
@@ -198,7 +196,7 @@ benchmarks = collectBenchmarks(pathToBenchmarkSuite)
 # Calculate baseline median time
 baselineTime = {}
 for benchmark in benchmarks:
-  baselineTime[benchmark] = getMedianTime(pathToBenchmarkSuite + '/' + benchmark + '/' + inputSize + '/baseline/time1.txt')
+  baselineTime[benchmark] = getMedianTime(pathToBenchmarkSuite + '/' + benchmark + '/' + inputSize + '/baseline/time.txt')
 print(baselineTime)
 
 # Plot speedup plot per benchmark
