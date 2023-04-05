@@ -100,11 +100,9 @@ void HeartbeatLoopEnvironmentBuilder::initializeBuilder(
   this->numReducers = reducerCount;
 
   this->singleEnvArray = nullptr;
-  this->singleEnvArrayInt8Ptr = nullptr;
   this->singleEnvArrayType = nullptr;
 
   this->reducibleEnvArray = nullptr;
-  this->reducibleEnvArrayInt8Ptr = nullptr;
   this->reducibleEnvArrayType = nullptr;
 
   // for (uint32_t i = 0; i < singleVarIDs.size(); i++) {
@@ -121,12 +119,8 @@ void HeartbeatLoopEnvironmentBuilder::initializeBuilder(
 
   auto int64 = IntegerType::get(this->CXT, 64);
   this->singleEnvArrayType = ArrayType::get(int64, singleVarIDs.size() * this->valuesInCacheLine);
-  this->reducibleEnvArrayType = ArrayType::get(int64, reducibleVarIDs.size() * this->valuesInCacheLine);
-
-  auto int8 = IntegerType::get(this->CXT, 8);
-  auto int8_ptr = PointerType::getUnqual(int8);
-  // this->contextArrayType = ArrayType::get(int8_ptr, this->numLevels * this->valuesInCacheLine);
-  this->contextArrayType = ArrayType::get(int64, this->numLevels * this->valuesInCacheLine);
+  this->reducibleEnvArrayType = ArrayType::get(PointerType::getUnqual(int64), reducibleVarIDs.size() * this->valuesInCacheLine);
+  this->contextArrayType = ArrayType::get(PointerType::getUnqual(int64), this->numLevels * this->valuesInCacheLine);
 
   for (auto envID : singleVarIDs) {
     auto envIndex = this->singleEnvIDToIndex[envID];
@@ -367,11 +361,6 @@ void HeartbeatLoopEnvironmentBuilder::allocateSingleEnvironmentArray(IRBuilder<>
     auto int8 = IntegerType::get(builder.getContext(), 8);
     auto ptrTy_int8 = PointerType::getUnqual(int8);
     this->singleEnvArray = builder.CreateAlloca(this->singleEnvArrayType, nullptr, "liveInEnv");
-    this->singleEnvArrayInt8Ptr = cast<Value>(builder.CreateBitCast(
-      this->singleEnvArray,
-      ptrTy_int8,
-      "liveInEnvCastedToVoidPtr"
-    ));
   } else {
     errs() << "there's no liveInEnvironment array for this loop\n";
   }
@@ -384,11 +373,6 @@ void HeartbeatLoopEnvironmentBuilder::allocateReducibleEnvironmentArray(IRBuilde
     auto int8 = IntegerType::get(builder.getContext(), 8);
     auto ptrTy_int8 = PointerType::getUnqual(int8);
     this->reducibleEnvArray = builder.CreateAlloca(this->reducibleEnvArrayType, nullptr, "liveOutEnv");
-    this->reducibleEnvArrayInt8Ptr = cast<Value>(builder.CreateBitCast(
-      this->reducibleEnvArray,
-      ptrTy_int8,
-      "liveOutEnvCastedToVoidPtr"
-    ));
   }
 
   return;
@@ -485,6 +469,7 @@ void HeartbeatLoopEnvironmentBuilder::generateEnvVariables(IRBuilder<> builder, 
         builder.CreateAlloca(reduceArrType,
                              nullptr,
                              std::string("reductionArrayLiveOut_").append(std::to_string(envIndex)));
+    cast<AllocaInst>(reduceArrAlloca)->setAlignment(64);
     this->envIndexToVectorOfReducableVar[envIndex] = reduceArrAlloca;
 
     /*
@@ -530,8 +515,7 @@ BasicBlock * HeartbeatLoopEnvironmentBuilder::reduceLiveOutVariablesWithInitialV
   auto f = bb->getParent();
   assert(f != nullptr);
 
-  auto reductionBodyBB = BasicBlock::Create(this->CXT, "ReductionBody", f);
-  auto afterReductionBB = BasicBlock::Create(this->CXT, "AfterReduction", f, reductionBodyBB);
+  auto reductionBodyBB = BasicBlock::Create(this->CXT, "reduction_block", f);
   builder.CreateBr(reductionBodyBB);
 
   IRBuilder<> reductionBodyBuilder{ reductionBodyBB };
@@ -543,20 +527,9 @@ BasicBlock * HeartbeatLoopEnvironmentBuilder::reduceLiveOutVariablesWithInitialV
   for (auto envIDInitValue : initialValues) {
     auto envID = envIDInitValue.first;
     auto envIndex = this->reducibleEnvIDToIndex[envID];
-
-    auto baseAddressOfReducedVar = this->envIndexToVectorOfReducableVar.at(envIndex);
-    auto zeroV = cast<Value>(ConstantInt::get(int32Type, 0));
-    auto effectiveAddressOfReducedVar = reductionBodyBuilder.CreateInBoundsGEP(
-      baseAddressOfReducedVar,
-      ArrayRef<Value *>({ zeroV, zeroV }));
-
-    auto varType = this->reducibleEnvTypes[envIndex];
-    auto ptrType = PointerType::getUnqual(varType);
-    auto effectiveAddressOfReducedVarProperlyCasted =
-        reductionBodyBuilder.CreateBitCast(effectiveAddressOfReducedVar, ptrType);
-
-    loadedValues.push_back(reductionBodyBuilder.CreateLoad(effectiveAddressOfReducedVarProperlyCasted));
-
+    for (auto effectiveAddressOfReducedVarProperlyCasted : this->envIndexToReducableVar[envIndex]) {
+      loadedValues.push_back(reductionBodyBuilder.CreateLoad(effectiveAddressOfReducedVarProperlyCasted));
+    }
   }
 
   auto count = 0;
@@ -572,9 +545,7 @@ BasicBlock * HeartbeatLoopEnvironmentBuilder::reduceLiveOutVariablesWithInitialV
     count++;
   }
 
-  reductionBodyBuilder.CreateBr(afterReductionBB);
-
-  return afterReductionBB;
+  return reductionBodyBB;
 }
 
 Value * HeartbeatLoopEnvironmentBuilder::getAccumulatedReducedEnvironmentVariable(uint32_t id) const {

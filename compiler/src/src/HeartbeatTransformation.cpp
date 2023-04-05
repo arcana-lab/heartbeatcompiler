@@ -815,7 +815,7 @@ void HeartbeatTransformation::initializeLoopEnvironmentUsers() {
     this->contextBitcastInst = entryBuilder.CreateBitCast(
       task->getContextArg(),
       PointerType::getUnqual(envBuilder->getContextArrayType()),
-      "contextArrayCasted"
+      "contextArray"
     );
 
     // Calculate the base index of my context
@@ -853,13 +853,12 @@ void HeartbeatTransformation::initializeLoopEnvironmentUsers() {
           zeroV,
           ConstantInt::get(entryBuilder.getInt64Ty(), this->loopToLevel[this->ldi] * 8 + 1)
         }),
-        // ArrayRef<Value *>({ myLevelIndexV, cast<Value>(ConstantInt::get(int64, 1)) }),
-        "liveOutEnvPtr"
+        "liveOutEnv_addr"
       );
       auto liveOutEnvBitcastInst = entryBuilder.CreateBitCast(
         cast<Value>(liveOutEnvPtrGEPInst),
         PointerType::getUnqual(PointerType::getUnqual(envBuilder->getReducibleEnvironmentArrayType())),
-        "liveOutEnvPtrCasted"
+        "liveOutEnv_addr_correctly_casted"
       );
       // save this liveOutEnvBitcastInst as it will be used later by the envBuilder to
       // set the liveOutEnv for kids
@@ -1304,16 +1303,17 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   }
 
   // allocate context
+  // TODO: the contextArrayType is defined inside the HeartbeatLoopEnvironmentBuilder,
+  // there could be an out of sync bug here
   auto contextArrayAlloca = builder.CreateAlloca(
-    // ArrayType::get(builder.getInt8PtrTy(), this->numLevels * this->valuesInCacheLine),
-    ArrayType::get(builder.getInt64Ty(), this->numLevels * this->valuesInCacheLine),
+    ArrayType::get(PointerType::getUnqual(builder.getInt64Ty()), this->numLevels * this->valuesInCacheLine),
     nullptr,
     "contextArray"
   );
   auto contextArrayCasted = builder.CreateBitCast(
     contextArrayAlloca,
     builder.getInt8PtrTy(),
-    "contextArrayCasted"
+    "contextArray_casted"
   );
 
   /*
@@ -1354,7 +1354,10 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   }
   errs() << "original function after allocating constantLiveIns, context and environment array" << *(LDI->getLoopStructure()->getFunction()) << "\n";
 
-  this->populateLiveInEnvironment(LDI);
+  // Since all the variables are coming from the function arguments
+  // before calling the level-0 loops,
+  // there shouldn't be necessary to liveIns at this stage
+  // this->populateLiveInEnvironment(LDI);
 
   /*
    * Fetch the first value of the loop-governing IV
@@ -1373,18 +1376,6 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   errs() << "maxIter: " << *lastIterationGoverningIVValue << "\n";
   auto currentIVValue = GIV_attr->getValueToCompareAgainstExitConditionValue();
   errs() << "IV: " << *currentIVValue << "\n";
-  
-  /*
-   * Fetch the pointer to the environment.
-   */
-  auto singleEnvPtr = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArrayPointer();
-  if (singleEnvPtr) {
-    errs() << "singleEnvPtr" << *singleEnvPtr << "\n";
-  }
-  auto reducibleEnvPtr = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArrayPointer();
-  if (reducibleEnvPtr) {
-    errs() << "reducibleEnvPtr" << *reducibleEnvPtr << "\n";
-  }
 
   // /*
   //  * Call the dispatcher function that will invoke the parallelized loop.
@@ -1566,7 +1557,7 @@ BasicBlock * HeartbeatTransformation::performReductionWithInitialValueToAllReduc
     initialValues[envID] = castToCorrectReducibleType(builder, initialValue, producer->getType());
   }
 
-  auto afterReductionB = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->reduceLiveOutVariablesWithInitialValue(
+  auto reductionBlock = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->reduceLiveOutVariablesWithInitialValue(
       this->entryPointOfParallelizedLoop,
       builder,
       reducableBinaryOps,
@@ -1577,10 +1568,10 @@ BasicBlock * HeartbeatTransformation::performReductionWithInitialValueToAllReduc
    * need to be inserted after the reduction loop
    */
   IRBuilder<> *afterReductionBuilder;
-  if (afterReductionB->getTerminator()) {
-    afterReductionBuilder->SetInsertPoint(afterReductionB->getTerminator());
+  if (reductionBlock->getTerminator()) {
+    afterReductionBuilder->SetInsertPoint(reductionBlock->getTerminator());
   } else {
-    afterReductionBuilder = new IRBuilder<>(afterReductionB);
+    afterReductionBuilder = new IRBuilder<>(reductionBlock);
   }
 
   for (int envID : environment->getEnvIDsOfLiveOutVars()) {
@@ -1619,7 +1610,7 @@ BasicBlock * HeartbeatTransformation::performReductionWithInitialValueToAllReduc
    */
   delete afterReductionBuilder;
 
-  return afterReductionB;
+  return reductionBlock;
 }
 
 void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (

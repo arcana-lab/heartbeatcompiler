@@ -56,13 +56,13 @@ void HeartbeatLoopEnvironmentUser::createReducableEnvPtr(IRBuilder<> builder, ui
   auto envReduceGEP = builder.CreateInBoundsGEP(
     this->reducibleEnvArray,
     ArrayRef<Value *>({ zeroV, envIndV }),
-    std::string("reductionArrayLiveOut_").append(std::to_string(envIndex)).append("_Ptr")
+    std::string("reductionArrayLiveOut_").append(std::to_string(envIndex)).append("_addr")
   );
 
   auto envReducePtr = builder.CreateBitCast(
     envReduceGEP,
     PointerType::getUnqual(PointerType::getUnqual(ArrayType::get(type, reducerCount * valuesInCacheLine))),
-    std::string("reductionArrayLiveOut_").append(std::to_string(envIndex)).append("_PtrCasted")
+    std::string("reductionArrayLiveOut_").append(std::to_string(envIndex)).append("_addr_correctly_casted")
   );
   auto reducibleArrayPtr = builder.CreateLoad(
     envReducePtr,
@@ -72,7 +72,7 @@ void HeartbeatLoopEnvironmentUser::createReducableEnvPtr(IRBuilder<> builder, ui
   auto reduceIndAlignedV = builder.CreateMul(
     reducerIndV,
     ConstantInt::get(int64, valuesInCacheLine),
-    std::string("reductionArrayLiveOut_").append(std::to_string(envIndex)).append("_index")
+    "myIndex"
   );
   auto envGEP = builder.CreateInBoundsGEP(
     reducibleArrayPtr,

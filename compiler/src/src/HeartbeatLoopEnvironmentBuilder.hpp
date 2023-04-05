@@ -64,10 +64,6 @@ public:
 
   Value * getEnvironmentVariable(uint32_t id) const override;
 
-  inline Value * getSingleEnvironmentArrayPointer() { return this->singleEnvArrayInt8Ptr; };
-
-  inline Value * getReducibleEnvironmentArrayPointer() { return this->reducibleEnvArrayInt8Ptr; };
-
   BasicBlock * reduceLiveOutVariablesWithInitialValue(
     BasicBlock *bb,
     IRBuilder<> &builder,
@@ -117,10 +113,8 @@ private:
   std::unordered_map<uint32_t, uint32_t> indexToReducibleEnvID;
 
   Value *singleEnvArray;
-  Value *singleEnvArrayInt8Ptr;
   ArrayType *singleEnvArrayType;
   Value *reducibleEnvArray;
-  Value *reducibleEnvArrayInt8Ptr;
   Value *reducibleEnvArrayNextLevel;
   Value *reducibleEnvArrayInt8PtrNextLevel;
   ArrayType *reducibleEnvArrayType;
