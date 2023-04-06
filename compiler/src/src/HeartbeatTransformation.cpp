@@ -215,7 +215,59 @@ bool HeartbeatTransformation::apply (
    * Allocate the reduction environment array for the next level inside task
    */
   this->allocateNextLevelReducibleEnvironmentInsideTask(loop, 0);
-  errs() << "task after allodate reducible environment for kids " << *(hbTask->getTaskBody()) << "\n";
+  errs() << "task after allocate reducible environment for kids " << *(hbTask->getTaskBody()) << "\n";
+
+
+  // Adjust the start value of the loop-goverining IV to use the corresponding argument
+  auto GIV_attr = loop->getLoopGoverningIVAttribution();
+  assert(GIV_attr != nullptr);
+  assert(GIV_attr->isSCCContainingIVWellFormed());
+  auto IV = GIV_attr->getInductionVariable().getLoopEntryPHI();
+  auto IVClone = cast<PHINode>(hbTask->getCloneOfOriginalInstruction(IV));
+  auto iterationsVector = hbTask->getIterationsVector();
+  auto startIter = iterationsVector[this->loopToLevel[this->ldi] * 2 + 0];
+  errs() << "startIter: " << *startIter << "\n";
+  IVClone->setIncomingValueForBlock(hbTask->getEntry(), startIter);
+
+  /*
+   * Adjust the exit condition value of the loop-governing IV to use the corresponding argument
+   */
+  auto maxIter = iterationsVector[this->loopToLevel[this->ldi] * 2 + 1];
+  errs() << "maxIter: " << *maxIter << "\n";
+  auto LGIV_cmpInst = GIV_attr->getHeaderCompareInstructionToComputeExitCondition();
+  auto LGIV_lastValue = GIV_attr->getExitConditionValue();
+  auto LGIV_currentValue = GIV_attr->getValueToCompareAgainstExitConditionValue();
+  int32_t operandNumber = -1;
+  for (auto &use: LGIV_currentValue->uses()){
+    auto user = use.getUser();
+    auto userInst = dyn_cast<Instruction>(user);
+    if (userInst == nullptr){
+      continue ;
+    }
+    if (userInst == LGIV_cmpInst){
+
+      /*
+       * We found the Use we are interested.
+       */
+      switch (use.getOperandNo()){
+        case 0:
+          operandNumber = 1;
+          break ;
+        case 1:
+          operandNumber = 0;
+          break ;
+        default:
+          abort();
+      }
+      break ;
+    }
+  }
+  assert(operandNumber != -1);
+  auto cloneCmpInst = cast<CmpInst>(this->hbTask->getCloneOfOriginalInstruction(cast<Instruction>(LGIV_cmpInst)));
+  cloneCmpInst->setOperand(operandNumber, maxIter);
+
+  errs() << "task after using start/max iterations from the argument" << *(hbTask->getTaskBody()) << "\n";
+
 
   /*
    * Fetch the loop handler function
@@ -225,18 +277,21 @@ bool HeartbeatTransformation::apply (
   errs() << "loop_handler function" << *loopHandlerFunction << "\n";
 
   /*
-   * Create a new bb to invoke the loop handler after the body, and a new basic block to modify the exit condition
+   * Create a new bb to invoke the loop handler after the body
    */
   this->loopHandlerBlock = BasicBlock::Create(hbTask->getTaskBody()->getContext(), "loop_handler_block", hbTask->getTaskBody());
-  this->modifyExitConditionBlock = BasicBlock::Create(hbTask->getTaskBody()->getContext(), "modify_exit_condition", hbTask->getTaskBody());
   
   auto bbs = ls->getLatches();
   assert(bbs.size() == 1 && "assumption: only has one latch of the loop\n");
   auto latchBB = *(bbs.begin());
   auto latchBBClone = hbTask->getCloneOfOriginalBasicBlock(latchBB);
   auto bodyBB = latchBB->getSinglePredecessor();
-  auto bodyBBClone = hbTask->getCloneOfOriginalBasicBlock(bodyBB);
   assert(bodyBB != nullptr && "latch doesn't have a single predecessor\n");
+  auto bodyBBClone = hbTask->getCloneOfOriginalBasicBlock(bodyBB);
+  auto loopExitBBs = ls->getLoopExitBasicBlocks();
+  assert(loopExitBBs.size() == 1 && "loop has multiple exit blocks!\n");
+  auto loopExitBB = *(loopExitBBs.begin());
+  auto loopExitBBClone = hbTask->getCloneOfOriginalBasicBlock(loopExitBB);
 
   // modify the bodyBB to jump to the loop_handler block
   IRBuilder<> bodyBuilder{ bodyBBClone };
@@ -247,82 +302,15 @@ bool HeartbeatTransformation::apply (
   );
   bodyTerminator->eraseFromParent();
 
-  // modify the exit condition block to jump to the latch block
-  IRBuilder<> exitConditionBlockBuilder { modifyExitConditionBlock };
-  exitConditionBlockBuilder.CreateBr(
-    latchBBClone
-  );
-  errs() << "task after creating two new basic blocks and fixing control flow" << *(hbTask->getTaskBody()) << "\n";
-
   /*
-   * Modify the exit condition inside the exit condition block
-   * also add a phi node in the to use the incoming value from this block
+   * Set the current startIter and maxIter inside the hbTask
    */
-  // step one, add a phi node inside the header for the exitCondition
-  auto GIV_attr = loop->getLoopGoverningIVAttribution();
-  assert(GIV_attr != nullptr);
-  assert(GIV_attr->isSCCContainingIVWellFormed());
-  // get the exit condition value
-  auto originalExitConditionValue = GIV_attr->getExitConditionValue();
-  errs() << "original exit condition value " << *originalExitConditionValue << "\n";
-  // add a phi node representing the new exit conditio value
-  auto headerBB = ls->getHeader();
-  auto headerBBClone = hbTask->getCloneOfOriginalBasicBlock(headerBB);
-  auto firstNonPhiInst = headerBBClone->getFirstNonPHI();
-  IRBuilder<> headerBuilder{ headerBBClone };
-  headerBuilder.SetInsertPoint(firstNonPhiInst);
-  auto exitConditionPhiInst = headerBuilder.CreatePHI(
-    originalExitConditionValue->getType(),
-    1,
-    "exitCondition"
-  );
-  // store this exitConditionPhiInstruction in the corresponding hbTask
-  this->hbTask->setMaxIteration(exitConditionPhiInst);
-  exitConditionPhiInst->addIncoming(
-    originalExitConditionValue,
-    hbTask->getEntry()
-  );
-  // maxIter = startIter + 1
-  auto IV = GIV_attr->getInductionVariable().getLoopEntryPHI();
-  auto IVClone = cast<PHINode>(hbTask->getCloneOfOriginalInstruction(IV));
-  // store the currentIVPhiInstruction in the corresponding hbTask
   this->hbTask->setCurrentIteration(IVClone);
-  errs() << "induction variable: " << *IVClone << "\n";
-  exitConditionBlockBuilder.SetInsertPoint(modifyExitConditionBlock->getTerminator());
-  auto newExitCondtionInst = exitConditionBlockBuilder.CreateAdd(
-    IVClone,
-    ConstantInt::get(originalExitConditionValue->getType(), 1),
-    "newExitCondition"
-  );
-  // create a phi at the latch for the exit condition
-  IRBuilder<> latchBuilder { &*(latchBBClone->begin()) };
-  auto exitConditionUpdatedInst = latchBuilder.CreatePHI(
-    originalExitConditionValue->getType(),
-    2,
-    "exitConditionUpdated"
-  );
-  exitConditionUpdatedInst->addIncoming(
-    exitConditionPhiInst,
-    loopHandlerBlock
-  );
-  exitConditionUpdatedInst->addIncoming(
-    newExitCondtionInst,
-    modifyExitConditionBlock
-  );
-  exitConditionPhiInst->addIncoming(
-    exitConditionUpdatedInst,
-    latchBBClone
-  );
-  // last step is to update the icmp instrution in the loop header to use the exitCondition phi instruction
-  auto GIVCmpInst = GIV_attr->getHeaderCompareInstructionToComputeExitCondition();
-  auto GIVCmpInstClone = hbTask->getCloneOfOriginalInstruction(GIVCmpInst);
-  errs() << "cmp inst to determine whether continue execution of the loop: " << *GIVCmpInstClone << "\n";
-  cast<CmpInst>(GIVCmpInstClone)->setOperand(1, exitConditionPhiInst);
-  errs() << "task after adjusting the exit condition value" << *(hbTask->getTaskBody()) << "\n";
+  this->hbTask->setMaxIteration(hbTask->getIterationsVector()[this->loopToLevel[loop] * 2 + 1]);
 
   /*
    * Call the loop_hander in the loop_handler block and compare the return code
-   * to decide whether need to modify the exit condition
+   * to decide whether to exit the loop directly
    */
   IRBuilder<> loopHandlerBuilder{ loopHandlerBlock };
   // create the vector to represent arguments
@@ -363,8 +351,7 @@ bool HeartbeatTransformation::apply (
   this->callToLoopHandler = callToHandler;
 
   // if (rc > 0) {
-  //   modify exit condition
-  //   goto latch
+  //   break;
   // } else {
   //   goto latch
   // }
@@ -374,156 +361,28 @@ bool HeartbeatTransformation::apply (
   );
   auto condBr = loopHandlerBuilder.CreateCondBr(
     cmpInst,
-    modifyExitConditionBlock,
+    loopExitBBClone,
     latchBBClone
   );
+
+  // since now loop_handler block may jump to loop exit directly
+  // need to populate the intermediate value of live-out variable
+  // through the loop_handler block
+  for (auto pair : this->liveOutVariableToAccumulatedPrivateCopy) {
+    PHINode *liveOutPhiAtLoopExitBlock = cast<PHINode>(pair.second);
+    assert(liveOutPhiAtLoopExitBlock->getNumIncomingValues() == 1 && "liveOutPhiAtLoopExitBlock should be untouched at the moment\n");
+
+    PHINode *liveOutPhiInsideLoopPreHeader = cast<PHINode>(liveOutPhiAtLoopExitBlock->getIncomingValue(0));
+    assert(liveOutPhiInsideLoopPreHeader->getNumIncomingValues() == 2 && "liveOutPhiInsideLoopPreHeader should have two incoming values\n");
+
+    liveOutPhiAtLoopExitBlock->addIncoming(
+      liveOutPhiInsideLoopPreHeader->getIncomingValue(1),
+      loopHandlerBlock
+    );
+  }
+
   errs() << "task after invoking loop_handler function and checking return code" << *(hbTask->getTaskBody()) << "\n";
 
-  // /*
-  //  * Create a new basic block to invoke the loop handler
-  //  *
-  //  * Step 1: fetch the variable that holds the current loop-governing IV value
-  //  */
-  // auto GIV_attr = loop->getLoopGoverningIVAttribution();
-  // assert(GIV_attr != nullptr);
-  // assert(GIV_attr->isSCCContainingIVWellFormed());
-  // auto currentIVValue = GIV_attr->getValueToCompareAgainstExitConditionValue();
-  // assert(currentIVValue != nullptr);
-  // auto cloneCurrentIVValue = this->fetchClone(currentIVValue);
-  // errs() << "cloned current IV value " << *cloneCurrentIVValue << "\n";
-  // assert(cloneCurrentIVValue != nullptr);
-
-  // /*
-  //  * Step 2: fetch the first instruction of the body of the loop in the task.
-  //  */
-  // auto bodyBB = ls->getFirstLoopBasicBlockAfterTheHeader();
-  // assert(bodyBB != nullptr);
-  // auto entryBodyInst = bodyBB->getFirstNonPHI();
-  // auto entryBodyInstInTask = hbTask->getCloneOfOriginalInstruction(entryBodyInst);
-  // assert(entryBodyInstInTask != nullptr);
-  // auto entryBodyInTask = entryBodyInstInTask->getParent();
-
-  // /*
-  //  * Step 3: call the loop handler
-  //  */
-  // IRBuilder<> bbBuilder(entryBodyInstInTask);
-  // auto argIter = hbTask->getTaskBody()->arg_begin();
-  // auto firstIterationValue = &*(argIter++);
-  // auto lastIterationValue = &*(argIter++);
-  // auto singleEnvPtr = &*(argIter++);
-  // auto reducibleEnvPtr = &*(argIter++);
-  // auto taskID = &*(argIter++);
-  // auto hbEnvBuilder = (HeartbeatLoopEnvironmentBuilder *)this->envBuilder;
-  // auto callToHandler = cast<CallInst>(bbBuilder.CreateCall(loopHandlerFunction, ArrayRef<Value *>({
-  //   bbBuilder.CreateZExtOrTrunc(cloneCurrentIVValue, firstIterationValue->getType()),
-  //   lastIterationValue,
-  //   singleEnvPtr,
-  //   // if there's no reducible live-out environment, which means the next level reducible environment won't be allocated
-  //   // use the original reducible environment instead
-  //   hbEnvBuilder->getReducibleEnvironmentSize() > 0 ? hbEnvBuilder->getNextLevelEnvironmentArrayVoidPtr() : reducibleEnvPtr,
-  //   taskID,
-  //   hbTask->getTaskBody()
-  //       })));
-
-  // /*
-  //  * Split the body basic block
-  //  *
-  //  * From 
-  //  * -------
-  //  * | PHI                        |
-  //  * | %Y = call loop_handler()   |
-  //  * | A                          | 
-  //  * | br X                       |
-  //  *
-  //  * to
-  //  * ------------------------------------
-  //  * | PHI                              |
-  //  * | %Y = call loop_handler()         |
-  //  * | %Y2 = icmp %Y, 0                 |
-  //  * | br %Y2 normalBody RET            |
-  //  * ------------------------------------
-  //  *
-  //  * ---normalBody ---
-  //  * | A   |
-  //  * | br X|
-  //  * -------
-  //  */
-  // auto bottomHalfBB = entryBodyInTask->splitBasicBlock(callToHandler->getNextNode());
-  // auto addedFakeTerminatorOfEntryBodyInTask = entryBodyInTask->getTerminator();
-  // IRBuilder<> topHalfBuilder(entryBodyInTask);
-  // auto typeManager = noelle.getTypesManager();
-  // auto const0 = ConstantInt::get(typeManager->getIntegerType(32), 0);
-  // auto cmpInst = cast<Instruction>(topHalfBuilder.CreateICmpEQ(callToHandler, const0));
-  // auto exitBasicBlockInTask = hbTask->getExit();
-  // auto condBr = topHalfBuilder.CreateCondBr(cmpInst, bottomHalfBB, exitBasicBlockInTask);
-  // addedFakeTerminatorOfEntryBodyInTask->eraseFromParent();
-
-  // /*
-  //  * Create the bitcast instructions at the entry block of the task to match the type of the GIV
-  //  */
-  // IRBuilder<> entryTaskBuilder{ hbTask->getEntry() };
-  // entryTaskBuilder.SetInsertPoint(&(*hbTask->getEntry()->begin()));
-  // auto firstIterationValueCasted = entryTaskBuilder.CreateZExtOrTrunc(firstIterationValue, cloneCurrentIVValue->getType());
-  // auto lastIterationValueCasted = entryTaskBuilder.CreateZExtOrTrunc(lastIterationValue, cloneCurrentIVValue->getType());
-
-  // /*
-  //  * Adjust the first starting value of the loop-governing IV to use the first parameter of the task.
-  //  */
-  // auto& GIV = GIV_attr->getInductionVariable();
-  // auto originalPHI = GIV.getLoopEntryPHI();
-  // auto clonePHI = cast<PHINode>(this->fetchClone(originalPHI));
-  // assert(clonePHI != nullptr);
-  // clonePHI->setIncomingValueForBlock(hbTask->getEntry(), firstIterationValueCasted);
-
-  // /*
-  //  * Adjust the exit condition value of the loop-governing IV to use the second parameter of the task.
-  //  *
-  //  * Step 1: find the Use of the exit value used in the compare instruction of the loop-governing IV.
-  //  */
-  // auto LGIV_cmpInst = GIV_attr->getHeaderCompareInstructionToComputeExitCondition();
-  // auto LGIV_lastValue = GIV_attr->getExitConditionValue();
-  // auto LGIV_currentValue = GIV_attr->getValueToCompareAgainstExitConditionValue();
-  // int32_t operandNumber = -1;
-  // for (auto &use: LGIV_currentValue->uses()){
-  //   auto user = use.getUser();
-  //   auto userInst = dyn_cast<Instruction>(user);
-  //   if (userInst == nullptr){
-  //     continue ;
-  //   }
-  //   if (userInst == LGIV_cmpInst){
-
-  //     /*
-  //      * We found the Use we are interested.
-  //      */
-  //     switch (use.getOperandNo()){
-  //       case 0:
-  //         operandNumber = 1;
-  //         break ;
-  //       case 1:
-  //         operandNumber = 0;
-  //         break ;
-  //       default:
-  //         abort();
-  //     }
-  //     break ;
-  //   }
-  // }
-  // assert(operandNumber != -1);
-  // auto cloneCmpInst = cast<CmpInst>(this->fetchClone(LGIV_cmpInst));
-  // auto cloneLastValue = this->fetchClone(LGIV_lastValue);
-  // auto cloneCurrentValue = cast<Instruction>(this->fetchClone(LGIV_currentValue));
-  // cloneCmpInst->setOperand(operandNumber, lastIterationValueCasted);
-
-  // Adjust the start and max value of the loop-goverining IV to use the corresponding startIter
-  auto iterationsVector = hbTask->getIterationsVector();
-  auto startIter = iterationsVector[this->loopToLevel[this->ldi] * 2 + 0];
-  errs() << "startIter: " << *startIter << "\n";
-  auto maxIter = iterationsVector[this->loopToLevel[this->ldi] * 2 + 1];
-  errs() << "maxIter: " << *maxIter << "\n";
-  IVClone->setIncomingValueForBlock(hbTask->getEntry(), startIter);
-  exitConditionPhiInst->setIncomingValueForBlock(hbTask->getEntry(), maxIter);
-
-  errs() << "task after using start/max iterations from the argument" << *(hbTask->getTaskBody()) << "\n";
 
   // /*
   //  * Create reduction loop here
@@ -546,20 +405,21 @@ bool HeartbeatTransformation::apply (
   assert(ls->getLoopExitBasicBlocks().size() == 1 && "loop has multiple exit blocks\n");
 
   // step 1: create a phi node to determine the return code of the loop
-  // this return code needs to be created inside the header
-  headerBuilder.SetInsertPoint(&*(headerBBClone->begin()));
-  this->returnCodePhiInst = cast<PHINode>(headerBuilder.CreatePHI(
-    headerBuilder.getInt64Ty(),
+  // this return code needs to be created in the exit block of the loop
+  IRBuilder loopExitBBBuilder{ loopExitBBClone };
+  loopExitBBBuilder.SetInsertPoint(loopExitBBClone->getTerminator());
+  this->returnCodePhiInst = cast<PHINode>(loopExitBBBuilder.CreatePHI(
+    loopExitBBBuilder.getInt64Ty(),
     2,
     "returnCode"
   ));
   this->returnCodePhiInst->addIncoming(
-    ConstantInt::get(headerBuilder.getInt64Ty(), 0),
-    hbTask->getEntry()
+    ConstantInt::get(loopExitBBBuilder.getInt64Ty(), 0),
+    hbTask->getCloneOfOriginalBasicBlock(ls->getHeader())
   );
   this->returnCodePhiInst->addIncoming(
     callToHandler,
-    latchBBClone
+    loopHandlerBlock
   );
 
   if (loopEnvironment->getLiveOutSize() > 0) {
@@ -1818,76 +1678,52 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
 
   errs() << "callerTask after calling calleeHBTask" << *callerHBTask->getTaskBody() << "\n";
 
-  // now the call to the nested loop is done, we need to use the return code of the this call to
-  // decide whether to update the exitCondition
-  auto loopHandlerBlock = this->loopToHeartbeatTransformation[callerLoop]->getLoopHandlerBlock();
-  auto modifyExitConditionBlock = this->loopToHeartbeatTransformation[callerLoop]->getModifyExitConditionBlock();
-  auto preLoopHandlerBlock = loopHandlerBlock->getSinglePredecessor();
-  auto preTerminator = preLoopHandlerBlock->getTerminator();
-  liveInEnvBuilder.SetInsertPoint(preTerminator);
-
+  // 04/06 by Yian
+  // No longer need the concept of modifying exit condition because
+  // 1. if there's no tail work left to do, maxIter = startIter + 1 is equal to break the loop directly
+  // 2. if there's tail work to do and it doesn't use the new exit condition value, same as above
+  // 3. if there's tail work to do and it uses the previous exit condition value, this should be captured
+  //    by the loop environment analysis and captured as a live-in variable. In other words, the exit
+  //    condition value itself has been cloned
+  // 4. if there's tail work to do and it uses the previous exit condition value to indicate the exit 
+  //    condition of a child loop, then the parent loop will set the exit condition for this children
+  //    loop and the exit condition at this value should be taken as a live-in variable
+  // Conclusion: the modify-exit-condition block is unnecessary, simply putting the if (rc > 0) in the
+  // end of the loop should be find
+  // The following code also assume there's only 1 heartbeat loop at each level
+  liveInEnvBuilder.SetInsertPoint(calleeHBTaskCallInst->getNextNode());
   auto cmpInst = liveInEnvBuilder.CreateICmpSGT(
     calleeHBTaskCallInst,
     liveInEnvBuilder.getInt64(0)
   );
+
+  // find the predecessor to the loop_handler block, in this case it is the last loop body block
+  auto loopHandlerBlock = this->loopToHeartbeatTransformation[callerLoop]->getLoopHandlerBlock();
+  auto lastLoopBodyBlock = loopHandlerBlock->getSinglePredecessor();
+  auto loopHandlerBrInst = lastLoopBodyBlock->getTerminator();
+  // get the exit block of the caller task
+  // this can be fetched through the returnCode instruction
+  auto returnCodePhiInst = this->loopToHeartbeatTransformation[callerLoop]->getReturnCodePhiInst();
+  auto loopExitBlock = returnCodePhiInst->getParent();
+  liveInEnvBuilder.SetInsertPoint(loopHandlerBrInst);
   liveInEnvBuilder.CreateCondBr(
     cmpInst,
-    modifyExitConditionBlock,
+    loopExitBlock,
     loopHandlerBlock
   );
+  cast<PHINode>(returnCodePhiInst)->addIncoming(calleeHBTaskCallInst, lastLoopBodyBlock);
+  loopHandlerBrInst->eraseFromParent();
 
-  // safe to erase this previous terminator
-  preTerminator->eraseFromParent();
-  errs() << "callerTask after conditional jumping after calling nested hbTask" << *callerHBTask->getTaskBody() << "\n";
-
-
-  // since now we have multiple return code to dealing with, adding phi to bbs
-  // 1. first phi is inserted inside the modify exit condition block
-  IRBuilder<> modifyExitConditionBlockBuilder{ &(*modifyExitConditionBlock->begin()) };
-  auto returnCodeTakenFromLoopHandlerBlockPhi = modifyExitConditionBlockBuilder.CreatePHI(
-    calleeHBTaskCallInst->getType(),
-    2,
-    "returnCodeTakenBothFromCallToNestedLoopAndLoopHandler"
-  );
-  returnCodeTakenFromLoopHandlerBlockPhi->addIncoming(
-    calleeHBTaskCallInst,
-    calleeHBTaskCallInst->getParent()
-  );
-  returnCodeTakenFromLoopHandlerBlockPhi->addIncoming(
-    this->loopToHeartbeatTransformation[callerLoop]->getCallToLoopHandler(),
-    loopHandlerBlock
-  );
-
-  // 2. in the latch block, create another phi, with incoming value either from previous created phi or simply the return code from loop_handler
-  auto latchBBs = callerLoop->getLoopStructure()->getLatches();
-  assert(latchBBs.size() == 1 && "assume there could only be one latch block\n");
-  auto latchBB = *(latchBBs.begin());
-  auto latchBBClone = callerHBTask->getCloneOfOriginalBasicBlock(latchBB);
-  errs() << "Clone of latchBB " << *latchBBClone << "\n";
-
-  IRBuilder<> latchBBBuilder{ &*(latchBBClone->begin()) };
-  auto returnCodeWithPotentialNoPromotionPhi = latchBBBuilder.CreatePHI(
-    calleeHBTaskCallInst->getType(),
-    2,
-    "returnCodeWithPotentialNoPromotionPhi"
-  );
-  returnCodeWithPotentialNoPromotionPhi->addIncoming(
-    returnCodeTakenFromLoopHandlerBlockPhi,
-    modifyExitConditionBlock
-  );
-  returnCodeWithPotentialNoPromotionPhi->addIncoming(
-    this->loopToHeartbeatTransformation[callerLoop]->getCallToLoopHandler(),
-    loopHandlerBlock
-  );
-
-  // 3. now found the original phi to determine the return code in the header
-  // and replace the incoming value from the latchBB to be the new phi value
-  auto originalReturnCodePhi = this->loopToHeartbeatTransformation[callerLoop]->getReturnCodePhiInst();
-  originalReturnCodePhi->setIncomingValueForBlock(
-    latchBBClone,
-    returnCodeWithPotentialNoPromotionPhi
-  );
-  errs() << "callerTask after fixing the phis to pass the return code value" << *callerHBTask->getTaskBody() << "\n";
+  // now need to update all phi node at the exit block that deals with live-out variable
+  // the incoming value is the same from the loop_handler block
+  for (auto pair : this->loopToHeartbeatTransformation[callerLoop]->liveOutVariableToAccumulatedPrivateCopy) {
+    PHINode *liveOutPhiAtLoopExitBlock = cast<PHINode>(pair.second);
+    assert(liveOutPhiAtLoopExitBlock->getNumIncomingValues() == 2 && "liveOutPhiAtLoopExitBlock should have another incoming value from the loop_handler block at the moment\n");
+  
+    auto incomingValueFromLoopHandlerBlock = liveOutPhiAtLoopExitBlock->getIncomingValueForBlock(loopHandlerBlock);
+    liveOutPhiAtLoopExitBlock->addIncoming(incomingValueFromLoopHandlerBlock, lastLoopBodyBlock);
+  }
+  errs() << "callerTask after breaking from the last loop body block" << *callerHBTask->getTaskBody() << "\n";
 
   return ;
 }
@@ -1909,7 +1745,7 @@ void HeartbeatTransformation::executeLoopInChunk(LoopDependenceInfo *ldi) {
 
   //   rc = loop_handler(cxts, LEVEL_ONE, leftoverTasks, leafTasks, startIter0, maxIter0, low - 1, maxIter);
   //   if (rc > 0) {
-  //     maxIter = startIter + 1;
+  //     break;
   //   }
   // }
 
@@ -1993,7 +1829,13 @@ void HeartbeatTransformation::executeLoopInChunk(LoopDependenceInfo *ldi) {
     this->getLoopHandlerBlock()
   );
 
-  // Step 4: Create phis for all live-out variables
+  // Step: add incoming value for returnCode from the chunk_loop_exit block
+  this->returnCodePhiInst->addIncoming(
+    ConstantInt::get(chunkLoopExitBlockBuilder.getInt64Ty(), 0),
+    chunkLoopExitBlock
+  );
+
+  // Step 4: Create phis for all live-out variables and populates into the outer loop exit block
   auto loopEnv = ldi->getEnvironment();
   for (auto liveOutVarID : loopEnv->getEnvIDsOfLiveOutVars()) {
     auto producer = loopEnv->getProducer(liveOutVarID);
@@ -2016,6 +1858,9 @@ void HeartbeatTransformation::executeLoopInChunk(LoopDependenceInfo *ldi) {
 
     // replace the incoming value in the cloned header
     cast<PHINode>(producerCloned)->setIncomingValue(1, liveOutPhiNode);
+
+    // replace the incoming value from the loop_handler block to be the new liveOutPhiNode
+    cast<PHINode>(this->liveOutVariableToAccumulatedPrivateCopy[liveOutVarID])->setIncomingValueForBlock(loopHandlerBlock, liveOutPhiNode);
 
     // add another incoming value to the propagated value in the exit block of the outer loop
     cast<PHINode>(this->liveOutVariableToAccumulatedPrivateCopy[liveOutVarID])->addIncoming(liveOutPhiNode, chunkLoopExitBlock);

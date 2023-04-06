@@ -68,10 +68,6 @@ class HeartbeatTransformation : public DOALL {
       return this->loopHandlerBlock;
     }
 
-    inline BasicBlock * getModifyExitConditionBlock() {
-      return this->modifyExitConditionBlock;
-    }
-
     inline CallInst * getCallToLoopHandler() {
       return this->callToLoopHandler;
     }
@@ -109,7 +105,7 @@ class HeartbeatTransformation : public DOALL {
 
     void replaceAllUsesInsideLoopBody(LoopDependenceInfo *, Value *, Value *);
 
-  private:
+  // private:
     void initializeEnvironmentBuilder(LoopDependenceInfo *LDI, 
                                       std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeReduced,
                                       std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeSkipped,
@@ -135,6 +131,5 @@ class HeartbeatTransformation : public DOALL {
     std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToChunksize;
     Value *contextBitcastInst;
     BasicBlock *loopHandlerBlock;
-    BasicBlock *modifyExitConditionBlock;
     CallInst *callToLoopHandler;
 };
