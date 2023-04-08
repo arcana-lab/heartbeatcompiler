@@ -59,7 +59,7 @@ OPTS += \
 	-march=native \
 	-fno-stack-protector \
 	-fno-asynchronous-unwind-tables \
-	-fno-verbose-asm -fno-rtti -fno-pic -fno-pie
+	-fno-verbose-asm -fno-rtti -fno-pic -fpie
 ifeq ($(CXX), clang++)
 	OPTS += -fno-vectorize -fno-slp-vectorize
 else ifeq ($(CXX), g++)
