@@ -245,7 +245,7 @@ void LoopEnvironmentBuilder::addVariableToEnvironment(uint64_t varID,
   return;
 }
 
-void LoopEnvironmentBuilder::allocateEnvironmentArray(IRBuilder<> builder) {
+void LoopEnvironmentBuilder::allocateEnvironmentArray(IRBuilder<> &builder) {
 
   /*
    * Check that we have an environment.
@@ -265,7 +265,7 @@ void LoopEnvironmentBuilder::allocateEnvironmentArray(IRBuilder<> builder) {
   return;
 }
 
-void LoopEnvironmentBuilder::generateEnvVariables(IRBuilder<> builder) {
+void LoopEnvironmentBuilder::generateEnvVariables(IRBuilder<> &builder) {
 
   /*
    * Check the environment array.
@@ -296,7 +296,7 @@ void LoopEnvironmentBuilder::generateEnvVariables(IRBuilder<> builder) {
      * Compute the address of the variable with index "envIndex".
      */
     auto envPtr =
-        builder.CreateInBoundsGEP(arr, ArrayRef<Value *>({ zeroV, indValue }));
+        builder.CreateInBoundsGEP(ptrType->getPointerElementType(), arr, ArrayRef<Value *>({ zeroV, indValue }));
 
     /*
      * Cast the pointer to the proper data type.
@@ -381,7 +381,7 @@ void LoopEnvironmentBuilder::generateEnvVariables(IRBuilder<> builder) {
 
 BasicBlock *LoopEnvironmentBuilder::reduceLiveOutVariables(
     BasicBlock *bb,
-    IRBuilder<> builder,
+    IRBuilder<> &builder,
     const std::unordered_map<uint32_t, Instruction::BinaryOps>
         &reducableBinaryOps,
     const std::unordered_map<uint32_t, Value *> &initialValues,
@@ -489,6 +489,7 @@ BasicBlock *LoopEnvironmentBuilder::reduceLiveOutVariables(
         this->envIndexToVectorOfReducableVar.at(envIndex);
     auto zeroV = cast<Value>(ConstantInt::get(int32Type, 0));
     auto effectiveAddressOfReducedVar = loopBodyBuilder.CreateInBoundsGEP(
+        envIDInitValue.second->getType(),
         baseAddressOfReducedVar,
         ArrayRef<Value *>({ zeroV, offsetValue }));
 
@@ -504,7 +505,7 @@ BasicBlock *LoopEnvironmentBuilder::reduceLiveOutVariables(
      * Load the next value that needs to be accumulated.
      */
     auto envVar =
-        loopBodyBuilder.CreateLoad(effectiveAddressOfReducedVarProperlyCasted);
+        loopBodyBuilder.CreateLoad(varType, effectiveAddressOfReducedVarProperlyCasted);
     loadedValues.push_back(envVar);
   }
 

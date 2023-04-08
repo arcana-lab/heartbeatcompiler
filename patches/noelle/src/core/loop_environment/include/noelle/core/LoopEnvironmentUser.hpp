@@ -33,11 +33,11 @@ public:
 
   void setEnvironmentArray(Value *envArr);
 
-  Instruction *createEnvironmentVariablePointer(IRBuilder<> b,
+  Instruction *createEnvironmentVariablePointer(IRBuilder<> &b,
                                                 uint32_t envID,
                                                 Type *type);
 
-  virtual void createReducableEnvPtr(IRBuilder<> b,
+  virtual void createReducableEnvPtr(IRBuilder<> &b,
                                      uint32_t envID,
                                      Type *type,
                                      uint32_t reducerCount,

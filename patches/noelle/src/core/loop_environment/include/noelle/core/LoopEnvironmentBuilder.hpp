@@ -68,8 +68,8 @@ public:
   /*
    * Generate code to create environment array/variable allocations
    */
-  void allocateEnvironmentArray(IRBuilder<> builder);
-  void generateEnvVariables(IRBuilder<> builder);
+  void allocateEnvironmentArray(IRBuilder<> &builder);
+  void generateEnvVariables(IRBuilder<> &builder);
 
   /*
    * Reduce live out variables given binary operators to reduce
@@ -77,7 +77,7 @@ public:
    */
   BasicBlock *reduceLiveOutVariables(
       BasicBlock *bb,
-      IRBuilder<> builder,
+      IRBuilder<> &builder,
       const std::unordered_map<uint32_t, Instruction::BinaryOps>
           &reducableBinaryOps,
       const std::unordered_map<uint32_t, Value *> &initialValues,

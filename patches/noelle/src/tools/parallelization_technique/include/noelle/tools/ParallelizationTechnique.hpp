@@ -26,11 +26,13 @@
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "noelle/core/Noelle.hpp"
 #include "noelle/core/LoopDependenceInfo.hpp"
-#include "Heuristics.hpp"
+// #include "Heuristics.hpp"
 #include "noelle/core/Task.hpp"
 #include "noelle/core/Hot.hpp"
 #include "noelle/core/PDGPrinter.hpp"
 #include "noelle/core/SubCFGs.hpp"
+
+class Heuristics {};
 
 namespace llvm::noelle {
 
