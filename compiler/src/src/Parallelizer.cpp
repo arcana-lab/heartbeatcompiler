@@ -119,7 +119,7 @@ void Heartbeat::linkTransformedLoopToOriginalFunction(
   IRBuilder<> loopSwitchBuilder(originalTerminator);
   auto runHeartbeatBoolGlobal = noelle.getProgram()->getNamedGlobal("run_heartbeat");
   assert(runHeartbeatBoolGlobal != nullptr && "run_heartbeat global isn't found!\n");
-  auto loadRunHeartbeatBool = loopSwitchBuilder.CreateLoad(runHeartbeatBoolGlobal);
+  auto loadRunHeartbeatBool = loopSwitchBuilder.CreateLoad(tm->getIntegerType(8), runHeartbeatBoolGlobal);
   auto loadRunHeartbeatBoolTruncated = loopSwitchBuilder.CreateTrunc(
     loadRunHeartbeatBool,
     tm->getIntegerType(1)
@@ -149,13 +149,14 @@ void Heartbeat::linkTransformedLoopToOriginalFunction(
 
     auto int64 = tm->getIntegerType(64);
     auto exitEnvPtr = endBuilder.CreateInBoundsGEP(
+        int64,
         envArray,
         ArrayRef<Value *>({ cast<Value>(ConstantInt::get(int64, 0)),
                             endBuilder.CreateMul(
                                 envIndexForExitVariable,
                                 ConstantInt::get(int64, valuesInCacheLine)) }));
     auto exitEnvCast =
-        endBuilder.CreateIntCast(endBuilder.CreateLoad(exitEnvPtr),
+        endBuilder.CreateIntCast(endBuilder.CreateLoad(int64, exitEnvPtr),
                                  integerType,
                                  /*isSigned=*/false);
     auto exitSwitch = endBuilder.CreateSwitch(exitEnvCast, loopExitBlocks[0]);

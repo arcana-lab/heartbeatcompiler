@@ -228,5 +228,6 @@ clean:
 	rm -rf heartbeat_compiler heartbeat_compiler_rf ;
 	rm -rf *.s *.o ;
 	rm -rf *.bc *.ll ;
+	rm -rf loopIDtoSrc.txt ;
 
 .PHONY: condor clean

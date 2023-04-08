@@ -28,9 +28,9 @@ public:
     }
   };
   
-  Instruction * createSingleEnvironmentVariablePointer(IRBuilder<> builder, uint32_t envID, Type *type);
+  Instruction * createSingleEnvironmentVariablePointer(IRBuilder<> &builder, uint32_t envID, Type *type);
   
-  void createReducableEnvPtr(IRBuilder<> builder, uint32_t envID, Type *type, uint32_t reducerCount, Value *reducerIndV) override;
+  void createReducableEnvPtr(IRBuilder<> &builder, uint32_t envID, Type *type, uint32_t reducerCount, Value *reducerIndV) override;
   
   Instruction * getEnvPtr(uint32_t id) override;
 

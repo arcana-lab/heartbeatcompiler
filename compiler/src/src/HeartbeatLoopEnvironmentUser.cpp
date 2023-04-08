@@ -15,7 +15,7 @@ HeartbeatLoopEnvironmentUser::HeartbeatLoopEnvironmentUser(
   return;
 }
 
-Instruction * HeartbeatLoopEnvironmentUser::createSingleEnvironmentVariablePointer(IRBuilder<> builder, uint32_t envID, Type *type) {
+Instruction * HeartbeatLoopEnvironmentUser::createSingleEnvironmentVariablePointer(IRBuilder<> &builder, uint32_t envID, Type *type) {
   if (!this->singleEnvArray) {
     errs() << "A bitcast inst to the single environment array has not been set for this user!\n";
   }
@@ -28,7 +28,7 @@ Instruction * HeartbeatLoopEnvironmentUser::createSingleEnvironmentVariablePoint
 
   auto valuesInCacheLine = Architecture::getCacheLineBytes() / sizeof(int64_t);
   auto envIndV = cast<Value>(ConstantInt::get(int64, singleEnvIndex * valuesInCacheLine));
-  auto envGEP = builder.CreateInBoundsGEP(this->singleEnvArray, ArrayRef<Value *>({ zeroV, envIndV }));
+  auto envGEP = builder.CreateInBoundsGEP(this->singleEnvArray->getType()->getPointerElementType(), this->singleEnvArray, ArrayRef<Value *>({ zeroV, envIndV }));
   auto envPtr = builder.CreateBitCast(envGEP, PointerType::getUnqual(type));
 
   auto ptrInst = cast<Instruction>(envPtr);
@@ -37,7 +37,7 @@ Instruction * HeartbeatLoopEnvironmentUser::createSingleEnvironmentVariablePoint
   return ptrInst;
 }
 
-void HeartbeatLoopEnvironmentUser::createReducableEnvPtr(IRBuilder<> builder, uint32_t envID, Type *type, uint32_t reducerCount, Value *reducerIndV) {
+void HeartbeatLoopEnvironmentUser::createReducableEnvPtr(IRBuilder<> &builder, uint32_t envID, Type *type, uint32_t reducerCount, Value *reducerIndV) {
   if (!this->reducibleEnvArray) {
     errs() << "A reference to the environment array has not been set for this user!\n";
     abort();
@@ -54,6 +54,7 @@ void HeartbeatLoopEnvironmentUser::createReducableEnvPtr(IRBuilder<> builder, ui
   auto zeroV = cast<Value>(ConstantInt::get(int64, 0));
   auto envIndV = cast<Value>(ConstantInt::get(int64, envIndex * valuesInCacheLine));
   auto envReduceGEP = builder.CreateInBoundsGEP(
+    this->reducibleEnvArray->getType()->getPointerElementType(),
     this->reducibleEnvArray,
     ArrayRef<Value *>({ zeroV, envIndV }),
     std::string("reductionArrayLiveOut_").append(std::to_string(envIndex)).append("_addr")
@@ -65,6 +66,7 @@ void HeartbeatLoopEnvironmentUser::createReducableEnvPtr(IRBuilder<> builder, ui
     std::string("reductionArrayLiveOut_").append(std::to_string(envIndex)).append("_addr_correctly_casted")
   );
   auto reducibleArrayPtr = builder.CreateLoad(
+    envReducePtr->getType()->getPointerElementType(),
     envReducePtr,
     std::string("reductionArrayLiveOut_").append(std::to_string(envIndex))
   );
@@ -75,6 +77,7 @@ void HeartbeatLoopEnvironmentUser::createReducableEnvPtr(IRBuilder<> builder, ui
     "myIndex"
   );
   auto envGEP = builder.CreateInBoundsGEP(
+    reducibleArrayPtr->getType()->getPointerElementType(),
     reducibleArrayPtr,
     ArrayRef<Value *>({ zeroV, reduceIndAlignedV }),
     std::string("liveOut_").append(std::to_string(envIndex)).append("_Ptr")

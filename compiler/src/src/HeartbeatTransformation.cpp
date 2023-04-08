@@ -467,6 +467,7 @@ bool HeartbeatTransformation::apply (
 
       // leftover reduction, private_copy + [0]
       auto firstElementPtr = leftoverReductionBlockBuilder.CreateInBoundsGEP(
+        reductionArrayForKids->getType()->getPointerElementType(),
         reductionArrayForKids,
         ArrayRef<Value *>({ zeroV, cast<Value>(ConstantInt::get(int64, 0 * this->valuesInCacheLine)) }),
         std::string("reductionArrayForKids_firstElement_addr_").append(std::to_string(liveOutEnvID))
@@ -494,6 +495,7 @@ bool HeartbeatTransformation::apply (
 
       // heartbeat reduction, private_copy + [0] + [1]
       auto secondElementPtr = hbReductionBlockBuilder.CreateInBoundsGEP(
+        reductionArrayForKids->getType()->getPointerElementType(),
         reductionArrayForKids,
         ArrayRef<Value *>({ zeroV, cast<Value>(ConstantInt::get(int64, 1 * this->valuesInCacheLine)) }),
         std::string("reductionArrayForKids_secondElement_addr_").append(std::to_string(liveOutEnvID))
@@ -646,6 +648,7 @@ void HeartbeatTransformation::initializeLoopEnvironmentUsers() {
     // 0 for either single or reducible environment
     if (envBuilder->getSingleEnvironmentSize() > 0) {
       auto liveInEnvPtrGEPInst = entryBuilder.CreateInBoundsGEP(
+        envBuilder->getContextArrayType(),
         (Value *)contextBitcastInst,
         ArrayRef<Value *>({
           zeroV,
@@ -660,6 +663,7 @@ void HeartbeatTransformation::initializeLoopEnvironmentUsers() {
         "liveInEnvPtrCasted"
       );
       auto liveInEnvLoadInst = entryBuilder.CreateLoad(
+        PointerType::getUnqual(envBuilder->getSingleEnvironmentArrayType()),
         (Value *)liveInEnvBitcastInst,
         "liveInEnv"
       );
@@ -667,6 +671,7 @@ void HeartbeatTransformation::initializeLoopEnvironmentUsers() {
     }
     if (envBuilder->getReducibleEnvironmentSize() > 0) {
       auto liveOutEnvPtrGEPInst = entryBuilder.CreateInBoundsGEP(
+        envBuilder->getContextArrayType(),
         (Value *)contextBitcastInst,
         ArrayRef<Value *>({
           zeroV,
@@ -683,6 +688,7 @@ void HeartbeatTransformation::initializeLoopEnvironmentUsers() {
       // set the liveOutEnv for kids
       envUser->setLiveOutEnvBitcastInst(liveOutEnvBitcastInst);
       auto liveOutEnvLoadInst = entryBuilder.CreateLoad(
+        PointerType::getUnqual(envBuilder->getReducibleEnvironmentArrayType()),
         (Value *)liveOutEnvBitcastInst,
         "liveOutEnv"
       );
@@ -724,6 +730,7 @@ void HeartbeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceIn
   assert(constantLiveInsPointerGlobal != nullptr);
   errs() << "constant live-ins pointer " << *constantLiveInsPointerGlobal << "\n";
   auto constantLiveInsLoadInst = builder.CreateLoad(
+    PointerType::getUnqual(ArrayType::get(builder.getInt64Ty(), this->constantLiveInsArgIndexToIndex.size())),
     builder.CreateBitCast(
       cast<Value>(constantLiveInsPointerGlobal),
       PointerType::getUnqual(PointerType::getUnqual(ArrayType::get(builder.getInt64Ty(), this->constantLiveInsArgIndexToIndex.size())))
@@ -744,6 +751,7 @@ void HeartbeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceIn
     auto const_index_V = cast<Value>(ConstantInt::get(int64, const_index));
     // create gep in to the constant live-in
     auto constLiveInGEPInst = builder.CreateInBoundsGEP(
+      ArrayType::get(builder.getInt64Ty(), this->constantLiveInsArgIndexToIndex.size()),
       cast<Value>(constantLiveInsLoadInst),
       ArrayRef<Value *>({ zeroV, const_index_V }),
       std::string("constantLiveIn_").append(std::to_string(const_index)).append("_addr")
@@ -751,6 +759,7 @@ void HeartbeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceIn
 
     // load from casted instruction
     auto constLiveInLoadInst = builder.CreateLoad(
+      int64,
       constLiveInGEPInst,
       std::string("constantLiveIn_").append(std::to_string(const_index)).append("_casted")
     );
@@ -775,6 +784,7 @@ void HeartbeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceIn
       case Type::FloatTyID:
       case Type::DoubleTyID:
         constLiveInCastedInst = builder.CreateLoad(
+          producer->getType(),
           builder.CreateIntToPtr(
             constLiveInLoadInst,
             PointerType::getUnqual(producer->getType())
@@ -795,7 +805,7 @@ void HeartbeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceIn
     auto producer = env->getProducer(envID);
     auto envPointer = envUser->createSingleEnvironmentVariablePointer(builder, envID, producer->getType());
     auto metaString = std::string{ "heartbeat_environment_variable_" }.append(std::to_string(envID));
-    auto envLoad = builder.CreateLoad(envPointer, metaString);
+    auto envLoad = builder.CreateLoad(producer->getType(), envPointer, metaString);
 
     task->addLiveIn(producer, envLoad);
   }
@@ -833,7 +843,9 @@ void HeartbeatTransformation::setReducableVariablesToBeginAtIdentityValue(LoopDe
 
     auto producer = environment->getProducer(envID);
     assert(producer != nullptr);
+    assert(isa<PHINode>(producer) && "live-out producer must be a phi node\n");
     auto producerSCC = sccdag->sccOfValue(producer);
+    // producerSCC->print(errs());
     auto reductionVar = static_cast<BinaryReductionSCC *>(sccManager->getSCCAttrs(producerSCC));
     auto loopEntryProducerPHI = reductionVar->getPhiThatAccumulatesValuesBetweenLoopIterations();
     assert(loopEntryProducerPHI != nullptr);
@@ -1070,6 +1082,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
     auto argV = cast<Value>(&*(loopFunction->arg_begin() + argIndex));
 
     auto constantLiveInArray_element_ptr = builder.CreateInBoundsGEP(
+      constantLiveIns->getType()->getPointerElementType(),
       constantLiveIns,
       ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), 0), ConstantInt::get(builder.getInt64Ty(), arrayIndex) }),
       std::string("constantLiveIn_").append(std::to_string(arrayIndex)).append("_addr")
@@ -1148,6 +1161,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
     // auto liveInEnvCasted = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArrayPointer();
     auto liveInEnv = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArray();
     auto gepInst = builder.CreateInBoundsGEP(
+      builder.getInt64Ty(),
       contextArrayAlloca,
       ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine), ConstantInt::get(builder.getInt64Ty(), 0 /* the index for storing live-in environment */) })
     );
@@ -1162,6 +1176,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
     // auto liveOutEnvCasted = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArrayPointer();
     auto liveOutEnv = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArray();
     auto gepInst = builder.CreateInBoundsGEP(
+      contextArrayAlloca->getType()->getPointerElementType(),
       contextArrayAlloca,
       ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine), ConstantInt::get(builder.getInt64Ty(), 1 /* the index for storing live-out environment */) })
     );
@@ -1473,6 +1488,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
     // auto liveInEnvCasted = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArrayPointer();
     auto liveInEnv = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArray();
     auto gepInst = builder.CreateInBoundsGEP(
+      this->loopToHeartbeatTransformation[callerLoop]->getContextBitCastInst()->getType()->getPointerElementType(),
       this->loopToHeartbeatTransformation[callerLoop]->getContextBitCastInst(),
       ArrayRef<Value *>({
         zeroV,
@@ -1491,6 +1507,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
     // auto liveOutEnvCasted = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArrayPointer();
     auto liveOutEnv = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArray();
     auto gepInst = builder.CreateInBoundsGEP(
+      this->loopToHeartbeatTransformation[callerLoop]->getContextBitCastInst()->getType()->getPointerElementType(),
       this->loopToHeartbeatTransformation[callerLoop]->getContextBitCastInst(),
       ArrayRef<Value *>({
         zeroV,
@@ -1552,6 +1569,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
 
     // gep in the liveInEnvArray
     auto gepInst = liveInEnvBuilder.CreateInBoundsGEP(
+      liveInEnvArray->getType()->getPointerElementType(),
       liveInEnvArray,
       ArrayRef<Value *>({
         liveInEnvBuilder.getInt64(0),
@@ -1628,6 +1646,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
     errs() << "liveOutIndex: " << liveOutIndex << "\n";
     // now we have the index of the liveOutIndex, now load the result from the reductionArray allocated for the nest loop
     auto liveOutResult = liveInEnvBuilder.CreateLoad(
+      callToLoopInCallerInst->getType(),
       ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleVariableOfIndexGivenEnvIndex(liveOutIndex, 0)
     );
 

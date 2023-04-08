@@ -118,15 +118,19 @@ bool Heartbeat::runOnModule (Module &M) {
         auto callInst = cast<CallInst>(pair.second->getCallToLoopHandler());
 
         IRBuilder<> builder{ callInst };
+        auto sliceTasksWrapperGlobal = noelle.getProgram()->getNamedGlobal(std::string("sliceTasksWrapper_nest").append(std::to_string(nestID)));
         auto sliceTasksWrapperGEP = builder.CreateInBoundsGEP(
-          noelle.getProgram()->getNamedGlobal(std::string("sliceTasksWrapper_nest").append(std::to_string(nestID))),
+          sliceTasksWrapperGlobal->getType()->getPointerElementType(),
+          sliceTasksWrapperGlobal,
           ArrayRef<Value *>({
             builder.getInt64(0),
             builder.getInt64(0),
           })
         );
+        auto leftoverTasksGlobal = noelle.getProgram()->getNamedGlobal(std::string("leftoverTasks_nest").append(std::to_string(nestID)));
         auto leftoverTasksGEP = builder.CreateInBoundsGEP(
-          noelle.getProgram()->getNamedGlobal(std::string("leftoverTasks_nest").append(std::to_string(nestID))),
+          leftoverTasksGlobal->getType()->getPointerElementType(),
+          leftoverTasksGlobal,
           ArrayRef<Value *>({
             builder.getInt64(0),
             builder.getInt64(0)
@@ -210,6 +214,7 @@ void Heartbeat::replaceWithRollforwardHandler(Noelle &noelle) {
     );
 
     auto rc = builder.CreateLoad(
+      builder.getInt64Ty(),
       rcPointer,
       "rollforward_handler_return_code"
     );

@@ -90,7 +90,7 @@ void Heartbeat::createSliceTasksWrapper(
     sliceTasksWrapperType
   );
   auto sliceTasksWrapperGlobal = noelle.getProgram()->getNamedGlobal(sliceTasksWrapperName);
-  sliceTasksWrapperGlobal->setAlignment(8);
+  sliceTasksWrapperGlobal->setAlignment(Align(8));
   sliceTasksWrapperGlobal->setInitializer(
     ConstantArray::get(
       sliceTasksWrapperType,

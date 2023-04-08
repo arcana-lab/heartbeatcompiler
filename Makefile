@@ -7,8 +7,8 @@ runtime:
 	cd rollforward ; git checkout 217d186a47388a84f96fdc2060f91e68c5fab402 ;
 
 noelle:
-	git clone https://github.com/arcana-lab/noelle.git noelle ;
-	cd noelle ; git checkout e0d62d4ab4704ae16b7afdcad285c638ff143621 ;
+	git clone https://github.com/yiansu/noelle.git noelle ;
+	cd noelle ; git checkout origin/llvm15 -b llvm15 ;
 
 patches: runtime noelle
 	cp -r patches/* . ;

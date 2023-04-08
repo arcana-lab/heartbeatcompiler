@@ -33,9 +33,9 @@ public:
 
   bool hasVariableBeenReduced(uint32_t id) const override;
 
-  void allocateNextLevelReducibleEnvironmentArray(IRBuilder<> builder);
+  void allocateNextLevelReducibleEnvironmentArray(IRBuilder<> &builder);
 
-  void generateNextLevelReducibleEnvironmentVariables(IRBuilder <> builder);
+  void generateNextLevelReducibleEnvironmentVariables(IRBuilder <> &builder);
 
   inline Value * getNextLevelEnvironmentArrayVoidPtr() {
     assert(this->reducibleEnvArrayInt8PtrNextLevel != nullptr && "Next level envrionment array void ptr hasn't been set yet\n");
@@ -45,18 +45,18 @@ public:
   BasicBlock * reduceLiveOutVariablesInTask(
     int taskIndex,
     BasicBlock *loopHandlerBB,
-    IRBuilder<> loopHandlerBuilder,
+    IRBuilder<> &loopHandlerBuilder,
     const std::unordered_map<uint32_t, Instruction::BinaryOps> &reducibleBinaryOps,
     const std::unordered_map<uint32_t, Value *> &initialValues,
     Instruction *cmpInst,
     BasicBlock *bottomHalfBB,
     Value *numOfReducerV);
 
-  void allocateSingleEnvironmentArray(IRBuilder<> builder);
+  void allocateSingleEnvironmentArray(IRBuilder<> &builder);
 
-  void allocateReducibleEnvironmentArray(IRBuilder<> builder);
+  void allocateReducibleEnvironmentArray(IRBuilder<> &builder);
 
-  void generateEnvVariables(IRBuilder<> builder, uint32_t reducerCount);
+  void generateEnvVariables(IRBuilder<> &builder, uint32_t reducerCount);
 
   inline bool isIncludedEnvironmentVariable(uint32_t id) const override {
     return (this->singleEnvIDToIndex.find(id) != this->singleEnvIDToIndex.end()) || (this->reducibleEnvIDToIndex.find(id) != this->reducibleEnvIDToIndex.end());

@@ -161,7 +161,7 @@ void Heartbeat::createConstantLiveInsGlobalPointer(Noelle &noelle, uint64_t nest
   auto constantLiveInsGlobalPointer = M->getNamedGlobal(constantLiveInsGlobalName);
   constantLiveInsGlobalPointer->setDSOLocal(true);
   constantLiveInsGlobalPointer->setInitializer(Constant::getNullValue(PointerType::getUnqual(builder.getInt64Ty())));
-  constantLiveInsGlobalPointer->setAlignment(8);
+  constantLiveInsGlobalPointer->setAlignment(Align(8));
 
   errs() << "create constant live-ins global pointer in the module " << *constantLiveInsGlobalPointer << "\n";
 

@@ -83,8 +83,11 @@ void Heartbeat::createLeftoverTasks(
 
       // iterating from receivingLevel to splittingLevel + 1
       for (auto level = receivingLevel; level > splittingLevel; level--) {
+        auto int64Ty = entryBlockBuilder.getInt64Ty();
+
         // load startIteration from the iterationsArray
         auto startIterationGEPInst = entryBlockBuilder.CreateInBoundsGEP(
+          iterationsArray->getType()->getPointerElementType(),
           iterationsArray,
           ArrayRef<Value *>({
             entryBlockBuilder.getInt64(0),
@@ -92,12 +95,14 @@ void Heartbeat::createLeftoverTasks(
           })
         );
         auto startIteration = entryBlockBuilder.CreateLoad(
+          int64Ty,
           startIterationGEPInst,
           std::string("startIteration_").append(std::to_string(level))
         );
 
         // load maxIteration from the iterationsArray
         auto maxIterationGEPInst = entryBlockBuilder.CreateInBoundsGEP(
+          iterationsArray->getType()->getPointerElementType(),
           iterationsArray,
           ArrayRef<Value *>({
             entryBlockBuilder.getInt64(0),
@@ -105,6 +110,7 @@ void Heartbeat::createLeftoverTasks(
           })
         );
         auto maxIteration = entryBlockBuilder.CreateLoad(
+          int64Ty,
           maxIterationGEPInst,
           std::string("maxIteration_").append(std::to_string(level))
         );
@@ -192,7 +198,7 @@ void Heartbeat::createLeftoverTasks(
     leftoverTasksType
   );
   auto leftoverTasksGlobal = noelle.getProgram()->getNamedGlobal(leftoverTasksGlobalName);
-  leftoverTasksGlobal->setAlignment(8);
+  leftoverTasksGlobal->setAlignment(Align(8));
   leftoverTasksGlobal->setInitializer(
     ConstantArray::get(
       leftoverTasksType,
