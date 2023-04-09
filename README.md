@@ -2,8 +2,8 @@
 
 ## Dependency
 
-The following dependence is required when building [NOELLE](https://github.com/arcana-lab/noelle).
-* [LLVM 9.0.1](https://releases.llvm.org/download.html)
+The following dependence is required when building heartbeat compiler
+* [LLVM 15.0.0](https://releases.llvm.org/download.html)
 
 
 ## Building
