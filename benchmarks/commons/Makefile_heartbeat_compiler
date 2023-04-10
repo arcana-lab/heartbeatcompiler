@@ -43,7 +43,7 @@ run_heartbeat_compiler: heartbeat_compiler
 # Heartbeat Compiler (Rollforward)
 # ============================================
 rf_test.bc: rf_test.cpp
-	$(CXX) -fno-pie -O3 -emit-llvm -c $< -o $@
+	$(CXX) -O3 -emit-llvm -Xclang -no-opaque-pointers -c $< -o $@
 
 heartbeat_compiler.s: heartbeat_compiler.bc
 	$(CXX) $(MACROS_HEARTBEAT_COMPILER) $(FLAGS_HEARTBEAT_COMPILER) $(OPTS_HEARTBEAT_COMPILER) $< -S -o $@
