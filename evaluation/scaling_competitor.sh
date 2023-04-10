@@ -7,8 +7,7 @@
 
 # source environment
 ROOT_DIR=`git rev-parse --show-toplevel`
-source /project/extra/llvm/9.0.0/enable
-source /nfs-scratch/yso0488/jemalloc/enable
+source ${ROOT_DIR}/enable
 
 # experiment settings
 experiment=scaling
@@ -19,8 +18,8 @@ metric=time
 keyword="exectime"
 
 # runtime settings
-num_workers=(1 2 4 8 16 28 56)
-warmup_secs=3.0
+num_workers=(1 2 4 8 16 32 64)
+warmup_secs=10.0
 runs=10
 verbose=1
 
@@ -38,14 +37,14 @@ function evaluate_benchmark {
       env_variable="CILK_NWORKERS"
     fi
 
-    # compile the benchmark
-    make clean &> /dev/null ;
-    INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} make ${implementation} &> /dev/null ;
-    
     # generate the path to store results
     result_path=${results}/${experiment}/${bench_name}/${input_size}/${implementation}
     mkdir -p ${result_path} ;
     echo -e "\tresult path: " ${result_path} ;
+
+    # compile the benchmark
+    make clean &> /dev/null ;
+    INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} make ${implementation} &> /dev/null ;
 
     # run the benchmark binary
     for num_worker in ${num_workers[@]} ; do

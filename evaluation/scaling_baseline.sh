@@ -7,8 +7,7 @@
 
 # source environment
 ROOT_DIR=`git rev-parse --show-toplevel`
-source /project/extra/llvm/9.0.0/enable
-source /nfs-scratch/yso0488/jemalloc/enable
+source ${ROOT_DIR}/enable
 
 # experiment settings
 experiment=scaling
@@ -18,7 +17,7 @@ metric=time
 keyword="exectime"
 
 # runtime settings
-warmup_secs=3.0
+warmup_secs=10.0
 runs=10
 verbose=1
 
@@ -27,14 +26,14 @@ function evaluate_benchmark {
   input_class=$2
   echo -e "benchmark: " ${bench_name} ;
 
-  # compile the benchmark
-  make clean &> /dev/null ;
-  INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} make baseline &> /dev/null ;
-  
   # generate the path to store results
   result_path=${results}/${experiment}/${bench_name}/${input_size}/baseline
   mkdir -p ${result_path} ;
   echo -e "\tresult path: " ${result_path} ;
+
+  # compile the benchmark
+  make clean &> /dev/null ;
+  INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} make baseline &> /dev/null ;
 
   # run the benchmark binary
   run_experiment "baseline" ${result_path} ;

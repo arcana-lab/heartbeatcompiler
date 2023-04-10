@@ -8,22 +8,20 @@
 
 # source environment
 ROOT_DIR=`git rev-parse --show-toplevel`
-source /project/extra/llvm/9.0.0/enable
-source ${ROOT_DIR}/noelle/enable
-source /nfs-scratch/yso0488/jemalloc/enable
+source ${ROOT_DIR}/enable
 
 # experiment settings
 experiment=scaling
 benchmarks=('floyd_warshall' 'kmeans' 'mandelbrot' 'plus_reduce_array' 'spmv' 'srad')
 input_size=tpal
-signal_mechanisms=('rollforward' 'software_polling')
+signal_mechanisms=('rollforward' 'rollforward_kmod' 'software_polling')
 metric=time
 keyword="exectime"
 
 # runtime settings
-num_workers=(1 2 4 8 16 28 56)
+num_workers=(1 2 4 8 16 32 64)
 heartbeat_rate=100
-warmup_secs=3.0
+warmup_secs=10.0
 runs=10
 verbose=1
 
@@ -37,18 +35,23 @@ function evaluate_benchmark {
 
     if [ ${signal_mechanism} == 'rollforward' ] ; then
       enable_rollforward=true
+      use_hb_kmod=false
+    elif [ ${signal_mechanism} == 'rollforward_kmod' ] ; then
+      enable_rollforward=true
+      use_hb_kmod=true
     else
       enable_rollforward=false
+      use_hb_kmod=false
     fi
 
-    # compile the benchmark
-    make clean &> /dev/null ;
-    INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ENABLE_ROLLFORWARD=${enable_rollforward} make heartbeat_compiler &> /dev/null ;
-    
     # generate the path to store results
     result_path=${results}/${experiment}/${bench_name}/${input_size}/heartbeat_compiler_${signal_mechanism}
     mkdir -p ${result_path} ;
     echo -e "\tresult path: " ${result_path} ;
+
+    # compile the benchmark
+    make clean &> /dev/null ;
+    INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ENABLE_ROLLFORWARD=${enable_rollforward} USE_HB_KMOD=${use_hb_kmod} make heartbeat_compiler &> /dev/null ;
 
     # run the benchmark binary
     for num_worker in ${num_workers[@]} ; do

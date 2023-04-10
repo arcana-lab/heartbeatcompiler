@@ -1,30 +1,28 @@
 #!/bin/bash
 
 # This evaluation script does the following things
-# 1. compile the heartbeat binary of each benchmark (including various input classes) using various chunk sizes (and no chunking)
+# 1. compile the heartbeat binary of each benchmark (including various input classes) using various chunksizes (and no chunking)
 # 2. using rollforward and software_polling as signaling mechanism separately
 # 3. run the heartbeat binary
 # 4. collect the time result
 
 # source environment
 ROOT_DIR=`git rev-parse --show-toplevel`
-source /project/extra/llvm/9.0.0/enable
-source ${ROOT_DIR}/noelle/enable
-source /nfs-scratch/yso0488/jemalloc/enable
+source ${ROOT_DIR}/enable
 
 # experiment settings
-experiment=chunk_size
+experiment=chunksize
 benchmarks=('floyd_warshall' 'kmeans' 'mandelbrot' 'plus_reduce_array' 'spmv' 'srad')
-chunk_sizes=(1 10 100 1000 10000)
+chunksizes=(1 10 100 1000 10000)
 input_size=tpal
-signal_mechanisms=('rollforward' 'software_polling')
+signal_mechanisms=('rollforward' 'rollforward_kmod' 'software_polling')
 metric=time
 keyword="exectime"
 
 # runtime settings
-num_worker=16
+num_worker=1
 heartbeat_rate=100
-warmup_secs=3.0
+warmup_secs=10.0
 runs=10
 verbose=1
 
@@ -38,37 +36,42 @@ function evaluate_benchmark {
 
     if [ ${signal_mechanism} == 'rollforward' ] ; then
       enable_rollforward=true
+      use_hb_kmod=false
+    elif [ ${signal_mechanism} == 'rollforward_kmod' ] ; then
+      enable_rollforward=true
+      use_hb_kmod=true
     else
       enable_rollforward=false
+      use_hb_kmod=false
     fi
 
-    # baseline
-    make clean &> /dev/null ;
-    INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ENABLE_ROLLFORWARD=${enable_rollforward} CHUNK_LOOP_ITERATIONS=false make heartbeat_compiler &> /dev/null ;
-    
+    if [[ ${bench_name} == 'kmeans' || ${bench_name} == 'plus_reduce_array' ]] ; then
+      level='0'
+      prefix=''
+    else
+      level='1'
+      prefix='1_'
+    fi
+
     # generate the path to store results
     result_path=${results}/${experiment}/${bench_name}/${input_size}/heartbeat_compiler_${signal_mechanism}
     mkdir -p ${result_path} ;
     echo -e "\tresult path: " ${result_path} ;
 
-    # run the benchmark binary
-    run_experiment "heartbeat_compiler" ${result_path} 'false' ;
+    # compile the benchmark (baseline without chunking)
+    make clean &> /dev/null ;
+    INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ENABLE_ROLLFORWARD=${enable_rollforward} USE_HB_KMOD=${use_hb_kmod} CHUNK_LOOP_ITERATIONS=false make heartbeat_compiler &> /dev/null ;
 
-    for chunk_size in ${chunk_sizes[@]} ; do
+    # run the benchmark binary (baseline without chunking)
+    run_experiment "heartbeat_compiler" ${result_path} '0' ;
+
+    for chunksize in ${chunksizes[@]} ; do
+      # compile the benchmark
       make clean &> /dev/null ;
-      if [ ${bench_name} == 'kmeans' ] || [ ${bench_name} == 'plus_reduce_array' ] ; then
-        # compile the benchmark
-        INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ENABLE_ROLLFORWARD=${enable_rollforward} CHUNKSIZE_0=${chunk_size} make heartbeat_compiler &> /dev/null ;
-        
-        # run the benchmark binary
-        run_experiment "heartbeat_compiler" ${result_path} ${chunk_size} ;
-      else
-        # compile the benchmark
-        INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ENABLE_ROLLFORWARD=${enable_rollforward} CHUNKSIZE_1=${chunk_size} make heartbeat_compiler &> /dev/null ;
-        
-        # run the benchmark binary
-        run_experiment "heartbeat_compiler" ${result_path} "1_${chunk_size}" ;
-      fi
+      INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ENABLE_ROLLFORWARD=${enable_rollforward} USE_HB_KMOD=${use_hb_kmod} CHUNKSIZE_${level}=${chunksize} make heartbeat_compiler &> /dev/null ;
+
+      # run the benchmark binary
+      run_experiment "heartbeat_compiler" ${result_path} "${prefix}${chunksize}" ;
     done
 
     make clean &> /dev/null ;
@@ -88,8 +91,6 @@ function run_experiment {
   TASKPARTS_BENCHMARK_NUM_REPEAT=${runs} \
   TASKPARTS_BENCHMARK_VERBOSE=${verbose} \
   make run_${implementation} > ${tmp} 2>&1 ;
-  rm -f ${result_path}/${metric}_${config}.txt ;
-  rm -f ${result_path}/output_${config}.txt ; 
   cat ${tmp} | grep ${keyword} | awk '{ print $2 }' | tr -d ',' >> ${result_path}/${metric}_${config}.txt ;
   cat ${tmp} >> ${result_path}/output_${config}.txt ;
 
