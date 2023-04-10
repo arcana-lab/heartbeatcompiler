@@ -90,7 +90,6 @@ int64_t loop_handler_level1(
 }
 
 #if defined(ENABLE_ROLLFORWARD)
-
 void rollforward_handler_annotation __rf_handle_level1_wrapper(
   int64_t &rc,
   void *cxt,
@@ -100,7 +99,6 @@ void rollforward_handler_annotation __rf_handle_level1_wrapper(
   rc = loop_handler_level1(cxt, sliceTask, startIter, maxIter);
   rollbackward
 }
-
 #endif
 
 int64_t loop_handler_level2(
