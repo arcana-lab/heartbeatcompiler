@@ -38,6 +38,15 @@ void spmv_opencilk(
   double* y,
   uint64_t n
 );
+#elif defined(USE_CILKPLUS)
+void spmv_cilkplus(
+  double *val,
+  uint64_t *row_ptr,
+  uint64_t *col_ind,
+  double* x,
+  double* y,
+  uint64_t n
+);
 #elif defined(USE_OPENMP)
 void spmv_openmp(
   double *val,

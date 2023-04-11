@@ -9,6 +9,7 @@
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 #include <functional>
 #endif
+#include "mm.hpp" // matrix market loader: https://github.com/cwpearson/matrix-market
 
 namespace spmv {
 
@@ -26,8 +27,11 @@ namespace spmv {
     uint64_t n_diagonal = 5000000000;
   #elif defined(SPMV_NORMAL)
     uint64_t n_normal = 50000;
+  #elif defined(SPMV_MATRIX_MARKET)
+  // nothing to do
+  uint64_t  n_normal = 0;
   #else
-    #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL}"
+    #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL, MATRIX_MARKET}"
   #endif
 #elif defined(INPUT_TPAL)
   #if defined(SPMV_RANDOM)
@@ -479,6 +483,37 @@ auto bench_pre_normal() {
   });
 }
 
+#elif defined(SPMV_MATRIX_MARKET)
+
+auto bench_pre_matrix_market() -> void {
+  using nonzero_type = double;
+  auto dflt_fname = "../../../infiles/s3dkt3m2/s3dkt3m2.mtx";
+  //  std::string fname = taskparts::cmdline::parse_or_default_string("fname", dflt_fname);
+  std::string fname =  dflt_fname;
+  typedef size_t Offset;
+  typedef uint64_t Ordinal;
+  typedef nonzero_type Scalar;
+  typedef MtxReader<Ordinal, Scalar> reader_t;
+  typedef typename reader_t::coo_type coo_t;
+  typedef typename coo_t::entry_type entry_t;
+  typedef CSR<Ordinal, Scalar, Offset> csr_type;
+
+  bench_pre_shared([&] {
+    reader_t reader(fname);
+    coo_t coo = reader.read_coo();
+    csr_type csr(coo);
+    nb_vals = csr.nnz();
+    val = (nonzero_type*)malloc(sizeof(nonzero_type) * nb_vals);
+    std::copy(csr.val().begin(), csr.val().end(), val);
+    nb_rows = csr.num_rows();
+    uint64_t nb_cols = csr.num_cols();
+    row_ptr = (Ordinal*)malloc(sizeof(Ordinal) * (nb_rows + 1));
+    std::copy(csr.row_ptr().begin(), csr.row_ptr().end(), row_ptr);
+    col_ind = (Offset*)malloc(sizeof(Offset) * nb_vals);
+    std::copy(&csr.col_ind()[0], (&csr.col_ind()[nb_cols-1]) + 1, col_ind);
+  });
+}
+
 #else
 
   #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL}"
@@ -498,6 +533,8 @@ void setup() {
   bench_pre_diagonal();
 #elif defined(SPMV_NORMAL)
   bench_pre_normal();
+#elif defined(SPMV_MATRIX_MARKET)
+  bench_pre_matrix_market();
 #else
   #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL}"
 #endif
@@ -660,6 +697,26 @@ void spmv_opencilk(
 }
 #endif
 
+#elif defined(USE_CILKPLUS)
+
+#include <cilk/cilk.h>
+
+void spmv_cilkplus(
+  double* val,
+  uint64_t* row_ptr,
+  uint64_t* col_ind,
+  double* x,
+  double* y,
+  uint64_t n) {
+  cilk_for (int64_t i = 0; i < n; i++) {  // row loop
+    cilk::reducer_opadd<double> sum(0.0);
+    cilk_for (int64_t k = row_ptr[i]; k < row_ptr[i+1]; k++) { // col loop
+      *sum += val[k] * x[col_ind[k]];
+    }
+    y[i] = sum.get_value();
+  }
+}
+
 #elif defined(USE_OPENMP)
 
 #include <omp.h>
@@ -674,7 +731,7 @@ void spmv_openmp(
   #pragma omp parallel for schedule(static)
   for (uint64_t i = 0; i < n; i++) { // row loop
     double r = 0.0;
-    #pragma omp parallel for schedule(static) reduction(+:r)
+    // #pragma omp parallel for schedule(static) reduction(+:r)
     for (uint64_t k = row_ptr[i]; k < row_ptr[i + 1]; k++) { // col loop
       r += val[k] * x[col_ind[k]];
     }

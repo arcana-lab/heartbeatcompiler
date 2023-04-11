@@ -19,6 +19,8 @@ int main() {
     spmv_serial(val, row_ptr, col_ind, x, y, nb_rows);
 #elif defined(USE_OPENCILK)
     spmv_opencilk(val, row_ptr, col_ind, x, y, nb_rows);
+#elif defined(USE_CILKPLUS)
+    spmv_cilkplus(val, row_ptr, col_ind, x, y, nb_rows);
 #elif defined(USE_OPENMP)
     spmv_openmp(val, row_ptr, col_ind, x, y, nb_rows);
 #elif defined(USE_HB_MANUAL)
