@@ -57,7 +57,6 @@ void Heartbeat::createLeftoverTasks(
       // create entry block and cast the iterationsArray to the correct type
       auto entryBlock = BasicBlock::Create(cxt, "entry", leftoverTask);
       IRBuilder<> entryBlockBuilder{ entryBlock };
-      // auto iterationsArrayArgIndex = this->containsLiveOut ? 2 : 1;
       auto iterationsArrayArgIndex = 2;
       auto iterationsArray = entryBlockBuilder.CreateBitCast(
         cast<Value>(&*(leftoverTask->arg_begin() + iterationsArrayArgIndex)),
@@ -79,10 +78,10 @@ void Heartbeat::createLeftoverTasks(
       // map from level to start/max iteration
       std::unordered_map<uint64_t, Value *> levelToStartIteration;
       std::unordered_map<uint64_t, Value *> levelToMaxIteration;
-      std::vector<BasicBlock *> invokingBlocks;
+      std::unordered_map<uint64_t, BasicBlock *> levelToInvokingBlock;
 
-      // iterating from receivingLevel to splittingLevel + 1
-      for (auto level = receivingLevel; level > splittingLevel; level--) {
+      // iterating from splittingLevel to receivingLevel to collect start/max iteration
+      for (uint64_t level = receivingLevel; level >= splittingLevel && level <= receivingLevel; level--) {
         auto int64Ty = entryBlockBuilder.getInt64Ty();
 
         // load startIteration from the iterationsArray
@@ -115,7 +114,7 @@ void Heartbeat::createLeftoverTasks(
           std::string("maxIteration_").append(std::to_string(level))
         );
 
-        // register it to the level of loop
+        // register start/max iteration to the level of loop
         levelToStartIteration[level] = startIteration;
         levelToMaxIteration[level] = maxIteration;
 
@@ -123,59 +122,83 @@ void Heartbeat::createLeftoverTasks(
         auto invokingBlock = BasicBlock::Create(cxt, std::string("loop_").append(std::to_string(level)), leftoverTask);
         IRBuilder<> invokingBlockBuilder{ invokingBlock };
 
+        // create a branch to the exit block
+        invokingBlockBuilder.CreateBr(
+          exitBlock
+        );
+
+        // register invoking block to the level of loop
+        levelToInvokingBlock[level] = invokingBlock;
+      }
+
+      // create branch from entry block to the invoking block at receivingLevel
+      entryBlockBuilder.CreateBr(levelToInvokingBlock[receivingLevel]);
+
+      // iterating from receivingLevel to splittingLevel to invoke the loop slice
+      // here use two constraints since we're using uint64_t
+      for (uint64_t level = receivingLevel; level >= splittingLevel && level <= receivingLevel; level--) {
+        auto invokingBlock = levelToInvokingBlock[level];
+        auto invokingBlockTerminator = invokingBlock->getTerminator();
+        IRBuilder<> invokingBlockBuilder { invokingBlockTerminator };
+
         // find the slice task at the corresponding level
         auto loop = this->levelToLoop[level];
         auto hbTask = this->loopToHeartbeatTransformation[loop]->getHeartbeatTask();
         assert(hbTask != nullptr && "No Heartbeat task found for this loop\n");
 
-        // Create the call to the heartbeat loop
-        std::vector<Value *> loopSliceParameters{ &*(leftoverTask->arg_begin()) }; // void *cxt
-        loopSliceParameters.push_back(invokingBlockBuilder.getInt64(0));  // myIndex
-        // put 0 as start/max iteration starting from level [0 to splittingLevel]
-        for (auto i = 0; i <= splittingLevel; i++) {
+        // create the call to the heartbeat loop
+        std::vector<Value *> loopSliceParameters{ 
+          &*(leftoverTask->arg_begin()),  // void *cxts
+          &*(leftoverTask->arg_begin()+1) // myIndex
+        };
+        // put 0 as start/max iteration starting from level [0 to splittingLevel)
+        for (auto i = 0; i < splittingLevel; i++) {
           loopSliceParameters.push_back(invokingBlockBuilder.getInt64(0));
           loopSliceParameters.push_back(invokingBlockBuilder.getInt64(0));
         }
-        // use the start/max iteration previous generated starting from [splittingLevel + 1 to receivingLevel]
-        for (auto i = splittingLevel + 1; i <= level; i++) {
+        // use the start/max iteration previous generated starting from [splittingLevel to receivingLevel - 1]
+        for (auto i = splittingLevel; i < level; i++) {
           loopSliceParameters.push_back(levelToStartIteration[i]);
           loopSliceParameters.push_back(levelToMaxIteration[i]);
         }
-        invokingBlockBuilder.CreateCall(
+        if (level == receivingLevel) {
+          // use our own start/max iterations
+          loopSliceParameters.push_back(levelToStartIteration[level]);
+          loopSliceParameters.push_back(levelToMaxIteration[level]);
+        } else {
+          // use startIter + 1
+          loopSliceParameters.push_back(
+            invokingBlockBuilder.CreateAdd(
+              levelToStartIteration[level],
+              invokingBlockBuilder.getInt64(1),
+              std::string("startIteration_").append(std::to_string(level)).append("_plus_one")
+            )
+          );
+          loopSliceParameters.push_back(levelToMaxIteration[level]);
+        }
+        auto sliceTaskCallInst = invokingBlockBuilder.CreateCall(
           hbTask->getTaskBody(),
           ArrayRef<Value *>({
             loopSliceParameters
           })
         );
 
-        // now the call to the loop slice has been created, creating a branch to the exit block
-        invokingBlockBuilder.CreateBr(
-          exitBlock
-        );
-        invokingBlocks.push_back(invokingBlock);  // register this invoking block as the order of invocation needs to be fixed next
-
-        // errs() << "leftover task after loading start/max iteration" << *leftoverTask << "\n";
+        if (level != splittingLevel) {
+          // exit the leftover task if rc > 0
+          invokingBlockBuilder.CreateCondBr(
+            invokingBlockBuilder.CreateICmpSGT(
+              sliceTaskCallInst,
+              invokingBlockBuilder.getInt64(0)
+            ),
+            exitBlock,
+            levelToInvokingBlock[level - 1]
+          );
+          invokingBlockTerminator->eraseFromParent();
+        }
       }
 
-      // all invoking blocks has been created, need to fix the control flow to correctly invoke them
-      assert(invokingBlocks.size() >= 1 && "no invoking blocks created");
-      entryBlockBuilder.CreateBr(
-        *(invokingBlocks.begin())
-      );
-
-      for (auto i = 0; i < invokingBlocks.size() - 1; i++) {
-        auto previousTerminator = invokingBlocks[i]->getTerminator();
-        IRBuilder<> builder{ previousTerminator };
-        builder.CreateBr(
-          invokingBlocks[i + 1]
-        );
-        previousTerminator->eraseFromParent();
-        // TODO
-        // the right transformation needs to modify start/max iteration of any loop between if heartbeat promotion happens
-        // right now ignore the logic because prototype benchmark is a 2-level nested loop
-      }
-
-      errs() << "leftover task after fixing control flow of invoking blocks" << *leftoverTask << "\n";
+      errs() << "leftover task from receivingLevel " << receivingLevel << " to splittingLevel " << splittingLevel << "\n";
+      errs() << *leftoverTask << "\n";
     }
   }
 
