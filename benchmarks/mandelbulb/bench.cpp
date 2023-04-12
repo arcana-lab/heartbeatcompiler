@@ -1,4 +1,5 @@
 #include "bench.hpp"
+// benchmark adapted from https://www.fountainware.com/Funware/Mandelbrot3D/Mandelbrot3d.htm
 
 namespace mandelbulb {
 

@@ -1,4 +1,5 @@
 #include "bench.hpp"
+// benchmark adapted from https://github.com/benchmark-subsetting/NPB3.0-omp-C/blob/master/CG/cg.c
 
 namespace cg {
 
