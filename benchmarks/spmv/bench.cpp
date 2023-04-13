@@ -1,5 +1,4 @@
 #include "bench.hpp"
-#include "utility.hpp"
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -7,6 +6,7 @@
 #include <vector>
 #include <unistd.h>
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
+#include "utility.hpp"
 #include <functional>
 #endif
 #include "mm.hpp" // matrix market loader: https://github.com/cwpearson/matrix-market

@@ -9,12 +9,14 @@ LIBS_HEARTBEAT_MANUAL += $(LIBS_HEARTBEAT)
 hbm: heartbeat_manual
 hb_manual: heartbeat_manual
 heartbeat_manual: main.cpp bench.cpp heartbeat_manual.cpp loop_handler.cpp
+	make preprocess
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	make heartbeat_manual_rf
 	cp heartbeat_manual_rf $@
 else
 	$(CXX) $(MACROS_HEARTBEAT_MANUAL) $(FLAGS_HEARTBEAT_MANUAL) $(OPTS_HEARTBEAT_MANUAL) $^ -o $@ $(LIBS_HEARTBEAT_MANUAL)
 endif
+	make postprocess
 
 run_hbm: run_heartbeat_manual
 run_hb_manual: run_heartbeat_manual
