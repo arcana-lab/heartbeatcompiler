@@ -173,6 +173,7 @@ void HeartbeatLoopEnvironmentBuilder::allocateNextLevelReducibleEnvironmentArray
       nullptr,
       "liveOutEnvForKids"
     );
+    cast<AllocaInst>(reducibleEnvArrayNextLevel)->setAlignment(Align(64));
 
     auto envUser = (HeartbeatLoopEnvironmentUser *)this->getUser(0);
     builder.CreateStore(
@@ -221,6 +222,7 @@ void HeartbeatLoopEnvironmentBuilder::generateNextLevelReducibleEnvironmentVaria
       nullptr,
       std::string("reductionArrayLiveOut_").append(std::to_string(0)).append("_ForKids")
     );
+    reduceArrAlloca->setAlignment(Align(64));
     this->envIndexToVectorOfReducableVarNextLevel[envIndex] = reduceArrAlloca;
 
     auto reduceArrPtrType = PointerType::getUnqual(reduceArrAlloca->getType());
@@ -361,6 +363,7 @@ void HeartbeatLoopEnvironmentBuilder::allocateSingleEnvironmentArray(IRBuilder<>
     auto int8 = IntegerType::get(builder.getContext(), 8);
     auto ptrTy_int8 = PointerType::getUnqual(int8);
     this->singleEnvArray = builder.CreateAlloca(this->singleEnvArrayType, nullptr, "liveInEnv");
+    cast<AllocaInst>(singleEnvArray)->setAlignment(Align(64));
   } else {
     errs() << "there's no liveInEnvironment array for this loop\n";
   }
@@ -373,6 +376,7 @@ void HeartbeatLoopEnvironmentBuilder::allocateReducibleEnvironmentArray(IRBuilde
     auto int8 = IntegerType::get(builder.getContext(), 8);
     auto ptrTy_int8 = PointerType::getUnqual(int8);
     this->reducibleEnvArray = builder.CreateAlloca(this->reducibleEnvArrayType, nullptr, "liveOutEnv");
+    cast<AllocaInst>(reducibleEnvArray)->setAlignment(Align(64));
   }
 
   return;

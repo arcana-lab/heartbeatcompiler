@@ -1062,6 +1062,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
     nullptr,
     "constantLiveIns"
   );
+  constantLiveIns->setAlignment(Align(64));
 
   // store constant live-ins array into global
   std::string constantLiveInsGlobalName = std::string("constantLiveInsPointer_nest").append(std::to_string(this->nestID));
@@ -1113,6 +1114,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
         allocaFloatOrDoubleInst = builder.CreateAlloca(
           argV->getType()
         );
+        cast<AllocaInst>(allocaFloatOrDoubleInst)->setAlignment(Align(64));
         builder.CreateStore(
           argV,
           allocaFloatOrDoubleInst
@@ -1142,6 +1144,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
     nullptr,
     "contextArray"
   );
+  contextArrayAlloca->setAlignment(Align(64));
   auto contextArrayCasted = builder.CreateBitCast(
     contextArrayAlloca,
     builder.getInt8PtrTy(),
