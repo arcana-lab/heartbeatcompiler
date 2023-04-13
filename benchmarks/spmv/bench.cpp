@@ -4,12 +4,13 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cassert>
+#include <cstring>
 #include <vector>
 #include <unistd.h>
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 #include <functional>
 #endif
-#include "mm.hpp" // matrix market loader: https://github.com/cwpearson/matrix-market
+#include <mm/mm.hpp> // matrix market loader: https://github.com/cwpearson/matrix-market
 
 namespace spmv {
 
@@ -488,8 +489,10 @@ auto bench_pre_normal() {
 auto bench_pre_matrix_market() -> void {
   using nonzero_type = double;
   auto dflt_fname = "../../../infiles/s3dkt3m2/s3dkt3m2.mtx";
-  //  std::string fname = taskparts::cmdline::parse_or_default_string("fname", dflt_fname);
   std::string fname =  dflt_fname;
+  if (const auto env_p = std::getenv("SPMV_MATRIX_MARKET_FILE")) {
+    fname = env_p;
+  }
   typedef size_t Offset;
   typedef uint64_t Ordinal;
   typedef nonzero_type Scalar;
