@@ -43,7 +43,7 @@ MACROS += $(TASKPARTS_PLATFORM)
 # ============================================
 FLAGS += \
 	--std=c++17 \
-	-I$(TASKPARTS_INCLUDE) -I$(ROOT_DIR)/../matrix-market/include/
+	-I$(TASKPARTS_INCLUDE)
 
 # ============================================
 # Global OPTS used by all implementations
