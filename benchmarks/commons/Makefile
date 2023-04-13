@@ -1,4 +1,5 @@
 ROOT_DIR = $(shell git rev-parse --show-toplevel)
+BENCHMARK = $(shell basename $(CURDIR))
 
 CC = clang
 CXX = clang++
@@ -33,6 +34,13 @@ else
 	MACROS += -DDONT_TEST_CORRECTNESS
 endif
 
+# whether to print compilation configurations
+# options: true, false
+STATS ?= true
+ifeq ($(STATS), true)
+	MACROS += -DSTATS
+endif
+
 # include benchmark specific settings
 -include bench.config
 
@@ -50,21 +58,16 @@ FLAGS += \
 # ============================================
 DEBUG ?= false
 ifeq ($(DEBUG), false)
-	OPTS += -O3
+	OPTS += -O3 -march=native
 else
 	OPTS += -O0 -g
 endif
 
 OPTS += \
-	-march=native \
 	-fno-stack-protector \
 	-fno-asynchronous-unwind-tables \
-	-fno-verbose-asm -fno-rtti -fno-pic -fpie
-ifeq ($(CXX), clang++)
-	OPTS += -fno-vectorize -fno-slp-vectorize
-else ifeq ($(CXX), g++)
-	OPTS += -fno-tree-vectorize
-endif
+	-fno-verbose-asm -fno-rtti -fno-pic -fpie \
+	-fno-vectorize -fno-slp-vectorize
 
 # ============================================
 # Global LIBS used by all implementations
@@ -78,6 +81,15 @@ else
 	LIBS += $(CUSTOM_MALLOC)
 endif
 
+# =============================================
+# processing
+# =============================================
+preprocess: utility.hpp
+	sed -i '/std::string benchmark_name/c\std::string benchmark_name = \"$(BENCHMARK)\";' $(ROOT_DIR)/benchmarks/commons/utility.hpp ;
+
+postprocess: utility.hpp
+	sed -i '/std::string benchmark_name/c\std::string benchmark_name = \"\";' $(ROOT_DIR)/benchmarks/commons/utility.hpp ;
+
 # ============================================
 # Baseline
 # ============================================
@@ -87,7 +99,9 @@ OPTS_BASELINE += $(OPTS)
 LIBS_BASELINE += $(LIBS)
 
 baseline: main.cpp bench.cpp
+	make preprocess
 	$(CXX) $(MACROS_BASELINE) $(FLAGS_BASELINE) $(OPTS_BASELINE) $^ -o $@ $(LIBS_BASELINE)
+	make postprocess
 
 run_baseline: baseline
 	./$<
@@ -100,13 +114,12 @@ OPENCILK_COMPILER ?= /nfs-scratch/yso0488/opencilk/build/bin/bin/opencilk++
 MACROS_OPENCILK += -DUSE_OPENCILK $(MACROS)
 FLAGS_OPENCILK += $(FLAGS) -fopencilk
 OPTS_OPENCILK += $(OPTS)
-ifneq ($(CXX), clang++)
-	OPTS_OPENCILK += -fno-vectorize -fno-slp-vectorize
-endif
 LIBS_OPENCILK += $(LIBS)
 
 opencilk: main.cpp bench.cpp
+	make preprocess
 	$(OPENCILK_COMPILER) $(MACROS_OPENCILK) $(FLAGS_OPENCILK) $(OPTS_OPENCILK) $^ -o $@ $(LIBS_OPENCILK)
+	make postprocess
 
 run_opencilk: opencilk
 	./$<
@@ -139,7 +152,9 @@ OPTS_OPENMP += $(OPTS)
 LIBS_OPENMP += $(LIBS) -fopenmp
 
 openmp: main.cpp bench.cpp
+	make preprocess
 	$(CXX) $(MACROS_OPENMP) $(FLAGS_OPENMP) $(OPTS_OPENMP) $^ -o $@ $(LIBS_OPENMP)
+	make postprocess
 
 run_openmp: openmp
 	./$<

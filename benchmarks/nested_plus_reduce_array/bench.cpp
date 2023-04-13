@@ -1,7 +1,7 @@
 #include "bench.hpp"
-#include "utility.hpp"
 #include <cstdint>
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
+#include "utility.hpp"
 #include <functional>
 #endif
 

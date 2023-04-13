@@ -1,10 +1,10 @@
 #include "bench.hpp"
-#include "utility.hpp"
 #include <cstdint>
 #include <cstdlib>
 #include <climits>
 #include <algorithm>
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
+#include "utility.hpp"
 #include <functional>
 #endif
 

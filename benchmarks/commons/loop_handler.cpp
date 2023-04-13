@@ -1,4 +1,7 @@
 #include "loop_handler.hpp"
+#if defined(STATS)
+#include "utility.hpp"
+#endif
 #include <cstdint>
 #include <functional>
 #include <taskparts/benchmark.hpp>
@@ -12,6 +15,10 @@ extern "C" {
 void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
                std::function<void()> const &bench_end) {
+#if defined(STATS)
+  utility::stats_begin();
+#endif
+
   taskparts::benchmark_nativeforkjoin([&] (auto sched) {
     bench_body();
   }, [&] (auto sched) {
@@ -19,6 +26,10 @@ void run_bench(std::function<void()> const &bench_body,
   }, [&] (auto sched) {
     bench_end();
   });
+
+#if defined(STATS)
+  utility::stats_end();
+#endif
 }
 
 #ifndef SMALLEST_GRANULARITY

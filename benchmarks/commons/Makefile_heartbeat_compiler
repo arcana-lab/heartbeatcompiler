@@ -27,12 +27,14 @@ endif
 hbc: heartbeat_compiler
 hb_compiler: heartbeat_compiler
 heartbeat_compiler: heartbeat_compiler.bc bench.cpp loop_handler.cpp
+	make preprocess
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	make heartbeat_compiler_rf
 	cp heartbeat_compiler_rf $@
 else
 	$(CXX) $(MACROS_HEARTBEAT_COMPILER) $(FLAGS_HEARTBEAT_COMPILER) $(OPTS_HEARTBEAT_COMPILER) $^ -o $@ $(LIBS_HEARTBEAT_COMPILER)
 endif
+	make postprocess
 
 run_hbc: run_heartbeat_compiler
 run_hb_compiler: run_heartbeat_compiler

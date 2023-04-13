@@ -1,9 +1,9 @@
 #include "bench.hpp"
-#include "utility.hpp"
 #include <cmath>
 #include <cstdlib>
 #include <emmintrin.h>
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
+#include "utility.hpp"
 #include <functional>
 #endif
 
