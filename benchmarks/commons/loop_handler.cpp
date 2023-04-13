@@ -67,8 +67,8 @@ int64_t loop_handler_level1(
   /*
    * Allocate cxts for both tasks
    */
-  uint64_t cxtFirst[1 * CACHELINE];
-  uint64_t cxtSecond[1 * CACHELINE];
+  alignas(64) uint64_t cxtFirst[1 * CACHELINE];
+  alignas(64) uint64_t cxtSecond[1 * CACHELINE];
 
   /*
    * Construct cxts for both tasks
@@ -160,8 +160,8 @@ int64_t loop_handler_level2(
   /*
    * Allocate cxts for both tasks
    */
-  uint64_t cxtsFirst[2 * CACHELINE];
-  uint64_t cxtsSecond[2 * CACHELINE];
+  alignas(64) uint64_t cxtsFirst[2 * CACHELINE];
+  alignas(64) uint64_t cxtsSecond[2 * CACHELINE];
 
   /*
    * Construct the context at the splittingLevel for both tasks

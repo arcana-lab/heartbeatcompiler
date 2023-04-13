@@ -9,7 +9,7 @@
 namespace plus_reduce_array {
 
 #if defined(INPUT_BENCHMARKING)
-  uint64_t nb_items = 100 * 1000 * 1000;
+  uint64_t nb_items = 1000 * 10000 * 10000;
 #elif defined(INPUT_TPAL)
   uint64_t nb_items = 100 * 1000 * 1000;
 #elif defined(INPUT_TESTING)
@@ -75,6 +75,19 @@ double plus_reduce_array_opencilk(double* a, uint64_t lo, uint64_t hi) {
     r += a[i];
   }
   return r;
+}
+
+#elif defined(USE_CILKPLUS)
+
+#include <cilk/cilk.h>
+#include <cilk/reducer_opadd.h>
+
+double plus_reduce_array_cilkplus(double* a, uint64_t lo, uint64_t hi) {
+  cilk::reducer_opadd<double> r(0.0);
+  cilk_for (uint64_t i = lo; i != hi; i++) {
+    *r += a[i];
+  }
+  return r.get_value();
 }
 
 #elif defined(USE_OPENMP)

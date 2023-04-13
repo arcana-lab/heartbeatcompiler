@@ -700,6 +700,7 @@ void spmv_opencilk(
 #elif defined(USE_CILKPLUS)
 
 #include <cilk/cilk.h>
+#include <cilk/reducer_opadd.h>
 
 void spmv_cilkplus(
   double* val,

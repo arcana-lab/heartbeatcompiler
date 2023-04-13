@@ -19,6 +19,8 @@ void finishup();
 void floyd_warshall_serial(int* dist, int vertices);
 #elif defined(USE_OPENCILK)
 void floyd_warshall_opencilk(int* dist, int vertices);
+#elif defined(USE_CILKPLUS)
+void floyd_warshall_cilkplus(int* dist, int vertices);
 #elif defined(USE_OPENMP)
 void floyd_warshall_openmp(int* dist, int vertices);
 #endif

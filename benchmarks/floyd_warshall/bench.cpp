@@ -14,7 +14,13 @@
 namespace floyd_warshall {
 
 #if defined(INPUT_BENCHMARKING)
-  int vertices = 2048;
+  #if defined(FW_1K)
+    int vertices = 1024;
+  #elif defined(FW_2K)
+    int vertices = 2048;
+  #else
+    #error "Need to select input class: FW_{1K, 2K}"
+  #endif
 #elif defined(INPUT_TPAL)
   #if defined(FW_1K)
     int vertices = 1024;
@@ -114,6 +120,24 @@ void floyd_warshall_opencilk(int* dist, int vertices) {
   }
 }
 
+#elif defined(USE_CILKPLUS)
+
+#include <cilk/cilk.h>
+
+void floyd_warshall_cilkplus(int* dist, int vertices) {
+  for(int via = 0; via < vertices; via++) {
+    cilk_for(int from = 0; from < vertices; from++) {
+      cilk_for(int to = 0; to < vertices; to++) {
+        if ((from != to) && (from != via) && (to != via)) {
+          SUB(dist, vertices, from, to) = 
+            std::min(SUB(dist, vertices, from, to), 
+                     SUB(dist, vertices, from, via) + SUB(dist, vertices, via, to));
+        }
+      }
+    }
+  }
+}
+
 #elif defined(USE_OPENMP)
 
 #include <omp.h>
@@ -122,7 +146,6 @@ void floyd_warshall_openmp(int* dist, int vertices) {
   for(int via = 0; via < vertices; via++) {
     #pragma omp parallel for schedule(static)
     for(int from = 0; from < vertices; from++) {
-      #pragma omp parallel for schedule(static)
       for(int to = 0; to < vertices; to++) {
         if ((from != to) && (from != via) && (to != via)) {
           SUB(dist, vertices, from, to) = 

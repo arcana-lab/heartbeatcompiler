@@ -19,6 +19,8 @@ int main() {
     result = plus_reduce_array_serial(a, 0, nb_items);
 #elif defined(USE_OPENCILK)
     result = plus_reduce_array_opencilk(a, 0, nb_items);
+#elif defined(USE_CILKPLUS)
+    result = plus_reduce_array_cilkplus(a, 0, nb_items);
 #elif defined(USE_OPENMP)
     result = plus_reduce_array_openmp(a, 0, nb_items);
 #elif defined(USE_HB_MANUAL)

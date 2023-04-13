@@ -21,6 +21,8 @@ void finishup();
 double plus_reduce_array_serial(double* a, uint64_t lo, uint64_t hi);
 #elif defined(USE_OPENCILK)
 double plus_reduce_array_opencilk(double* a, uint64_t lo, uint64_t hi);
+#elif defined(USE_CILKPLUS)
+double plus_reduce_array_cilkplus(double* a, uint64_t lo, uint64_t hi);
 #elif defined(USE_OPENMP)
 double plus_reduce_array_openmp(double* a, uint64_t lo, uint64_t hi);
 #endif

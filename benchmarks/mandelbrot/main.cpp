@@ -19,6 +19,8 @@ int main() {
     output = mandelbrot_serial(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_width, _mb_height, _mb_max_depth);
 #elif defined(USE_OPENCILK)
     output = mandelbrot_opencilk(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_width, _mb_height, _mb_max_depth);
+#elif defined(USE_CILKPLUS)
+    output = mandelbrot_cilkplus(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_width, _mb_height, _mb_max_depth);
 #elif defined(USE_OPENMP)
     output = mandelbrot_openmp(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_width, _mb_height, _mb_max_depth);
 #elif defined(USE_HB_MANUAL)

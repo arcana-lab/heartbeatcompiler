@@ -10,8 +10,8 @@
 namespace srad {
 
 #if defined(INPUT_BENCHMARKING)
-  int rows=16000;
-  int cols=16000;
+  int rows=8000;
+  int cols=8000;
 #elif defined(INPUT_TPAL)
   int rows=4000;
   int cols=4000;
@@ -245,6 +245,64 @@ void srad_opencilk(int rows, int cols, int size_I, int size_R, float* I, float* 
   }
 }
 
+#elif defined(USE_CILKPLUS)
+
+#include <cilk/cilk.h>
+
+void srad_cilkplus(int rows, int cols, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda) {
+  cilk_for (int i = 0 ; i < rows ; i++) {
+    cilk_for (int j = 0; j < cols; j++) { 
+		
+      int k = i * cols + j;
+      float Jc = J[k];
+ 
+      // directional derivates
+      dN[k] = J[iN[i] * cols + j] - Jc;
+      dS[k] = J[iS[i] * cols + j] - Jc;
+      dW[k] = J[i * cols + jW[j]] - Jc;
+      dE[k] = J[i * cols + jE[j]] - Jc;
+			
+      float G2 = (dN[k]*dN[k] + dS[k]*dS[k] 
+		  + dW[k]*dW[k] + dE[k]*dE[k]) / (Jc*Jc);
+
+      float L = (dN[k] + dS[k] + dW[k] + dE[k]) / Jc;
+
+      float num  = (0.5*G2) - ((1.0/16.0)*(L*L)) ;
+      float den  = 1 + (.25*L);
+      float qsqr = num/(den*den);
+ 
+      // diffusion coefficent (equ 33)
+      den = (qsqr-q0sqr) / (q0sqr * (1+q0sqr)) ;
+      c[k] = 1.0 / (1.0+den) ;
+                
+      // saturate diffusion coefficent
+      if (c[k] < 0) {c[k] = 0;}
+      else if (c[k] > 1) {c[k] = 1;}
+   
+    }
+  
+  }
+  cilk_for (int i = 0; i < rows; i++) {
+    cilk_for (int j = 0; j < cols; j++) {        
+
+      // current index
+      int k = i * cols + j;
+                
+      // diffusion coefficent
+      float cN = c[k];
+      float cS = c[iS[i] * cols + j];
+      float cW = c[k];
+      float cE = c[i * cols + jE[j]];
+
+      // divergence (equ 58)
+      float D = cN * dN[k] + cS * dS[k] + cW * dW[k] + cE * dE[k];
+                
+      // image update (equ 61)
+      J[k] = J[k] + 0.25*lambda*D;
+    }
+  }
+}
+
 #elif defined(USE_OPENMP)
 
 #include <omp.h>
@@ -252,7 +310,7 @@ void srad_opencilk(int rows, int cols, int size_I, int size_R, float* I, float* 
 void srad_openmp(int rows, int cols, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda) {
   #pragma omp parallel for schedule(static)
   for (int i = 0 ; i < rows ; i++) {
-    #pragma omp parallel for schedule(static)
+    // #pragma omp parallel for schedule(static)
     for (int j = 0; j < cols; j++) { 
 		
       int k = i * cols + j;
@@ -286,7 +344,7 @@ void srad_openmp(int rows, int cols, int size_I, int size_R, float* I, float* J,
   }
   #pragma omp parallel for schedule(static)
   for (int i = 0; i < rows; i++) {
-    #pragma omp parallel for schedule(static)
+    // #pragma omp parallel for schedule(static)
     for (int j = 0; j < cols; j++) {        
 
       // current index

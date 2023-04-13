@@ -121,6 +121,39 @@ unsigned char* mandelbrot_opencilk(double x0, double y0, double x1, double y1,
   return output;
 }
 
+#elif defined(USE_CILKPLUS)
+
+#include <cilk/cilk.h>
+
+unsigned char* mandelbrot_cilkplus(double x0, double y0, double x1, double y1,
+                                 int width, int height, int max_depth) {
+  double xstep = (x1 - x0) / width;
+  double ystep = (y1 - y0) / height;
+  //  unsigned char* output = static_cast<unsigned char*>(_mm_malloc(width * height * sizeof(unsigned char), 64));
+  unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
+  cilk_for(int j = 0; j < height; ++j) { // col loop
+    cilk_for (int i = 0; i < width; ++i) { // row loop
+      double z_real = x0 + i*xstep;
+      double z_imaginary = y0 + j*ystep;
+      double c_real = z_real;
+      double c_imaginary = z_imaginary;
+      double depth = 0;
+      while(depth < max_depth) {
+        if(z_real * z_real + z_imaginary * z_imaginary > 4.0) {
+          break;
+        }
+        double temp_real = z_real*z_real - z_imaginary*z_imaginary;
+        double temp_imaginary = 2.0*z_real*z_imaginary;
+        z_real = c_real + temp_real;
+        z_imaginary = c_imaginary + temp_imaginary;
+        ++depth;
+      }
+      output[j*width + i] = static_cast<unsigned char>(static_cast<double>(depth) / max_depth * 255);
+    }
+  }
+  return output;
+}
+
 #elif defined(USE_OPENMP)
 
 #include <omp.h>
@@ -133,7 +166,7 @@ unsigned char* mandelbrot_openmp(double x0, double y0, double x1, double y1,
   unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
   #pragma omp parallel for schedule(static)
   for(int j = 0; j < height; ++j) { // col loop
-    #pragma omp parallel for schedule(static)
+    // #pragma omp parallel for schedule(static)
     for (int i = 0; i < width; ++i) { // row loop
       double z_real = x0 + i*xstep;
       double z_imaginary = y0 + j*ystep;
