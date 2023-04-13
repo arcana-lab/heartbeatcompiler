@@ -43,7 +43,7 @@ MACROS += $(TASKPARTS_PLATFORM)
 # ============================================
 FLAGS += \
 	--std=c++17 \
-	-I$(TASKPARTS_INCLUDE)
+	-I$(TASKPARTS_INCLUDE) -I$(ROOT_DIR)/../matrix-market/include/
 
 # ============================================
 # Global OPTS used by all implementations
@@ -70,9 +70,7 @@ endif
 # Global LIBS used by all implementations
 # ============================================
 LIBS = -lm -lstdc++ -pthread -ldl
-ifeq (-ljemalloc, $(shell pkg-config jemalloc --libs))
-	LIBS += $(shell pkg-config jemalloc --libs)
-else ifeq (, $(shell which jemalloc-config))
+ifeq (, $(shell which jemalloc-config))
 	CUSTOM_MALLOC =
 else
 	JEMALLOCLD = $(shell jemalloc-config --libdir)
@@ -114,6 +112,25 @@ run_opencilk: opencilk
 	./$<
 
 # ============================================
+# CilkPlus
+# ============================================
+MACROS_CILKPLUS += -DUSE_CILKPLUS $(MACROS)
+FLAGS_CILKPLUS += $(FLAGS) -fcilkplus
+# OPTS_CILKPLUS += $(OPTS)
+OPTS_CILKPLUS += \
+	-fno-stack-protector \
+	-fno-asynchronous-unwind-tables \
+	-fno-verbose-asm -fno-rtti -fno-pic -fpie \
+	-fno-tree-vectorize
+LIBS_CILKPLUS += $(LIBS)
+
+cilkplus: main.cpp bench.cpp
+	gcc $(MACROS_CILKPLUS) $(FLAGS_CILKPLUS) $(OPTS_CILKPLUS) $^ -o $@ $(LIBS_CILKPLUS)
+
+run_cilkplus: cilkplus
+	./$<
+
+# ============================================
 # OpenMP
 # ============================================
 MACROS_OPENMP += -DUSE_OPENMP $(MACROS)
@@ -130,7 +147,7 @@ run_openmp: openmp
 # ============================================
 # Heartbeat
 # ============================================
-CPU_BASE_FREQUENCY_KHZ ?= 2800000
+CPU_BASE_FREQUENCY_KHZ ?= 3000000
 HEARTBEAT_LINUX_PATH = $(ROOT_DIR)/heartbeat-linux
 HEARTBEAT_LINUX_INCLUDE =$(HEARTBEAT_LINUX_PATH)/user
 ROLLFORWARD_PATH = $(ROOT_DIR)/rollforward/src
@@ -184,7 +201,7 @@ MACROS_HEARTBEAT += \
 	-DTASKPARTS_USE_CHASELEV_DEQUE # can in certain cases prevent deque overflow
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	ifeq ($(USE_HB_KMOD), true)
-  	MACROS_HEARTBEAT += -DTASKPARTS_TPALRTS_HBTIMER_KMOD # required by the linux kernel module
+	MACROS_HEARTBEAT += -DTASKPARTS_TPALRTS_HBTIMER_KMOD # required by the linux kernel module
 	endif
 else
 	MACROS_HEARTBEAT += -DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING # to enable software polling
@@ -223,7 +240,7 @@ condor_clean:
 # Other
 # ============================================
 clean:
-	rm -rf baseline opencilk openmp ;
+	rm -rf baseline opencilk cilkplus openmp ;
 	rm -rf heartbeat_manual heartbeat_manual_rf ;
 	rm -rf heartbeat_compiler heartbeat_compiler_rf ;
 	rm -rf *.s *.o ;
