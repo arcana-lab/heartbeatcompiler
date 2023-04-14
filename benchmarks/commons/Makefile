@@ -26,16 +26,18 @@ else ifeq ($(INPUT_SIZE), testing)
 endif
 
 # whether to test the correctness of any implementation
-# options: true, false
 TEST_CORRECTNESS ?= false
 ifeq ($(TEST_CORRECTNESS), true)
 	MACROS += -DTEST_CORRECTNESS
-else
-	MACROS += -DDONT_TEST_CORRECTNESS
+endif
+
+# whether to enable debug mode
+DEBUG ?= false
+ifeq ($(DEBUG), true)
+	MACROS += -DDEBUG
 endif
 
 # whether to print compilation configurations
-# options: true, false
 STATS ?= true
 ifeq ($(STATS), true)
 	MACROS += -DSTATS
@@ -56,7 +58,6 @@ FLAGS += \
 # ============================================
 # Global OPTS used by all implementations
 # ============================================
-DEBUG ?= false
 ifeq ($(DEBUG), false)
 	OPTS += -O3 -march=native
 else
@@ -82,6 +83,16 @@ else
 endif
 
 # =============================================
+# Running options
+# =============================================
+WORKERS ?= 0
+WARMUP_SECS ?= 0.0
+NUM_REPEAT ?= 1
+VERBOSE ?= 0
+CPU_FREQUENCY_KHZ ?= 3000000
+KAPPA_USECS ?=100
+
+# =============================================
 # processing
 # =============================================
 preprocess: utility.hpp
@@ -104,6 +115,9 @@ baseline: main.cpp bench.cpp
 	make postprocess
 
 run_baseline: baseline
+	UTILITY_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
+	UTILITY_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
+	UTILITY_BENCHMARK_VERBOSE=$(VERBOSE) \
 	./$<
 
 # ============================================
@@ -112,7 +126,7 @@ run_baseline: baseline
 OPENCILK_COMPILER ?= /nfs-scratch/yso0488/opencilk/build/bin/bin/opencilk++
 
 MACROS_OPENCILK += -DUSE_OPENCILK $(MACROS)
-FLAGS_OPENCILK += $(FLAGS) -fopencilk
+FLAGS_OPENCILK += -fopencilk $(FLAGS)
 OPTS_OPENCILK += $(OPTS)
 LIBS_OPENCILK += $(LIBS)
 
@@ -122,14 +136,24 @@ opencilk: main.cpp bench.cpp
 	make postprocess
 
 run_opencilk: opencilk
+ifneq ($(WORKERS), 0)
+	CILK_NWORKERS=$(WORKERS) \
+	UTILITY_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
+	UTILITY_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
+	UTILITY_BENCHMARK_VERBOSE=$(VERBOSE) \
 	./$<
+else
+	UTILITY_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
+	UTILITY_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
+	UTILITY_BENCHMARK_VERBOSE=$(VERBOSE) \
+	./$<
+endif
 
 # ============================================
 # CilkPlus
 # ============================================
 MACROS_CILKPLUS += -DUSE_CILKPLUS $(MACROS)
-FLAGS_CILKPLUS += $(FLAGS) -fcilkplus
-# OPTS_CILKPLUS += $(OPTS)
+FLAGS_CILKPLUS += -fcilkplus $(FLAGS)
 OPTS_CILKPLUS += \
 	-fno-stack-protector \
 	-fno-asynchronous-unwind-tables \
@@ -141,15 +165,26 @@ cilkplus: main.cpp bench.cpp
 	gcc $(MACROS_CILKPLUS) $(FLAGS_CILKPLUS) $(OPTS_CILKPLUS) $^ -o $@ $(LIBS_CILKPLUS)
 
 run_cilkplus: cilkplus
+ifneq ($(WORKERS), 0)
+	CILK_NWORKERS=$(WORKERS) \
+	UTILITY_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
+	UTILITY_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
+	UTILITY_BENCHMARK_VERBOSE=$(VERBOSE) \
 	./$<
+else
+	UTILITY_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
+	UTILITY_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
+	UTILITY_BENCHMARK_VERBOSE=$(VERBOSE) \
+	./$<
+endif
 
 # ============================================
 # OpenMP
 # ============================================
 MACROS_OPENMP += -DUSE_OPENMP $(MACROS)
-FLAGS_OPENMP += $(FLAGS) -fopenmp
+FLAGS_OPENMP += -fopenmp $(FLAGS)
 OPTS_OPENMP += $(OPTS)
-LIBS_OPENMP += $(LIBS) -fopenmp
+LIBS_OPENMP += -fopenmp $(LIBS)
 
 openmp: main.cpp bench.cpp
 	make preprocess
@@ -157,12 +192,22 @@ openmp: main.cpp bench.cpp
 	make postprocess
 
 run_openmp: openmp
+ifneq ($(WORKERS), 0)
+	OMP_NUM_THREADS=$(WORKERS) \
+	UTILITY_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
+	UTILITY_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
+	UTILITY_BENCHMARK_VERBOSE=$(VERBOSE) \
 	./$<
+else
+	UTILITY_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
+	UTILITY_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
+	UTILITY_BENCHMARK_VERBOSE=$(VERBOSE) \
+	./$<
+endif
 
 # ============================================
 # Heartbeat
 # ============================================
-CPU_BASE_FREQUENCY_KHZ ?= 3000000
 HEARTBEAT_LINUX_PATH = $(ROOT_DIR)/heartbeat-linux
 HEARTBEAT_LINUX_INCLUDE =$(HEARTBEAT_LINUX_PATH)/user
 ROLLFORWARD_PATH = $(ROOT_DIR)/rollforward/src
@@ -174,23 +219,17 @@ MACROS_HEARTBEAT += $(MACROS)
 
 # whether to enable the rollforward compilation
 # and whether to use the heartbeat linux module
-# options: true, false
 ENABLE_ROLLFORWARD ?= true
 USE_HB_KMOD ?= false
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	MACROS_HEARTBEAT += -DENABLE_ROLLFORWARD
 	PASS_ARGUMENTS_HEARTBEAT_COMPILER += -enable_rollforward
-else
-	MACROS += -DDISABLE_ROLLFORWARD
 endif
 
 # whether to enable heartbeat promotion
-# options: true, false
 ENABLE_HEARTBEAT_PROMOTION ?= true
 ifeq ($(ENABLE_HEARTBEAT_PROMOTION), true)
 	MACROS_HEARTBEAT += -DENABLE_HEARTBEAT_PROMOTION
-else
-	MACROS_HEARTBEAT += -DDISABLE_HEARTBEAT_PROMOTION
 endif
 
 # minimum remaining iteration size for heartbeat promotion
@@ -199,7 +238,6 @@ SMALLEST_GRANULARITY ?= 2
 MACROS_HEARTBEAT += -DSMALLEST_GRANULARITY=$(SMALLEST_GRANULARITY)
 
 # whether to chunk loop iterations before calling loop_handler
-# options: true, false
 CHUNK_LOOP_ITERATIONS ?= true
 ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 	MACROS_HEARTBEAT += -DCHUNK_LOOP_ITERATIONS
@@ -213,10 +251,12 @@ endif
 MACROS_HEARTBEAT += \
 	-DTASKPARTS_TPALRTS \
 	-DTASKPARTS_STATS \
-	-DTASKPARTS_USE_CHASELEV_DEQUE # can in certain cases prevent deque overflow
+	-DTASKPARTS_USE_CHASELEV_DEQUE
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	ifeq ($(USE_HB_KMOD), true)
-	MACROS_HEARTBEAT += -DTASKPARTS_TPALRTS_HBTIMER_KMOD # required by the linux kernel module
+		MACROS_HEARTBEAT += \
+			-DUSE_HB_KMOD \
+			-DTASKPARTS_TPALRTS_HBTIMER_KMOD # required by the linux kernel module
 	endif
 else
 	MACROS_HEARTBEAT += -DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING # to enable software polling
