@@ -180,6 +180,20 @@ class Heartbeat : public ModulePass {
     std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> loopToHeartbeatTransformation;
 
     /*
+     * Chunking transformation
+     */
+    void executeLoopInChunk(
+      LoopDependenceInfo *,
+      HeartbeatTransformation *,
+      bool isLeafLoop
+    );
+
+    void replaceAllUsesInsideLoopBody(LoopDependenceInfo *, HeartbeatTransformation *, Value *, Value *);
+
+    std::unordered_map<LoopDependenceInfo *, uint64_t> loopToChunksize;
+    bool chunkLoopIterations = false;
+
+    /*
      * Step 7: create slice tasks wrapper
      */
     void createSliceTasksWrapper(
@@ -200,12 +214,6 @@ class Heartbeat : public ModulePass {
 
     std::vector<Constant *> leftoverTasks;
     Function *leftoverTaskIndexSelector = nullptr;
-
-    /*
-     * Chunking info
-     */
-    std::unordered_map<LoopDependenceInfo *, uint64_t> loopToChunksize;
-    bool chunkLoopIterations = false;
 
     /*
      * Replace call to rollforward_handler if Enable_Rollforward is specified

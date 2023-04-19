@@ -1,4 +1,9 @@
 MACROS_HEARTBEAT_MANUAL += -DUSE_HB_MANUAL $(MACROS_HEARTBEAT)
+FRONTEND_FLAGS_HEARTBEAT_MANUAL = \
+	-O1 -emit-llvm \
+	-Xclang -disable-llvm-passes \
+	-Xclang -no-opaque-pointers \
+	-Xclang -ffp-contract=off
 FLAGS_HEARTBEAT_MANUAL += $(FLAGS_HEARTBEAT)
 OPTS_HEARTBEAT_MANUAL += $(OPTS_HEARTBEAT)
 LIBS_HEARTBEAT_MANUAL += $(LIBS_HEARTBEAT)
@@ -6,9 +11,21 @@ LIBS_HEARTBEAT_MANUAL += $(LIBS_HEARTBEAT)
 # ============================================
 # Heartbeat Manual
 # ============================================
+main_manual.bc: main.cpp
+	$(CXX) $(MACROS_HEARTBEAT_MANUAL) $(FRONTEND_FLAGS_HEARTBEAT_MANUAL) $(FLAGS_HEARTBEAT_MANUAL) -c $^ -o $@
+
+heartbeat_manual.bc: heartbeat_manual.cpp
+	$(CXX) $(MACROS_HEARTBEAT_MANUAL) $(FRONTEND_FLAGS_HEARTBEAT_MANUAL) $(FLAGS_HEARTBEAT_MANUAL) -c $^ -o $@
+
+heartbeat_manual_linked.bc: main_manual.bc heartbeat_manual.bc
+	llvm-link $^ -o $@
+
+heartbeat_manual_normalized.bc: heartbeat_manual_linked.bc
+	noelle-norm $^ -o $@
+
 hbm: heartbeat_manual
 hb_manual: heartbeat_manual
-heartbeat_manual: main.cpp bench.cpp heartbeat_manual.cpp loop_handler.cpp
+heartbeat_manual: heartbeat_manual_normalized.bc bench.cpp loop_handler.cpp
 	make preprocess
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	make heartbeat_manual_rf

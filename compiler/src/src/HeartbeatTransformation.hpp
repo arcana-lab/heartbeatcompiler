@@ -64,6 +64,14 @@ class HeartbeatTransformation : public DOALL {
       return this->contextBitcastInst;
     }
 
+    inline BasicBlock * getPollingBlock() {
+      return this->pollingBlock;
+    }
+
+    inline CallInst * getCallToPollingFunction() {
+      return this->callToPollingFunction;
+    }
+
     inline BasicBlock * getLoopHandlerBlock() {
       return this->loopHandlerBlock;
     }
@@ -76,7 +84,7 @@ class HeartbeatTransformation : public DOALL {
       return this->returnCodePhiInst;
     }
 
-  protected:
+  // protected:
     Noelle &n;
     uint64_t nestID;
     LoopDependenceInfo *ldi;
@@ -98,12 +106,6 @@ class HeartbeatTransformation : public DOALL {
     void invokeHeartbeatFunctionAsideCallerLoop (
         LoopDependenceInfo *LDI
         );
-    
-    void executeLoopInChunk(
-      LoopDependenceInfo *
-    );
-
-    void replaceAllUsesInsideLoopBody(LoopDependenceInfo *, Value *, Value *);
 
   // private:
     void initializeEnvironmentBuilder(LoopDependenceInfo *LDI, 
@@ -130,6 +132,8 @@ class HeartbeatTransformation : public DOALL {
     bool chunkLoopIterations;
     std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToChunksize;
     Value *contextBitcastInst;
+    BasicBlock *pollingBlock;
+    CallInst *callToPollingFunction;
     BasicBlock *loopHandlerBlock;
     CallInst *callToLoopHandler;
 };

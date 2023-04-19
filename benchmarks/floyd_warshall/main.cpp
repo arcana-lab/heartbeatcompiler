@@ -39,6 +39,7 @@ int main() {
   });
 
 #if defined(USE_HB_COMPILER)
+  heartbeat_polling();
   // dummy call to loop_handler
   loop_handler_level2(
     nullptr, 0,

@@ -230,7 +230,7 @@ void Heartbeat::createLeftoverTasks(
       })
     )
   );
-  errs() << "created global leftoverTasks " << *leftoverTasksGlobal << "\n";
+  errs() << "created global leftoverTasks\n" << *leftoverTasksGlobal << "\n";
 
   // now leftoverTasks global array has been generated, create a leftover selector function
   // that returns the index of the leftover task giving receivingLevel and splittingLevel

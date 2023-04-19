@@ -94,13 +94,27 @@ bool Heartbeat::runOnModule (Module &M) {
     }
 
     errs() << "parallelization completed!\n";
-    errs() << "original root loop after parallelization" << *(this->rootLoop->getLoopStructure()->getFunction()) << "\n";
-    errs() << "cloned root loop after parallelization" << *(this->loopToHeartbeatTransformation[rootLoop]->getHeartbeatTask()->getTaskBody()) << "\n";
+    errs() << "original root loop after parallelization\n" << *(this->rootLoop->getLoopStructure()->getFunction()) << "\n";
+    errs() << "cloned root loop after parallelization\n" << *(this->loopToHeartbeatTransformation[rootLoop]->getHeartbeatTask()->getTaskBody()) << "\n";
     for (auto pair : this->loopToHeartbeatTransformation) {
       if (pair.first == this->rootLoop) {
         continue;
       }
-      errs() << "cloned loop of level " << this->loopToLevel[pair.first] << *(pair.second->getHeartbeatTask()->getTaskBody()) << "\n";
+      errs() << "cloned loop of level " << this->loopToLevel[pair.first] << "\n" << *(pair.second->getHeartbeatTask()->getTaskBody()) << "\n";
+    }
+
+    /*
+     * Chunking transformation
+     * Chunksize is supposed to be passed from the command line
+     */
+    if (this->chunkLoopIterations) {
+      for (auto pair : this->loopToHeartbeatTransformation) {
+        auto ldi = pair.first;
+        if (this->loopToChunksize[ldi] > 0) {
+          errs() << "found a loop that needs to be executed in chunk, do the chunking transformation\n";
+          this->executeLoopInChunk(ldi, pair.second, this->loopToLevel[ldi] == this->numLevels - 1);
+        }
+      }
     }
 
     if (this->numLevels > 1) {
@@ -140,7 +154,7 @@ bool Heartbeat::runOnModule (Module &M) {
         callInst->setArgOperand(2, sliceTasksWrapperGEP);
         callInst->setArgOperand(3, leftoverTasksGEP);
         callInst->setArgOperand(4, this->leftoverTaskIndexSelector);
-        errs() << "updated loop_handler function in loop level " << this->loopToLevel[pair.first] << *callInst << "\n";
+        errs() << "updated loop_handler function in loop level " << this->loopToLevel[pair.first] << "\n" << *callInst << "\n";
       }
     }
 

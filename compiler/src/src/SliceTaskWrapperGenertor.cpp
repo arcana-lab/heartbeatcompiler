@@ -68,7 +68,7 @@ void Heartbeat::createSliceTasksWrapper(
       nullptr
     );
 
-    errs() << "slice task wrapper of level " << level << *sliceTaskWrapper << "\n";
+    errs() << "slice task wrapper of level " << level << "\n" << *sliceTaskWrapper << "\n";
   }
 
   // now all slice tasks wrapper have been generated, initialize the sliceTasksWrapper global array
@@ -99,7 +99,7 @@ void Heartbeat::createSliceTasksWrapper(
       })
     )
   );
-  errs() << "created global slice tasks wrapper " << *sliceTasksWrapperGlobal << "\n";
+  errs() << "created global slice tasks wrapper\n" << *sliceTasksWrapperGlobal << "\n";
 
   return;
 }

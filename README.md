@@ -56,7 +56,7 @@ Several options can be applied during the compilation stage to control how the f
 - `SMALLE_GRANULARITY`: the minimal remaining iteration size for a loop to enable heartbeat promotion. The default is `2`.
 
 ### Chunksize options
-The chunksize option can be supplied in a per-loop-level manner such as `CHUNKSIZE_0` for level 0, `CHUNKSIZE_1` for level 1. Depends on the number of levels a loop nest has. If not supplied, the compilation uses the default chunksize provided in `heartbeat.config` per benchmark folder.
+The chunksize option can be supplied in a per-loop-level manner such as `CHUNKSIZE_0` for level 0, `CHUNKSIZE_1` for level 1. Depends on the number of levels a loop nest has. If not supplied, the compilation uses the default chunksize provided in `heartbeat.config` per benchmark folder. Setting chunksize value to `0` means don't apply chunking (zero overhead).
 
 ### Benchmark-specific options
 The following benchmarks have specific compilation options

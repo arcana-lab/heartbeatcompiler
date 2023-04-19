@@ -5,6 +5,7 @@
 
 #define SUB(array, row_sz, i, j) (array[i * row_sz + j])
 
+#define unlikely(expr) __builtin_expect(!!(expr), 0)
 #define NUM_LEVELS_NEST0 2
 #define LEVEL_ZERO 0
 #define LEVEL_ONE 1
@@ -86,7 +87,7 @@ int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t start
   int vertices = (int)constLiveIns_nest0[1];
 
   int64_t rc = 0;
-#if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_0 != 1
+#if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_0 != 0
   uint64_t low, high;
   // store &live-in as live-in environment for loop1
   ((uint64_t *)cxts)[LEVEL_ONE * CACHELINE + LIVE_IN_ENV] = (uint64_t)&low;
@@ -111,12 +112,17 @@ int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t start
     }
 
 #if !defined(ENABLE_ROLLFORWARD)
-    rc = loop_handler_level2(
-      cxts, LEVEL_ZERO,
-      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
-      low - 1, maxIter,
-      0, 0
-    );
+    if (unlikely(heartbeat_polling())) {
+      rc = loop_handler_level2(
+        cxts, LEVEL_ZERO,
+        slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
+        low - 1, maxIter,
+        0, 0
+      );
+      if (rc > 0) {
+        break;
+      }
+    }
 #else
     __rf_handle_level2_wrapper(
       rc, cxts, LEVEL_ZERO,
@@ -124,10 +130,10 @@ int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t start
       low - 1, maxIter,
       0, 0
     );
-#endif
     if (rc > 0) {
       break;
     }
+#endif
   }
 #else
   // store &live-in as live-in environment for loop1
@@ -148,12 +154,17 @@ int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t start
     }
 
 #if !defined(ENABLE_ROLLFORWARD)
-    rc = loop_handler_level2(
-      cxts, LEVEL_ZERO,
-      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
-      startIter, maxIter,
-      0, 0
-    );
+    if (unlikely(heartbeat_polling())) {
+      rc = loop_handler_level2(
+        cxts, LEVEL_ZERO,
+        slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
+        startIter, maxIter,
+        0, 0
+      );
+      if (rc > 0) {
+        break;
+      }
+    }
 #else
     __rf_handle_level2_wrapper(
       rc, cxts, LEVEL_ZERO,
@@ -161,10 +172,10 @@ int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t start
       startIter, maxIter,
       0, 0
     );
-#endif
     if (rc > 0) {
       break;
     }
+#endif
   }
 #endif
 
@@ -181,7 +192,7 @@ int64_t HEARTBEAT_nest0_loop1_slice(void *cxts, uint64_t myIndex, uint64_t s0, u
   int from = *(int *)((uint64_t *)cxts)[LEVEL_ONE * CACHELINE + LIVE_IN_ENV];
 
   int64_t rc = 0;
-#if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_1 != 1
+#if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_1 != 0
   for (; startIter < maxIter; startIter += CHUNKSIZE_1) {
     uint64_t low = startIter;
     uint64_t high = maxIter < startIter + CHUNKSIZE_1 ? maxIter : startIter + CHUNKSIZE_1;
@@ -198,12 +209,17 @@ int64_t HEARTBEAT_nest0_loop1_slice(void *cxts, uint64_t myIndex, uint64_t s0, u
     }
 
 #if !defined(ENABLE_ROLLFORWARD)
-    rc = loop_handler_level2(
-      cxts, LEVEL_ONE,
-      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
-      s0, m0,
-      low - 1, maxIter
-    );
+    if (unlikely(heartbeat_polling())) {
+      rc = loop_handler_level2(
+        cxts, LEVEL_ONE,
+        slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
+        s0, m0,
+        low - 1, maxIter
+      );
+      if (rc > 0) {
+        break;
+      }
+    }
 #else
     __rf_handle_level2_wrapper(
       rc, cxts, LEVEL_ONE,
@@ -211,10 +227,10 @@ int64_t HEARTBEAT_nest0_loop1_slice(void *cxts, uint64_t myIndex, uint64_t s0, u
       s0, m0,
       low - 1, maxIter
     );
-#endif
     if (rc > 0) {
       break;
     }
+#endif
   }
 #else
   for(; startIter < maxIter; startIter++) {
@@ -225,12 +241,17 @@ int64_t HEARTBEAT_nest0_loop1_slice(void *cxts, uint64_t myIndex, uint64_t s0, u
     }
 
 #if !defined(ENABLE_ROLLFORWARD)
-    rc = loop_handler_level2(
-      cxts, LEVEL_ONE,
-      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
-      s0, m0,
-      startIter, maxIter
-    );
+    if (unlikely(heartbeat_polling())) {
+      rc = loop_handler_level2(
+        cxts, LEVEL_ONE,
+        slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
+        s0, m0,
+        startIter, maxIter
+      );
+      if (rc > 0) {
+        break;
+      }
+    }
 #else
     __rf_handle_level2_wrapper(
       rc, cxts, LEVEL_ONE,
@@ -238,10 +259,10 @@ int64_t HEARTBEAT_nest0_loop1_slice(void *cxts, uint64_t myIndex, uint64_t s0, u
       s0, m0,
       startIter, maxIter
     );
-#endif
     if (rc > 0) {
       break;
     }
+#endif
   }
 #endif
 

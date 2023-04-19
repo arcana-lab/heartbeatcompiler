@@ -230,6 +230,8 @@ endif
 ENABLE_HEARTBEAT_PROMOTION ?= true
 ifeq ($(ENABLE_HEARTBEAT_PROMOTION), true)
 	MACROS_HEARTBEAT += -DENABLE_HEARTBEAT_PROMOTION
+else
+	MACROS_HEARTBEAT += -DDISABLE_HEARTBEAT_PROMOTION
 endif
 
 # minimum remaining iteration size for heartbeat promotion
