@@ -41,19 +41,15 @@ int main() {
 #if defined(USE_HB_COMPILER)
   heartbeat_polling();
   // dummy call to loop_handler
-  loop_handler_level2(
+  loop_handler(
     nullptr, 0,
-    nullptr, nullptr, nullptr,
-    0, 0,
-    0, 0
+    nullptr, nullptr, nullptr
   );
 #if defined(ENABLE_ROLLFORWARD)
   int64_t rc = 0;
-  __rf_handle_level2_wrapper(
+  __rf_handle_wrapper(
     rc, nullptr, 0,
-    nullptr, nullptr, nullptr,
-    0, 0,
-    0, 0
+    nullptr, nullptr, nullptr
   );
 #endif
 #endif

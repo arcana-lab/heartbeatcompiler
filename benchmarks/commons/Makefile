@@ -59,7 +59,7 @@ FLAGS += \
 # Global OPTS used by all implementations
 # ============================================
 ifeq ($(DEBUG), false)
-	OPTS += -O3 -march=native
+	OPTS += -O1 -g
 else
 	OPTS += -O0 -g
 endif
@@ -219,7 +219,7 @@ MACROS_HEARTBEAT += $(MACROS)
 
 # whether to enable the rollforward compilation
 # and whether to use the heartbeat linux module
-ENABLE_ROLLFORWARD ?= true
+ENABLE_ROLLFORWARD ?= false
 USE_HB_KMOD ?= false
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	MACROS_HEARTBEAT += -DENABLE_ROLLFORWARD
