@@ -44,6 +44,13 @@ class Heartbeat : public ModulePass {
   private:
     StringRef outputPrefix;
     StringRef functionSubString;
+    Function *pollingFunction;
+    Function *loopHandlerFunction;
+    Function *rfHandlerFunction;
+
+    void createPollingFunction(Noelle &noelle);
+    void createLoopHandlerFunction(Noelle &noelle);
+    void createRFHandlerFunction(Noelle &noelle);
 
     /*
      * Step 1: Identify all loops in functions starts with "Heartbeat_"
@@ -196,12 +203,12 @@ class Heartbeat : public ModulePass {
     /*
      * Step 7: create slice tasks wrapper
      */
-    void createSliceTasksWrapper(
+    void createSliceTasks(
       Noelle &noelle,
       uint64_t nestID
     );
 
-    std::vector<Constant *> sliceTasksWrapper;
+    std::vector<Constant *> sliceTasks;
 
     /*
      * Step 8: create leftover tasks

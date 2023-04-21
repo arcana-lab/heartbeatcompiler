@@ -36,24 +36,5 @@ int main() {
     finishup();
   });
 
-#if defined(USE_HB_COMPILER)
-  // dummy call to loop_handler
-  loop_handler_level2(
-    nullptr, 0,
-    nullptr, nullptr, nullptr,
-    0, 0,
-    0, 0
-  );
-#if defined(ENABLE_ROLLFORWARD)
-  int64_t rc = 0;
-  __rf_handle_level2_wrapper(
-    rc, nullptr, 0,
-    nullptr, nullptr, nullptr,
-    0, 0,
-    0, 0
-  );
-#endif
-#endif
-
   return 0;
 }

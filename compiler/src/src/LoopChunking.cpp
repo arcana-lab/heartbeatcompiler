@@ -62,7 +62,7 @@ void Heartbeat::executeLoopInChunk(LoopDependenceInfo *ldi, HeartbeatTransformat
   auto IV_cloned_update = cast<PHINode>(IV_cloned)->getIncomingValue(1);
   assert(isa<BinaryOperator>(IV_cloned_update));
   errs() << "update of induction variable " << *IV_cloned_update << "\n";
-  cast<Instruction>(IV_cloned_update)->setOperand(1, chunkLoopHeaderBlockBuilder.getInt64(hbt->loopToChunksize[ldi]));
+  cast<Instruction>(IV_cloned_update)->setOperand(1, chunkLoopHeaderBlockBuilder.getInt64(this->loopToChunksize[ldi]));
 
   // Step: ensure the instruction that use to determine whether keep running the loop is icmp slt but not icmp ne
   auto exitCmpInst = IV_attr->getHeaderCompareInstructionToComputeExitCondition();
@@ -107,7 +107,7 @@ void Heartbeat::executeLoopInChunk(LoopDependenceInfo *ldi, HeartbeatTransformat
   // Step: compare low == maxIter and jump either to the exit block of outer loop or the loop_handler_block
   auto lowMaxIterCmpInst = chunkLoopExitBlockBuilder.CreateICmpEQ(
     lowPhiNode,
-    hbt->hbTask->getMaxIteration()
+    hbt->maxIteration
   );
   chunkLoopExitBlockBuilder.CreateCondBr(
     lowMaxIterCmpInst,
@@ -158,15 +158,15 @@ void Heartbeat::executeLoopInChunk(LoopDependenceInfo *ldi, HeartbeatTransformat
   // Step 5: determine the max value
   auto startIterPlusChunk = chunkLoopHeaderBlockBuilder.CreateAdd(
     IV_cloned,
-    chunkLoopHeaderBlockBuilder.getInt64(hbt->loopToChunksize[ldi])
+    chunkLoopHeaderBlockBuilder.getInt64(this->loopToChunksize[ldi])
   );
   auto highCompareInst = chunkLoopHeaderBlockBuilder.CreateICmpSLT(
-    hbt->hbTask->getMaxIteration(),
+    hbt->maxIteration,
     startIterPlusChunk
   );
   auto high = chunkLoopHeaderBlockBuilder.CreateSelect(
     highCompareInst,
-    hbt->hbTask->getMaxIteration(),
+    hbt->maxIteration,
     startIterPlusChunk,
     "high"
   );
@@ -180,21 +180,15 @@ void Heartbeat::executeLoopInChunk(LoopDependenceInfo *ldi, HeartbeatTransformat
     chunkLoopExitBlock
   );
 
-  // replace the call to loop_handler with low - 1
+  // replace the store of currentIteration with low - 1
   IRBuilder loopHandlerBlockBuilder{ hbt->getLoopHandlerBlock() };
-  loopHandlerBlockBuilder.SetInsertPoint(hbt->getCallToLoopHandler());
+  loopHandlerBlockBuilder.SetInsertPoint(hbt->storeCurrentIterationAtBeginningOfHandlerBlock);
   auto lowSubOneInst = loopHandlerBlockBuilder.CreateSub(
     lowPhiNode,
     loopHandlerBlockBuilder.getInt64(1),
     "lowSubOne"
   );
-  uint64_t myStartIterIndexInCall = hbt->loopToLevel[ldi] * 2;
-  if (hbt->numLevels == 1) {
-    myStartIterIndexInCall += 2;
-  } else {
-    myStartIterIndexInCall += 5;
-  }
-  hbt->getCallToLoopHandler()->setArgOperand(myStartIterIndexInCall, lowSubOneInst);
+  hbt->storeCurrentIterationAtBeginningOfHandlerBlock->setOperand(0, lowSubOneInst);
 
   errs() << "current task after chunking\n";
   errs() << *(hbt->hbTask->getTaskBody()) << "\n";

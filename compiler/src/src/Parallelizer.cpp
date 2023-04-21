@@ -15,15 +15,12 @@ bool Heartbeat::parallelizeRootLoop (
     nestID,
     ldi,
     this->numLevels,
-    this->containsLiveOut,
     this->loopToLevel,
     this->loopToSkippedLiveIns,
     this->constantLiveInsArgIndexToIndex,
     this->loopToConstantLiveIns,
     this->loopToHeartbeatTransformation,
-    this->loopToCallerLoop,
-    this->chunkLoopIterations,
-    this->loopToChunksize
+    this->loopToCallerLoop
   );
   this->loopToHeartbeatTransformation[ldi] = HB;
 
@@ -202,15 +199,12 @@ bool Heartbeat::parallelizeNestedLoop (
     nestID,
     ldi,
     this->numLevels,
-    this->containsLiveOut,
     this->loopToLevel,
     this->loopToSkippedLiveIns,
     this->constantLiveInsArgIndexToIndex,
     this->loopToConstantLiveIns,
     this->loopToHeartbeatTransformation,
-    this->loopToCallerLoop,
-    this->chunkLoopIterations,
-    this->loopToChunksize
+    this->loopToCallerLoop
   );
   this->loopToHeartbeatTransformation[ldi] = HB;
 

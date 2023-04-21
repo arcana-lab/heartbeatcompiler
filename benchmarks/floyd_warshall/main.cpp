@@ -38,21 +38,5 @@ int main() {
     finishup();
   });
 
-#if defined(USE_HB_COMPILER)
-  heartbeat_polling();
-  // dummy call to loop_handler
-  loop_handler(
-    nullptr, 0,
-    nullptr, nullptr, nullptr
-  );
-#if defined(ENABLE_ROLLFORWARD)
-  int64_t rc = 0;
-  __rf_handle_wrapper(
-    rc, nullptr, 0,
-    nullptr, nullptr, nullptr
-  );
-#endif
-#endif
-
   return 0;
 }

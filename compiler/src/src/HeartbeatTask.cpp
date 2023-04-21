@@ -17,57 +17,20 @@ HeartbeatTask::HeartbeatTask (
   FunctionType *taskSignature,
   Module &M,
   uint64_t level,
-  bool containsLiveOut,
   std::string &name
 ) : DOALLTask{taskSignature, M, name},
-    // maxGIV{nullptr},
-    level(level),
-    containsLiveOut(containsLiveOut) {
+    level(level) {
   return ;
 }
 
 void HeartbeatTask::extractFuncArgs (void) {
   auto argIter = this->F->arg_begin();
 
-  // /*
-  //  * First parameter: first iteration to execute
-  //  */
-  // this->coreArg = (Value *) &*(argIter++); 
-
-  // /*
-  //  * Second argument: last value of the loop-governing IV
-  //  */
-  // this->maxGIV = (Value *) &*(argIter++);
-
-  // /*
-  //  * Third argument: live-in and live-out variables
-  //  */
-  // this->singleEnvArg = (Value *) &*(argIter++);
-
-  // /*
-  //  * Forth argumemt: live-out (reducible) variables      
-  //  */
-  // this->reducibleEnvArg = (Value *) &*(argIter++);
-
-  // /*
-  //  * Forth argument: task ID 
-  //  */
-  // this->instanceIndexV = (Value *) &*(argIter++);
-
   // First argument: context pointer
   this->contextArg = (Value *) &*(argIter++);
 
   // Second argument (optional): myIndex
   this->myIndexArg = (Value *) &*(argIter++);
-
-  // All startIteration and maxIteration
-  for (uint64_t i = 0; i < this->level + 1; i++) {
-    this->iterationsVector.push_back((Value *) &*(argIter++));  // startIteration
-    this->iterationsVector.push_back((Value *) &*(argIter++));  // maxIteration
-  }
-
-  this->startIterationArg = this->iterationsVector[this->level * 2 + 0];
-  this->maxiterationArg = this->iterationsVector[this->level * 2 + 1];
 
   return ;
 }

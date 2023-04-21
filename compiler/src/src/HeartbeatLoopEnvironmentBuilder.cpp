@@ -120,7 +120,7 @@ void HeartbeatLoopEnvironmentBuilder::initializeBuilder(
   auto int64 = IntegerType::get(this->CXT, 64);
   this->singleEnvArrayType = ArrayType::get(int64, singleVarIDs.size() * this->valuesInCacheLine);
   this->reducibleEnvArrayType = ArrayType::get(PointerType::getUnqual(int64), reducibleVarIDs.size() * this->valuesInCacheLine);
-  this->contextArrayType = ArrayType::get(PointerType::getUnqual(int64), this->numLevels * this->valuesInCacheLine);
+  this->contextArrayType = ArrayType::get(int64, this->numLevels * this->valuesInCacheLine);
 
   for (auto envID : singleVarIDs) {
     auto envIndex = this->singleEnvIDToIndex[envID];

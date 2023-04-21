@@ -34,6 +34,10 @@ bool Heartbeat::runOnModule (Module &M) {
     errs() << this->outputPrefix << selectedLoop->getLoopStructure()->getFunction()->getName() << "\n";
   }
 
+  // create polling function and loop_handler function
+  createPollingFunction(noelle);
+  createLoopHandlerFunction(noelle);
+
   /*
    * Determine the loop nest and all loops in that nest
    */
@@ -119,8 +123,8 @@ bool Heartbeat::runOnModule (Module &M) {
 
     if (this->numLevels > 1) {
       // all Heartbeat loops are generated,
-      // create the slices wrapper function and the global
-      createSliceTasksWrapper(noelle, nestID);
+      // create slice tasks global
+      createSliceTasks(noelle, nestID);
 
       // now we've created all the Heartbeat loops, it's time to create the leftover tasks per gap between Heartbeat loops
       createLeftoverTasks(noelle, nestID, pair.second);
@@ -132,10 +136,10 @@ bool Heartbeat::runOnModule (Module &M) {
         auto callInst = cast<CallInst>(pair.second->getCallToLoopHandler());
 
         IRBuilder<> builder{ callInst };
-        auto sliceTasksWrapperGlobal = noelle.getProgram()->getNamedGlobal(std::string("sliceTasksWrapper_nest").append(std::to_string(nestID)));
-        auto sliceTasksWrapperGEP = builder.CreateInBoundsGEP(
-          sliceTasksWrapperGlobal->getType()->getPointerElementType(),
-          sliceTasksWrapperGlobal,
+        auto sliceTasksGlobal = noelle.getProgram()->getNamedGlobal(std::string("sliceTasks_nest").append(std::to_string(nestID)));
+        auto sliceTasksGEP = builder.CreateInBoundsGEP(
+          sliceTasksGlobal->getType()->getPointerElementType(),
+          sliceTasksGlobal,
           ArrayRef<Value *>({
             builder.getInt64(0),
             builder.getInt64(0),
@@ -151,7 +155,7 @@ bool Heartbeat::runOnModule (Module &M) {
           })
         );
 
-        callInst->setArgOperand(2, sliceTasksWrapperGEP);
+        callInst->setArgOperand(2, sliceTasksGEP);
         callInst->setArgOperand(3, leftoverTasksGEP);
         callInst->setArgOperand(4, this->leftoverTaskIndexSelector);
         errs() << "updated loop_handler function in loop level " << this->loopToLevel[pair.first] << "\n" << *callInst << "\n";
@@ -159,6 +163,7 @@ bool Heartbeat::runOnModule (Module &M) {
     }
 
     if (Enable_Rollforward) {
+      createRFHandlerFunction(noelle);
       replaceWithRollforwardHandler(noelle);
     }
   }
@@ -185,7 +190,7 @@ void Heartbeat::reset() {
 
   this->loopToHeartbeatTransformation.clear();
 
-  this->sliceTasksWrapper.clear();
+  this->sliceTasks.clear();
 
   this->leftoverTasks.clear();
   this->leftoverTaskIndexSelector = nullptr;
@@ -197,11 +202,14 @@ void Heartbeat::replaceWithRollforwardHandler(Noelle &noelle) {
   // Decide to use the rollforward loop handler
   // 1. allocate a stack space for rc (return code) at the beginning of the function
   // 2. initialize rc with value 0 on stack
-  // 2. pass the pointer of the stack space as the first argument to the rollforward loop handler
-  // 3. load the value from the stack space after calling
-  // 4. replace all uses with the previous loop_handler_return_code
+  // 3. replace polling function call with __rf_test call
+  // 4. pass the pointer of the stack space as the first argument to the rollforward loop handler
+  // 5. replace loop_hander function call with __rf_handle_wrapper call
+  // 6. load the value from the stack space after calling
+  // 7. replace all uses with the previous loop_handler_return_code
   for (auto pair : this->loopToHeartbeatTransformation) {
-    auto callInst = cast<CallInst>(pair.second->getCallToLoopHandler());
+    auto pollingFunctionCall = cast<CallInst>(pair.second->getCallToPollingFunction());
+    auto loopHandlerCall = cast<CallInst>(pair.second->getCallToLoopHandler());
 
     IRBuilder<> entryBuilder{ pair.second->getHeartbeatTask()->getTaskBody()->begin()->getFirstNonPHI() };
     // create a int64 stack space for return code
@@ -215,66 +223,19 @@ void Heartbeat::replaceWithRollforwardHandler(Noelle &noelle) {
       rcPointer
     );
 
-    // Fetch the successor basic of the original branch inst in the loop_handler block
-    // errs() << "original loop_handler block " << *(callInst->getParent()) << "\n";
-    auto terminator = callInst->getParent()->getTerminator();
-    assert(isa<BranchInst>(terminator));
-    assert(terminator->getNumSuccessors() == 2);
-    auto loopContinueBlock = terminator->getSuccessor(1);
-
-    // Split the loop_handler block into two
-    BasicBlock::iterator splitPoint = BasicBlock::iterator(callInst->getParent()->getFirstNonPHI());
-    BasicBlock *currentBlock = callInst->getParent();
-    BasicBlock *prisonBlock = currentBlock->splitBasicBlock(splitPoint, "handler_prison_block");
-    errs() << "current block" << *currentBlock << "\n";
-    errs() << "split block" << *prisonBlock << "\n";
-    currentBlock->getTerminator()->eraseFromParent();
-
-    // Builder for the loop_handler block and set insert point to be the beginning
-    IRBuilder<> branchBuilder{ currentBlock };
-
-    // // create global __rf_signal
-    // auto M = noelle.getProgram();
-    // M->getOrInsertGlobal("__rf_signal", branchBuilder.getInt32Ty());
-    // auto rfSignalGlobal = M->getNamedGlobal("__rf_signal");
-    // rfSignalGlobal->setLinkage(GlobalValue::ExternalLinkage);
-    // // rfSignalGlobal->setInitializer(ConstantInt::get(branchBuilder.getInt32Ty(), 0));
-    // rfSignalGlobal->setAlignment(4);
-    // errs() << "__rf_signal" << *rfSignalGlobal << "\n";
-
-    // // create branch
-    // // if (__builtin_expect(&__rf_signal == (void*)1UL, 0))
-    // auto brInst = branchBuilder.CreateCondBr(
-    //   branchBuilder.CreateICmpEQ(
-    //     branchBuilder.CreateBitCast(
-    //       rfSignalGlobal,
-    //       branchBuilder.getInt8PtrTy()
-    //     ),
-    //     branchBuilder.CreateIntToPtr(
-    //       ConstantInt::get(branchBuilder.getInt64Ty(), 1),
-    //       branchBuilder.getInt8PtrTy()
-    //     )
-    //   ),
-    //   prisonBlock,
-    //   loopContinueBlock
-    // );
-
-    auto rfTestFunction = noelle.getProgram()->getFunction(std::string("__rf_test"));
+    // set call to the polling function with __rf_test call
+    auto rfTestFunction = noelle.getProgram()->getFunction("__rf_test");
     assert(rfTestFunction != nullptr);
-    auto rfTestCallInst = branchBuilder.CreateCall(rfTestFunction);
-    auto brInst = branchBuilder.CreateCondBr(
-      rfTestCallInst,
-      prisonBlock,
-      loopContinueBlock
-    );
+    pollingFunctionCall->setCalledFunction(rfTestFunction);
 
-    IRBuilder<> builder{ callInst };
-    auto rollforwardHandlerFunction = noelle.getProgram()->getFunction(std::string("__rf_handle_level").append(std::to_string(this->numLevels)).append("_wrapper"));
-    assert(rollforwardHandlerFunction != nullptr);
+    IRBuilder<> builder{ loopHandlerCall };
+    auto rfHandlerFunction = noelle.getProgram()->getFunction("__rf_handle_wrapper");
+    assert(rfHandlerFunction != nullptr);
+    errs() << "rfHandler function\n" << *rfHandlerFunction << "\n";
     std::vector<Value *> rollforwardHandlerParameters { rcPointer };
-    rollforwardHandlerParameters.insert(rollforwardHandlerParameters.end(), callInst->arg_begin(), callInst->arg_end());
+    rollforwardHandlerParameters.insert(rollforwardHandlerParameters.end(), loopHandlerCall->arg_begin(), loopHandlerCall->arg_end());
     auto rfCallInst = builder.CreateCall(
-      rollforwardHandlerFunction,
+      rfHandlerFunction,
       ArrayRef<Value *>({
         rollforwardHandlerParameters
       })
@@ -286,12 +247,9 @@ void Heartbeat::replaceWithRollforwardHandler(Noelle &noelle) {
       "rollforward_handler_return_code"
     );
 
-    BasicBlock::iterator splitPoint2 = BasicBlock::iterator(rc);
-    BasicBlock *splitBlock2 = prisonBlock->splitBasicBlock(splitPoint2, "handler_continue_block");
-    brInst->setSuccessor(1, splitBlock2);
-
-    callInst->replaceAllUsesWith(rc);
-    callInst->eraseFromParent();
+    loopHandlerCall->replaceAllUsesWith(rc);
+    loopHandlerCall->eraseFromParent();
+    pair.second->callToLoopHandler = rfCallInst;
 
     errs() << "replace original loop_handler call with rollforward handler call " << *rfCallInst << "\n";
     errs() << "heartbeat task after using rollforward handler " << *(pair.second->getHeartbeatTask()->getTaskBody()) << "\n";

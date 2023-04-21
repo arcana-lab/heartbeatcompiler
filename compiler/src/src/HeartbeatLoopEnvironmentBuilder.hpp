@@ -99,6 +99,10 @@ public:
     return this->envIndexToReducableVar[index][reducer_index];
   }
 
+  inline Value * getLocationOfSingleVariable(uint32_t id) {
+    return this->envIndexToVar[this->singleEnvIDToIndex[id]];
+  }
+
 private:
   void initializeBuilder(const std::vector<Type *> &varTypes,
                          const std::set<uint32_t> &singleVarIDs,

@@ -11,30 +11,24 @@ HeartbeatTransformation::HeartbeatTransformation (
   uint64_t nestID,
   LoopDependenceInfo *ldi,
   uint64_t numLevels,
-  bool containsLiveOut,
   std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel,
   std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns,
   std::unordered_map<int, int> &constantLiveInsArgIndexToIndex,
   std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns,
   std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> &loopToHeartbeatTransformation,
-  std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop,
-  bool chunkLoopIterations,
-  std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToChunksize
+  std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop
 ) : DOALL{noelle},
     nestID{nestID},
     ldi{ldi},
     n{noelle},
     numLevels{numLevels},
-    containsLiveOut{containsLiveOut},
     loopToLevel{loopToLevel},
     loopToSkippedLiveIns{loopToSkippedLiveIns},
     constantLiveInsArgIndexToIndex{constantLiveInsArgIndexToIndex},
     loopToConstantLiveIns{loopToConstantLiveIns},
     hbTask{nullptr},
     loopToHeartbeatTransformation{loopToHeartbeatTransformation},
-    loopToCallerLoop{loopToCallerLoop},
-    chunkLoopIterations{chunkLoopIterations},
-    loopToChunksize{loopToChunksize} {
+    loopToCallerLoop{loopToCallerLoop} {
 
   // set cacheline element size
   this->valuesInCacheLine = Architecture::getCacheLineBytes() / sizeof(int64_t);
@@ -44,14 +38,8 @@ HeartbeatTransformation::HeartbeatTransformation (
    */
   auto tm = noelle.getTypesManager();
   std::vector<Type *> sliceTaskSignatureTypes;
-  sliceTaskSignatureTypes.push_back(tm->getVoidPointerType());  // pointer to compressed environment
+  sliceTaskSignatureTypes.push_back(PointerType::getUnqual(tm->getIntegerType(64))); // pointer to compressed environment
   sliceTaskSignatureTypes.push_back(tm->getIntegerType(64));  // index variable
-  // loop level starts from 0, so +1 here
-  for (auto i = 0; i < loopToLevel[ldi] + 1; i++) {
-    sliceTaskSignatureTypes.push_back(tm->getIntegerType(64));  // startIter
-    sliceTaskSignatureTypes.push_back(tm->getIntegerType(64));  // maxIter
-  }
-
   this->sliceTaskSignature = FunctionType::get(tm->getIntegerType(64), ArrayRef<Type *>(sliceTaskSignatureTypes), false);
 
   errs() << "create function signature for slice task " << ldi->getLoopStructure()->getFunction()->getName() << ": " << *(this->sliceTaskSignature) << "\n";
@@ -91,7 +79,7 @@ bool HeartbeatTransformation::apply (
   /*
    * Print original function
    */
-  errs() << "original function:" << *loopFunction << "\n";
+  errs() << "original function:\n" << *loopFunction << "\n";
   errs() << "pre-header:" << *(ls->getPreHeader()) << "\n";
   errs() << "header:" << *(ls->getHeader()) << "\n";
   errs() << "first body:" << *(ls->getFirstLoopBasicBlockAfterTheHeader()) << "\n";
@@ -107,16 +95,15 @@ bool HeartbeatTransformation::apply (
   /*
    * Generate an empty task for the heartbeat execution.
    */
-  this->hbTask = new HeartbeatTask(this->sliceTaskSignature, *program, this->loopToLevel[this->ldi], this->containsLiveOut,
+  this->hbTask = new HeartbeatTask(this->sliceTaskSignature, *program, this->loopToLevel[this->ldi],
     std::string("HEARTBEAT_nest").append(std::to_string(this->nestID)).append("_loop").append(std::to_string(this->loopToLevel[ldi])).append("_slice")
   );
-  // hbTask->getTaskBody()->setName(std::string("HEARTBEAT_loop").append(std::to_string(this->loopToLevel[ldi])).append("_slice"));
-  errs() << "initial task body:" << *(hbTask->getTaskBody()) << "\n";
+  errs() << "initial task body:\n" << *(hbTask->getTaskBody()) << "\n";
   this->addPredecessorAndSuccessorsBasicBlocksToTasks(
     loop,
     { hbTask }
   );
-  errs() << "task after adding predecessor and successors bb:" << *(hbTask->getTaskBody()) << "\n";
+  errs() << "task after adding predecessor and successors bb:\n" << *(hbTask->getTaskBody()) << "\n";
 
   /*
    * Allocate memory for all environment variables
@@ -149,7 +136,7 @@ bool HeartbeatTransformation::apply (
    * Clone loop into the single task used by Heartbeat
    */
   this->cloneSequentialLoop(loop, 0);
-  errs() << "task after cloning sequential loop: " << *(hbTask->getTaskBody()) << "\n";
+  errs() << "task after cloning sequential loop:\n" << *(hbTask->getTaskBody()) << "\n";
 
   /*
    * Load all loop live-in values at the entry point of the task.
@@ -162,7 +149,7 @@ bool HeartbeatTransformation::apply (
     envUser->addLiveOut(envID);
   }
   this->generateCodeToLoadLiveInVariables(loop, 0);
-  errs() << "task after loading live-in variables: " << *(hbTask->getTaskBody()) << "\n";
+  errs() << "task after loading live-in variables:\n" << *(hbTask->getTaskBody()) << "\n";
 
   /*
    * Clone memory objects that are not blocked by RAW data dependences
@@ -171,7 +158,7 @@ bool HeartbeatTransformation::apply (
   if (ltm->isOptimizationEnabled(LoopDependenceInfoOptimization::MEMORY_CLONING_ID)) {
     this->cloneMemoryLocationsLocallyAndRewireLoop(loop, 0);
   }
-  errs() << "task after cloning memory objects: " << *(hbTask->getTaskBody()) << "\n";
+  errs() << "task after cloning memory objects:\n" << *(hbTask->getTaskBody()) << "\n";
 
   /*
    * Fix the data flow within the parallelized loop by redirecting operands of
@@ -179,13 +166,13 @@ bool HeartbeatTransformation::apply (
    * they still refer to the original loop's instructions.
    */
   this->adjustDataFlowToUseClones(loop, 0);
-  errs() << "task after fixing data flow: " << *(hbTask->getTaskBody()) << "\n";
+  errs() << "task after fixing data flow:\n" << *(hbTask->getTaskBody()) << "\n";
 
   /*
    * Handle the reduction variables.
    */
   this->setReducableVariablesToBeginAtIdentityValue(loop, 0);
-  errs() << "task after seting reducible variables: " << *(hbTask->getTaskBody()) << "\n";
+  errs() << "task after seting reducible variables:\n" << *(hbTask->getTaskBody()) << "\n";
 
   /*
    * Add the jump from the entry of the function after loading all live-ins to the header of the cloned loop.
@@ -197,7 +184,7 @@ bool HeartbeatTransformation::apply (
    */
   IRBuilder<> exitB(hbTask->getExit());
   exitB.CreateRetVoid();
-  errs() << "task after adding jump and return to loop " << *(hbTask->getTaskBody()) << "\n";
+  errs() << "task after adding jump and return to loop\n" << *(hbTask->getTaskBody()) << "\n";
 
   /*
    * Store final results to loop live-out variables. Note this occurs after
@@ -215,25 +202,55 @@ bool HeartbeatTransformation::apply (
    * Allocate the reduction environment array for the next level inside task
    */
   this->allocateNextLevelReducibleEnvironmentInsideTask(loop, 0);
-  errs() << "task after allocate reducible environment for kids " << *(hbTask->getTaskBody()) << "\n";
+  errs() << "task after allocate reducible environment for kids\n" << *(hbTask->getTaskBody()) << "\n";
 
 
-  // Adjust the start value of the loop-goverining IV to use the corresponding argument
+  // iteration builder
+  IRBuilder<> iterationBuilder{ cast<Instruction>(this->contextBitcastInst)->getParent() };
+  iterationBuilder.SetInsertPoint(cast<Instruction>(this->contextBitcastInst)->getNextNode());
+
+  // Adjust the start value of the loop-goverining IV to use the value stored by the parent
   auto GIV_attr = loop->getLoopGoverningIVAttribution();
   assert(GIV_attr != nullptr);
   assert(GIV_attr->isSCCContainingIVWellFormed());
   auto IV = GIV_attr->getInductionVariable().getLoopEntryPHI();
   auto IVClone = cast<PHINode>(hbTask->getCloneOfOriginalInstruction(IV));
-  auto iterationsVector = hbTask->getIterationsVector();
-  auto startIter = iterationsVector[this->loopToLevel[this->ldi] * 2 + 0];
-  errs() << "startIter: " << *startIter << "\n";
-  IVClone->setIncomingValueForBlock(hbTask->getEntry(), startIter);
+  this->currentIteration = IVClone;
+  this->startIterationAddress = iterationBuilder.CreateInBoundsGEP(
+    ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getContextArrayType(),
+    this->contextBitcastInst,
+    ArrayRef<Value *>({
+      iterationBuilder.getInt64(0),
+      iterationBuilder.getInt64(this->hbTask->getLevel() * this->valuesInCacheLine + this->startIterationIndex)
+    }),
+    "startIteration_addr"
+  );
+  this->startIteration = iterationBuilder.CreateLoad(
+    iterationBuilder.getInt64Ty(),
+    this->startIterationAddress,
+    "startIteration"
+  );
+  errs() << "startIteration: " << *this->startIteration << "\n";
+  IVClone->setIncomingValueForBlock(hbTask->getEntry(), this->startIteration);
 
   /*
-   * Adjust the exit condition value of the loop-governing IV to use the corresponding argument
+   * Adjust the exit condition value of the loop-governing IV to use the value stored by the parent
    */
-  auto maxIter = iterationsVector[this->loopToLevel[this->ldi] * 2 + 1];
-  errs() << "maxIter: " << *maxIter << "\n";
+  this->maxIterationAddress = iterationBuilder.CreateInBoundsGEP(
+    ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getContextArrayType(),
+    this->contextBitcastInst,
+    ArrayRef<Value *>({
+      iterationBuilder.getInt64(0),
+      iterationBuilder.getInt64(this->hbTask->getLevel() * this->valuesInCacheLine + this->maxIterationIndex)
+    }),
+    "maxIteration_addr"
+  );
+  this->maxIteration = iterationBuilder.CreateLoad(
+    iterationBuilder.getInt64Ty(),
+    this->maxIterationAddress,
+    "maxIteration"
+  );
+  errs() << "maxIteration: " << *maxIteration << "\n";
   auto LGIV_cmpInst = GIV_attr->getHeaderCompareInstructionToComputeExitCondition();
   auto LGIV_lastValue = GIV_attr->getExitConditionValue();
   auto LGIV_currentValue = GIV_attr->getValueToCompareAgainstExitConditionValue();
@@ -264,9 +281,9 @@ bool HeartbeatTransformation::apply (
   }
   assert(operandNumber != -1);
   auto cloneCmpInst = cast<CmpInst>(this->hbTask->getCloneOfOriginalInstruction(cast<Instruction>(LGIV_cmpInst)));
-  cloneCmpInst->setOperand(operandNumber, maxIter);
+  cloneCmpInst->setOperand(operandNumber, maxIteration);
 
-  errs() << "task after using start/max iterations from the argument" << *(hbTask->getTaskBody()) << "\n";
+  errs() << "task after using start/max iterations set by the parent\n" << *(hbTask->getTaskBody()) << "\n";
 
 
   /*
@@ -274,9 +291,10 @@ bool HeartbeatTransformation::apply (
    */
   auto pollingFunction = program->getFunction("heartbeat_polling");
   assert(pollingFunction != nullptr);
-  auto loopHandlerFunction = program->getFunction(std::string("loop_handler_level").append(std::to_string(this->numLevels)));
+  errs() << "polling function\n" << *pollingFunction << "\n";
+  auto loopHandlerFunction = program->getFunction("loop_handler");
   assert(loopHandlerFunction != nullptr);
-  errs() << "loop_handler function" << *loopHandlerFunction << "\n";
+  errs() << "loop_handler function\n" << *loopHandlerFunction << "\n";
 
   /*
    * Create a new bb to invoke the polling after the body
@@ -284,10 +302,10 @@ bool HeartbeatTransformation::apply (
   this->pollingBlock = BasicBlock::Create(hbTask->getTaskBody()->getContext(), "polling_block", hbTask->getTaskBody());
 
   /*
-   * Create a new bb to invoke the loop handler after the body
+   * Create a new bb to invoke the loop handler after the polling block
    */
   this->loopHandlerBlock = BasicBlock::Create(hbTask->getTaskBody()->getContext(), "loop_handler_block", hbTask->getTaskBody());
-  
+
   auto bbs = ls->getLatches();
   assert(bbs.size() == 1 && "assumption: only has one latch of the loop\n");
   auto latchBB = *(bbs.begin());
@@ -311,22 +329,14 @@ bool HeartbeatTransformation::apply (
 
   // invoking the polling function to either jump to the loop_handler_block or latch block
   IRBuilder<> pollingBlockBuilder{ pollingBlock };
-  auto callToPolling = pollingBlockBuilder.CreateCall(
+  this->callToPollingFunction = pollingBlockBuilder.CreateCall(
     pollingFunction
   );
-  // cache this call to polling function
-  this->callToPollingFunction = callToPolling;
   pollingBlockBuilder.CreateCondBr(
-    callToPolling,
+    this->callToPollingFunction,
     loopHandlerBlock,
     latchBBClone
   );
-
-  /*
-   * Set the current startIter and maxIter inside the hbTask
-   */
-  this->hbTask->setCurrentIteration(IVClone);
-  this->hbTask->setMaxIteration(hbTask->getIterationsVector()[this->loopToLevel[loop] * 2 + 1]);
 
   /*
    * Call the loop_hander in the loop_handler block and compare the return code
@@ -336,39 +346,28 @@ bool HeartbeatTransformation::apply (
   // create the vector to represent arguments
   std::vector<Value *> loopHandlerParameters{ hbTask->getContextArg() };
   if (this->numLevels == 1) {
+    loopHandlerParameters.push_back(IVClone);
+    loopHandlerParameters.push_back(this->maxIteration);
     loopHandlerParameters.push_back(hbTask->getTaskBody());
-    // push the current start/max iteration
-    loopHandlerParameters.push_back(hbTask->getCurrentIteration());
-    loopHandlerParameters.push_back(hbTask->getMaxIteration());
   } else {
+    // first store the current iteration into startIterationAddress
+    this->storeCurrentIterationAtBeginningOfHandlerBlock = loopHandlerBuilder.CreateStore(
+      IVClone,
+      this->startIterationAddress
+    );
     loopHandlerParameters.push_back(loopHandlerBuilder.getInt64(this->loopToLevel[loop]));
     loopHandlerParameters.push_back(nullptr); // pointer to slice tasks, change this value later
     loopHandlerParameters.push_back(nullptr); // pointer to leftover tasks, change this value later
     loopHandlerParameters.push_back(nullptr); // pointer to leftover task selector, change this value later
-    // copy the parent loop's start/max iteration
-    for (auto i = 0; i < this->loopToLevel[loop]; i++) {
-      loopHandlerParameters.push_back(hbTask->getIterationsVector()[i * 2]);
-      loopHandlerParameters.push_back(hbTask->getIterationsVector()[i * 2 + 1]);
-    }
-    // push the current start/max iteration
-    loopHandlerParameters.push_back(hbTask->getCurrentIteration());
-    loopHandlerParameters.push_back(hbTask->getMaxIteration());
-    // supply 0 as start/max iteration for the rest of levels
-    for (auto i = this->loopToLevel[loop] + 1; i <= this->numLevels - 1; i++) {
-      loopHandlerParameters.push_back(loopHandlerBuilder.getInt64(0));
-      loopHandlerParameters.push_back(loopHandlerBuilder.getInt64(0));
-    }
   }
 
-  auto callToHandler = loopHandlerBuilder.CreateCall(
+  this->callToLoopHandler = loopHandlerBuilder.CreateCall(
     loopHandlerFunction,
     ArrayRef<Value *>({
       loopHandlerParameters
     }),
     "loop_handler_return_code"
   );
-  // cache this call to loop_handler
-  this->callToLoopHandler = callToHandler;
 
   // if (rc > 0) {
   //   break;
@@ -376,7 +375,7 @@ bool HeartbeatTransformation::apply (
   //   goto latch
   // }
   auto cmpInst = loopHandlerBuilder.CreateICmpSGT(
-    callToHandler,
+    this->callToLoopHandler,
     ConstantInt::get(loopHandlerBuilder.getInt64Ty(), 0)
   );
   auto condBr = loopHandlerBuilder.CreateCondBr(
@@ -420,7 +419,7 @@ bool HeartbeatTransformation::apply (
     hbTask->getCloneOfOriginalBasicBlock(ls->getHeader())
   );
   this->returnCodePhiInst->addIncoming(
-    callToHandler,
+    this->callToLoopHandler,
     loopHandlerBlock
   );
 
@@ -659,9 +658,8 @@ void HeartbeatTransformation::initializeLoopEnvironmentUsers() {
         (Value *)contextBitcastInst,
         ArrayRef<Value *>({
           zeroV,
-          ConstantInt::get(entryBuilder.getInt64Ty(), this->loopToLevel[this->ldi] * 8)
+          ConstantInt::get(entryBuilder.getInt64Ty(), this->loopToLevel[this->ldi] * this->valuesInCacheLine + this->liveInEnvIndex)
         }),
-        // ArrayRef<Value *>({ myLevelIndexV, cast<Value>(ConstantInt::get(int64, 0)) }),
         "liveInEnvPtr"
       );
       auto liveInEnvBitcastInst = entryBuilder.CreateBitCast(
@@ -682,7 +680,7 @@ void HeartbeatTransformation::initializeLoopEnvironmentUsers() {
         (Value *)contextBitcastInst,
         ArrayRef<Value *>({
           zeroV,
-          ConstantInt::get(entryBuilder.getInt64Ty(), this->loopToLevel[this->ldi] * 8 + 1)
+          ConstantInt::get(entryBuilder.getInt64Ty(), this->loopToLevel[this->ldi] * this->valuesInCacheLine + this->liveOutEnvIndex)
         }),
         "liveOutEnv_addr"
       );
@@ -730,6 +728,16 @@ void HeartbeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceIn
   auto envUser = (HeartbeatLoopEnvironmentUser *)this->envBuilder->getUser(taskIndex);
 
   IRBuilder<> builder{ task->getEntry() };
+
+  // Load live-in variables pointer, then load from the pointer to get the live-in variable
+  for (auto envID : envUser->getEnvIDsOfLiveInVars()) {
+    auto producer = env->getProducer(envID);
+    auto envPointer = envUser->createSingleEnvironmentVariablePointer(builder, envID, producer->getType());
+    auto metaString = std::string{ "liveIn_variable_" }.append(std::to_string(envID));
+    auto envLoad = builder.CreateLoad(producer->getType(), envPointer, metaString);
+
+    task->addLiveIn(producer, envLoad);
+  }
 
   // Cast constLiveInsPointer to its correct type
   std::string constantLiveInsGlobalName = std::string("constantLiveInsPointer_nest").append(std::to_string(this->nestID));
@@ -805,16 +813,6 @@ void HeartbeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceIn
     }
 
     task->addLiveIn(producer, constLiveInCastedInst);
-  }
-
-  // Load live-in variables pointer, then load from the pointer to get the live-in variable
-  for (auto envID : envUser->getEnvIDsOfLiveInVars()) {
-    auto producer = env->getProducer(envID);
-    auto envPointer = envUser->createSingleEnvironmentVariablePointer(builder, envID, producer->getType());
-    auto metaString = std::string{ "heartbeat_environment_variable_" }.append(std::to_string(envID));
-    auto envLoad = builder.CreateLoad(producer->getType(), envPointer, metaString);
-
-    task->addLiveIn(producer, envLoad);
   }
 
   return;
@@ -1144,17 +1142,15 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   }
 
   // allocate context
-  // TODO: the contextArrayType is defined inside the HeartbeatLoopEnvironmentBuilder,
-  // there could be an out of sync bug here
   auto contextArrayAlloca = builder.CreateAlloca(
-    ArrayType::get(PointerType::getUnqual(builder.getInt64Ty()), this->numLevels * this->valuesInCacheLine),
+    ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getContextArrayType(),
     nullptr,
     "contextArray"
   );
   contextArrayAlloca->setAlignment(Align(64));
   auto contextArrayCasted = builder.CreateBitCast(
     contextArrayAlloca,
-    builder.getInt8PtrTy(),
+    PointerType::getUnqual(builder.getInt64Ty()),
     "contextArray_casted"
   );
 
@@ -1173,7 +1169,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
     auto gepInst = builder.CreateInBoundsGEP(
       builder.getInt64Ty(),
       contextArrayAlloca,
-      ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine), ConstantInt::get(builder.getInt64Ty(), 0 /* the index for storing live-in environment */) })
+      ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), 0), ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine + this->liveInEnvIndex) })
     );
     auto gepCasted = builder.CreateBitCast(
       gepInst,
@@ -1188,7 +1184,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
     auto gepInst = builder.CreateInBoundsGEP(
       contextArrayAlloca->getType()->getPointerElementType(),
       contextArrayAlloca,
-      ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine), ConstantInt::get(builder.getInt64Ty(), 1 /* the index for storing live-out environment */) })
+      ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), 0), ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine + this->liveOutEnvIndex) })
     );
     auto gepCasted = builder.CreateBitCast(
       gepInst,
@@ -1196,12 +1192,14 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
     );
     builder.CreateStore(liveOutEnv, gepCasted);
   }
-  errs() << "original function after allocating constantLiveIns, context and environment array" << *(LDI->getLoopStructure()->getFunction()) << "\n";
+  errs() << "original function after allocating constantLiveIns, context and environment array\n" << *(LDI->getLoopStructure()->getFunction()) << "\n";
 
   // Since all the variables are coming from the function arguments
   // before calling the level-0 loops,
   // there shouldn't be necessary to liveIns at this stage
   // this->populateLiveInEnvironment(LDI);
+
+  IRBuilder<> loopEntryBuilder(this->entryPointOfParallelizedLoop);
 
   /*
    * Fetch the first value of the loop-governing IV
@@ -1212,70 +1210,44 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   auto& GIV = GIV_attr->getInductionVariable();
   auto firstIterationGoverningIVValue = GIV.getStartValue();
   errs() << "startIter: " << *firstIterationGoverningIVValue << "\n";
+  // store the startIter into context
+  loopEntryBuilder.CreateStore(
+    firstIterationGoverningIVValue,
+    loopEntryBuilder.CreateInBoundsGEP(
+      contextArrayAlloca->getType()->getPointerElementType(),
+      contextArrayAlloca,
+      ArrayRef<Value *>({
+        loopEntryBuilder.getInt64(0),
+        loopEntryBuilder.getInt64(this->startIterationIndex)
+      }),
+      "startIteration_rootLoop_addr"
+    )
+  );
 
   /*
    * Fetch the last value of the loop-governing IV
    */
   auto lastIterationGoverningIVValue = GIV_attr->getExitConditionValue();
   errs() << "maxIter: " << *lastIterationGoverningIVValue << "\n";
-  auto currentIVValue = GIV_attr->getValueToCompareAgainstExitConditionValue();
-  errs() << "IV: " << *currentIVValue << "\n";
+  // store the maxIter into context
+  loopEntryBuilder.CreateStore(
+    lastIterationGoverningIVValue,
+    loopEntryBuilder.CreateInBoundsGEP(
+      contextArrayAlloca->getType()->getPointerElementType(),
+      contextArrayAlloca,
+      ArrayRef<Value *>({
+        loopEntryBuilder.getInt64(0),
+        loopEntryBuilder.getInt64(this->maxIterationIndex)
+      }),
+      "maxIteration_rootLoop_addr"
+    )
+  );
 
-  // /*
-  //  * Call the dispatcher function that will invoke the parallelized loop.
-  //  */
-  // IRBuilder<> doallBuilder(this->entryPointOfParallelizedLoop);
-  // auto program = this->n.getProgram();
-  // auto loopDispatcherFunction = program->getFunction("loop_dispatcher");
-  // assert(loopDispatcherFunction != nullptr);
-  // auto argIter = loopDispatcherFunction->arg_begin();
-  // auto firstIterationArgument = &*(argIter++);
-  // auto lastIteratioinArgument = &*(argIter++);
-  // auto taskBody = this->tasks[0]->getTaskBody();
-  // assert(taskBody != nullptr);
-  // auto hbEnvBuilder = (HeartbeatLoopEnvironmentBuilder *)this->envBuilder;
-  // doallBuilder.CreateCall(loopDispatcherFunction, ArrayRef<Value *>({
-  //   doallBuilder.CreateZExtOrTrunc(firstIterationGoverningIVValue, firstIterationArgument->getType()),
-  //   doallBuilder.CreateZExtOrTrunc(lastIterationGoverningIVValue, lastIteratioinArgument->getType()),
-  //   singleEnvPtr,
-  //   // Hacking for now, if there's no reducible environment, which won't be alloacted,
-  //   // then use the singleEnvPtr for valid code, this pointer won't get's loaded in the
-  //   // child since there's no reducible environment variables
-  //   // 
-  //   // Potential bug: handle the live-in is empty
-  //   hbEnvBuilder->getReducibleEnvironmentSize() > 0 ? reducibleEnvPtr : singleEnvPtr,
-  //   taskBody
-  // }));
-
-  // // invoke the transformed loop slice of root throug loop_dispatcher
-  // auto loopDispatcherFunction = this->n.getProgram()->getFunction("loop_dispatcher");
-  // assert(loopDispatcherFunction != nullptr && "loop_dispatcher function not found\n");
-  // IRBuilder<> doallBuilder(this->entryPointOfParallelizedLoop);
-  // std::vector<Value *> loopDispatcherParameters;
-  // loopDispatcherParameters.push_back(this->tasks[0]->getTaskBody());
-  // loopDispatcherParameters.push_back(contextArrayCasted);
-  // if (this->containsLiveOut) {
-  //   loopDispatcherParameters.push_back(ConstantInt::get(doallBuilder.getInt64Ty(), 0));
-  // }
-  // loopDispatcherParameters.push_back(firstIterationGoverningIVValue);
-  // loopDispatcherParameters.push_back(lastIterationGoverningIVValue);
-  // doallBuilder.CreateCall(
-  //   loopDispatcherFunction,
-  //   ArrayRef<Value *>({
-  //     loopDispatcherParameters
-  //   })
-  // );
-  // errs() << "original function after invoking call to hb loop" << *(LDI->getLoopStructure()->getFunction()) << "\n";
-
-  // we no longer make the call to the loop_dispatcher function through the compiler
-  // however, we modify the source code in heartbeat.cpp to wrap the region of interest to taskparts runtime
-  IRBuilder<> doallBuilder(this->entryPointOfParallelizedLoop);
+  // invoke the root loop slice task
   std::vector<Value *> loopSliceParameters;
   loopSliceParameters.push_back(contextArrayCasted);
-  loopSliceParameters.push_back(ConstantInt::get(doallBuilder.getInt64Ty(), 0));
-  loopSliceParameters.push_back(firstIterationGoverningIVValue);
-  loopSliceParameters.push_back(lastIterationGoverningIVValue);
-  doallBuilder.CreateCall(
+  loopSliceParameters.push_back(ConstantInt::get(loopEntryBuilder.getInt64Ty(), 0));
+  loopEntryBuilder.CreateCall(
     this->tasks[0]->getTaskBody(),
     ArrayRef<Value *>({
       loopSliceParameters
@@ -1466,7 +1438,9 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
   auto callerLoop = this->loopToCallerLoop[LDI];
   errs() << "caller function is " << callerLoop->getLoopStructure()->getFunction()->getName() << "\n";
 
-  auto callerHBTask = this->loopToHeartbeatTransformation[callerLoop]->getHeartbeatTask();
+  auto callerHBTransformation = this->loopToHeartbeatTransformation[callerLoop];
+  assert(callerHBTransformation != nullptr && "callerHBTransformation hasn't been generated\n");
+  auto callerHBTask = callerHBTransformation->getHeartbeatTask();
   assert(callerHBTask != nullptr && "callerHBTask hasn't been generated\n");
 
   // 2) find the call instruction inside the hbTask
@@ -1502,9 +1476,8 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
       this->loopToHeartbeatTransformation[callerLoop]->getContextBitCastInst(),
       ArrayRef<Value *>({
         zeroV,
-        ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine)
+        ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine + callerHBTransformation->liveInEnvIndex)
       })
-      // ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine), ConstantInt::get(builder.getInt64Ty(), 0 /* the index for storing live-in environment */) })
     );
     auto gepCasted = builder.CreateBitCast(
       gepInst,
@@ -1521,9 +1494,8 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
       this->loopToHeartbeatTransformation[callerLoop]->getContextBitCastInst(),
       ArrayRef<Value *>({
         zeroV,
-        ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine + 1)
+        ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine + callerHBTransformation->liveOutEnvIndex)
       })
-      // ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine), ConstantInt::get(builder.getInt64Ty(), 1 /* the index for storing live-out environment */) })
     );
     auto gepCasted = builder.CreateBitCast(
       gepInst,
@@ -1577,42 +1549,21 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
     auto liveInIndex = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getIndexOLiveIn(liveInID);
     errs() << "liveInIndex: " << liveInIndex << "\n";
 
-    // gep in the liveInEnvArray
-    auto gepInst = liveInEnvBuilder.CreateInBoundsGEP(
-      liveInEnvArray->getType()->getPointerElementType(),
-      liveInEnvArray,
-      ArrayRef<Value *>({
-        liveInEnvBuilder.getInt64(0),
-        liveInEnvBuilder.getInt64(liveInIndex),
-      })
-    );
-    liveInEnvBuilder.CreateStore(callerParameterClone, gepInst);
+    liveInEnvBuilder.CreateStore(callerParameterClone, ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getLocationOfSingleVariable(liveInIndex));
   }
-  errs() << "callerTask after storing live-in variables" << *callerHBTask->getTaskBody() << "\n";
+  errs() << "callerTask after storing live-in variables\n" << *callerHBTask->getTaskBody() << "\n";
 
-  // okay, preparing the environment is done, now replace the call to original code in the caller hbTask
-  // to the callee's hbTask
-  // first thing: figuring out the global iteration state that needs to be passed
-  std::vector<Value *> parametersVec;
-  // 1) the context void pointer
-  parametersVec.push_back(callerHBTask->getContextArg());
-  // 2) myIndex
-  parametersVec.push_back(liveInEnvBuilder.getInt64(0));
-  // push the global iterations state from 0 to myLevel - 2
-  auto iterationsVect = this->hbTask->getIterationsVector();
-  for (int64_t i = 0; i < (int64_t)this->hbTask->getLevel() - 2; i++) {
-    parametersVec.push_back(iterationsVect[i * 2]);     // startIter
-    parametersVec.push_back(iterationsVect[i * 2 + 1]); // maxIter
-  }
-  // 3) push the start/max iteration of the current loop
-  parametersVec.push_back(callerHBTask->getCurrentIteration());
-  parametersVec.push_back(callerHBTask->getMaxIteration());
+  // store caller's current iteration into context before calling the nested loop
+  liveInEnvBuilder.CreateStore(
+    callerHBTransformation->currentIteration,
+    callerHBTransformation->startIterationAddress
+  );
 
-  // 4) till the final step to set the startIteration and maxIteration
-  //    for the nested loop
+  // set set the startIteration and maxIteration for the nested loop
   // algorithm, inspect the original callee function and check start/max iteration,
   // if is a constantInt, use the constant int
   // else must be a function argument (the assumption is start/max iteration can be simply retrieved and not formed in any complex computation)
+  // startIteration
   auto GIV_attr = LDI->getLoopGoverningIVAttribution();
   assert(GIV_attr != nullptr);
   assert(GIV_attr->isSCCContainingIVWellFormed());
@@ -1620,24 +1571,64 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
   assert(isa<PHINode>(IV) && "the induction variable isn't a phi node\n");
   errs() << "IV: " << *IV << "\n";
   auto startIterationValue = cast<PHINode>(IV)->getIncomingValue(0);
+  errs() << "startIteration: " << *startIterationValue << "\n";
   assert(isa<ConstantInt>(startIterationValue) || isa<Argument>(startIterationValue) && "the startIteration value in the callee hbTask isn't either a constant or function argument");
+  auto startIterationNextLevelAddress = liveInEnvBuilder.CreateInBoundsGEP(
+    ((HeartbeatLoopEnvironmentBuilder *)callerHBTransformation->envBuilder)->getContextArrayType(),
+    callerHBTransformation->contextBitcastInst,
+    ArrayRef<Value *>({
+      liveInEnvBuilder.getInt64(0),
+      liveInEnvBuilder.getInt64((callerHBTask->getLevel() + 1) * this->valuesInCacheLine + callerHBTransformation->startIterationIndex)
+    }),
+    "startIteration_nextLevel_addr"
+  );
   if (isa<ConstantInt>(startIterationValue)) {
-    parametersVec.push_back(ConstantInt::get(startIterationValue->getType(), cast<ConstantInt>(startIterationValue)->getSExtValue()));
+    liveInEnvBuilder.CreateStore(
+      ConstantInt::get(startIterationValue->getType(), cast<ConstantInt>(startIterationValue)->getSExtValue()),
+      startIterationNextLevelAddress
+    );
   } else {  // it's an argument
     // algorithm, we know the start iteration is passed through function argument
     auto arg_index = cast<Argument>(startIterationValue)->getArgNo();
-    parametersVec.push_back(callToLoopInCallerInst->getArgOperand(arg_index));
+    liveInEnvBuilder.CreateStore(
+      callToLoopInCallerInst->getArgOperand(arg_index),
+      startIterationNextLevelAddress
+    );
   }
+
+  // maxIteration
   auto maxIterationValue = GIV_attr->getExitConditionValue();
   errs() << "maxIteration: " << *maxIterationValue << "\n";
   assert(isa<ConstantInt>(maxIterationValue) || isa<Argument>(maxIterationValue) && "the maxIteration value in the callee hbTask isn't either a constant or function argument");
+  auto maxIterationNextLevelAddress = liveInEnvBuilder.CreateInBoundsGEP(
+    ((HeartbeatLoopEnvironmentBuilder *)callerHBTransformation->envBuilder)->getContextArrayType(),
+    callerHBTransformation->contextBitcastInst,
+    ArrayRef<Value *>({
+      liveInEnvBuilder.getInt64(0),
+      liveInEnvBuilder.getInt64((callerHBTask->getLevel() + 1) * this->valuesInCacheLine + callerHBTransformation->maxIterationIndex)
+    }),
+    "maxIteration_nextLevel_addr"
+  );
   if (isa<ConstantInt>(maxIterationValue)) {
-    parametersVec.push_back(ConstantInt::get(maxIterationValue->getType(), cast<ConstantInt>(maxIterationValue)->getSExtValue()));
+    liveInEnvBuilder.CreateStore(
+      ConstantInt::get(maxIterationValue->getType(), cast<ConstantInt>(maxIterationValue)->getSExtValue()),
+      startIterationNextLevelAddress
+    );
   } else {
     auto arg_index = cast<Argument>(maxIterationValue)->getArgNo();
-    parametersVec.push_back(callToLoopInCallerInst->getArgOperand(arg_index));
+    liveInEnvBuilder.CreateStore(
+      callToLoopInCallerInst->getArgOperand(arg_index),
+      maxIterationNextLevelAddress
+    );
   }
 
+  // okay, preparing the environment is done, now replace the call to original code in the caller hbTask
+  // to the callee's hbTask
+  std::vector<Value *> parametersVec;
+  // 1) the context uint64_t pointer
+  parametersVec.push_back(callerHBTask->getContextArg());
+  // 2) myIndex
+  parametersVec.push_back(liveInEnvBuilder.getInt64(0));
   auto calleeHBTaskCallInst = liveInEnvBuilder.CreateCall(
     this->hbTask->getTaskBody(),
     ArrayRef<Value *>({
@@ -1665,6 +1656,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
   callToLoopInCallerInst->eraseFromParent();
 
   errs() << "callerTask after calling calleeHBTask\n" << *callerHBTask->getTaskBody() << "\n";
+
 
   // 04/06 by Yian
   // No longer need the concept of modifying exit condition because

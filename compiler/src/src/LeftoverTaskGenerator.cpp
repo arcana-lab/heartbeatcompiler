@@ -13,9 +13,8 @@ void Heartbeat::createLeftoverTasks(
 
   // leftover task type
   std::vector<Type *> leftoverTaskTypes{ 
-    tm->getVoidPointerType(),   // void *cxt
-    tm->getIntegerType(64),     // uint64_t myIndex
-    tm->getVoidPointerType()    // void *itersArr
+    PointerType::getUnqual(tm->getIntegerType(64)),   // uint64_t *cxt
+    tm->getIntegerType(64),                           // uint64_t myIndex
   };
 
   for (auto receivingLoop : heartbeatLoops) {
@@ -54,17 +53,13 @@ void Heartbeat::createLeftoverTasks(
       auto leftoverTask = cast<Function>(leftoverTaskCallee.getCallee());
       this->leftoverTasks.push_back(leftoverTask);
 
-      // create entry block and cast the iterationsArray to the correct type
+      // create entry block and cast the cxts to the correct type
       auto entryBlock = BasicBlock::Create(cxt, "entry", leftoverTask);
       IRBuilder<> entryBlockBuilder{ entryBlock };
-      auto iterationsArrayArgIndex = 2;
-      auto iterationsArray = entryBlockBuilder.CreateBitCast(
-        cast<Value>(&*(leftoverTask->arg_begin() + iterationsArrayArgIndex)),
-        PointerType::getUnqual(ArrayType::get(
-          entryBlockBuilder.getInt64Ty(),
-          (receivingLevel + 1) * 2  /* every level contains startIteration and maxIteration */
-        )),
-        "iterationsArray"
+      auto contextArrayCasted = entryBlockBuilder.CreateBitCast(
+        cast<Value>(&*(leftoverTask->arg_begin())),
+        PointerType::getUnqual(this->loopToHeartbeatTransformation[receivingLoop]->getEnvBuilder()->getContextArrayType()),
+        "contextArray"
       );
 
       // create exit block and return void
@@ -73,52 +68,13 @@ void Heartbeat::createLeftoverTasks(
       exitBlockBuilder.CreateRet(
         nullptr
       );
-      errs() << "leftover task created" << *leftoverTask << "\n";
+      errs() << "leftover task created\n" << *leftoverTask << "\n";
 
-      // map from level to start/max iteration
-      std::unordered_map<uint64_t, Value *> levelToStartIteration;
-      std::unordered_map<uint64_t, Value *> levelToMaxIteration;
+      // map from level invoking block
       std::unordered_map<uint64_t, BasicBlock *> levelToInvokingBlock;
 
-      // iterating from splittingLevel to receivingLevel to collect start/max iteration
+      // iterating from splittingLevel to receivingLevel to create a block to invoke the loop slice
       for (uint64_t level = receivingLevel; level >= splittingLevel && level <= receivingLevel; level--) {
-        auto int64Ty = entryBlockBuilder.getInt64Ty();
-
-        // load startIteration from the iterationsArray
-        auto startIterationGEPInst = entryBlockBuilder.CreateInBoundsGEP(
-          iterationsArray->getType()->getPointerElementType(),
-          iterationsArray,
-          ArrayRef<Value *>({
-            entryBlockBuilder.getInt64(0),
-            entryBlockBuilder.getInt64(level * 2),  // index of startIteration
-          })
-        );
-        auto startIteration = entryBlockBuilder.CreateLoad(
-          int64Ty,
-          startIterationGEPInst,
-          std::string("startIteration_").append(std::to_string(level))
-        );
-
-        // load maxIteration from the iterationsArray
-        auto maxIterationGEPInst = entryBlockBuilder.CreateInBoundsGEP(
-          iterationsArray->getType()->getPointerElementType(),
-          iterationsArray,
-          ArrayRef<Value *>({
-            entryBlockBuilder.getInt64(0),
-            entryBlockBuilder.getInt64(level * 2 + 1),  // index of maxIteration
-          })
-        );
-        auto maxIteration = entryBlockBuilder.CreateLoad(
-          int64Ty,
-          maxIterationGEPInst,
-          std::string("maxIteration_").append(std::to_string(level))
-        );
-
-        // register start/max iteration to the level of loop
-        levelToStartIteration[level] = startIteration;
-        levelToMaxIteration[level] = maxIteration;
-
-        // create a block to invoke the loop slice corresponding to level
         auto invokingBlock = BasicBlock::Create(cxt, std::string("loop_").append(std::to_string(level)), leftoverTask);
         IRBuilder<> invokingBlockBuilder{ invokingBlock };
 
@@ -135,7 +91,7 @@ void Heartbeat::createLeftoverTasks(
       entryBlockBuilder.CreateBr(levelToInvokingBlock[receivingLevel]);
 
       // iterating from receivingLevel to splittingLevel to invoke the loop slice
-      // here use two constraints since we're using uint64_t
+      // here use two constraints in the for loop since we're using uint64_t
       for (uint64_t level = receivingLevel; level >= splittingLevel && level <= receivingLevel; level--) {
         auto invokingBlock = levelToInvokingBlock[level];
         auto invokingBlockTerminator = invokingBlock->getTerminator();
@@ -143,38 +99,41 @@ void Heartbeat::createLeftoverTasks(
 
         // find the slice task at the corresponding level
         auto loop = this->levelToLoop[level];
-        auto hbTask = this->loopToHeartbeatTransformation[loop]->getHeartbeatTask();
+        auto hbTransformation = this->loopToHeartbeatTransformation[loop];
+        assert(hbTransformation != nullptr && "No Heartbeat transformation found for this loop\n");
+        auto hbTask = hbTransformation->getHeartbeatTask();
         assert(hbTask != nullptr && "No Heartbeat task found for this loop\n");
 
         // create the call to the heartbeat loop
         std::vector<Value *> loopSliceParameters{ 
-          &*(leftoverTask->arg_begin()),  // void *cxts
+          &*(leftoverTask->arg_begin()),  // uint64_t *cxts
           &*(leftoverTask->arg_begin()+1) // myIndex
         };
-        // put 0 as start/max iteration starting from level [0 to splittingLevel)
-        for (auto i = 0; i < splittingLevel; i++) {
-          loopSliceParameters.push_back(invokingBlockBuilder.getInt64(0));
-          loopSliceParameters.push_back(invokingBlockBuilder.getInt64(0));
-        }
-        // use the start/max iteration previous generated starting from [splittingLevel to receivingLevel - 1]
-        for (auto i = splittingLevel; i < level; i++) {
-          loopSliceParameters.push_back(levelToStartIteration[i]);
-          loopSliceParameters.push_back(levelToMaxIteration[i]);
-        }
-        if (level == receivingLevel) {
-          // use our own start/max iterations
-          loopSliceParameters.push_back(levelToStartIteration[level]);
-          loopSliceParameters.push_back(levelToMaxIteration[level]);
-        } else {
-          // use startIter + 1
-          loopSliceParameters.push_back(
-            invokingBlockBuilder.CreateAdd(
-              levelToStartIteration[level],
-              invokingBlockBuilder.getInt64(1),
-              std::string("startIteration_").append(std::to_string(level)).append("_plus_one")
-            )
+        if (level != receivingLevel) {
+          // store startIter + 1
+          auto startIterAddr = invokingBlockBuilder.CreateInBoundsGEP(
+            hbTransformation->getEnvBuilder()->getContextArrayType(),
+            contextArrayCasted,
+            ArrayRef<Value *>({
+              invokingBlockBuilder.getInt64(0),
+              invokingBlockBuilder.getInt64(this->loopToLevel[loop] * hbTransformation->valuesInCacheLine + hbTransformation->startIterationIndex)
+            }),
+            std::string("startIteration_").append(std::to_string(level)).append("_addr")
           );
-          loopSliceParameters.push_back(levelToMaxIteration[level]);
+          auto startIter = invokingBlockBuilder.CreateLoad(
+            invokingBlockBuilder.getInt64Ty(),
+            startIterAddr,
+            std::string("startIteration_").append(std::to_string(level))
+          );
+          auto startIterPlusOne = invokingBlockBuilder.CreateAdd(
+            startIter,
+            invokingBlockBuilder.getInt64(1),
+            std::string("startIteration_").append(std::to_string(level)).append("_plusone")
+          );
+          invokingBlockBuilder.CreateStore(
+            startIterPlusOne,
+            startIterAddr
+          );
         }
         auto sliceTaskCallInst = invokingBlockBuilder.CreateCall(
           hbTask->getTaskBody(),
@@ -265,7 +224,7 @@ void Heartbeat::createLeftoverTasks(
     // that the loop nest we're considering have at least level 3
     // need to differentiate them
   }
-  errs() << "leftover task index selector created" << *leftoverTaskIndexSelector << "\n";
+  errs() << "leftover task index selector created\n" << *leftoverTaskIndexSelector << "\n";
 
   return;
 }

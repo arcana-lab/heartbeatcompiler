@@ -39,15 +39,12 @@ class HeartbeatTransformation : public DOALL {
       uint64_t nestID,
       LoopDependenceInfo *ldi,
       uint64_t numLevels,
-      bool containsLiveOut,
       std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel,
       std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns,
       std::unordered_map<int, int> &constantLiveInsArgIndexToIndex,
       std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns,
       std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> &loopToHeartbeatTransformation,
-      std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop,
-      bool chunkLoopIterations,
-      std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToChunksize
+      std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop
     );
 
     bool apply (
@@ -58,6 +55,10 @@ class HeartbeatTransformation : public DOALL {
     inline HeartbeatTask *getHeartbeatTask() {
       assert(this->hbTask != nullptr && "hbTask hasn't been created yet\n");
       return this->hbTask;
+    }
+
+    inline HeartbeatLoopEnvironmentBuilder *getEnvBuilder() {
+      return (HeartbeatLoopEnvironmentBuilder *)this->envBuilder;
     }
 
     inline Value * getContextBitCastInst() {
@@ -89,12 +90,15 @@ class HeartbeatTransformation : public DOALL {
     uint64_t nestID;
     LoopDependenceInfo *ldi;
     uint64_t numLevels;
-    bool containsLiveOut;
     std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel;
     std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns;
     std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns;
     std::unordered_map<int, int> &constantLiveInsArgIndexToIndex;
     uint64_t valuesInCacheLine;
+    uint64_t startIterationIndex = 0;
+    uint64_t maxIterationIndex = 1;
+    uint64_t liveInEnvIndex = 2;
+    uint64_t liveOutEnvIndex = 3;
 
     /*
      * Helpers
@@ -129,11 +133,16 @@ class HeartbeatTransformation : public DOALL {
     HeartbeatTask *hbTask;
     std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> &loopToHeartbeatTransformation;
     std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop;
-    bool chunkLoopIterations;
-    std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToChunksize;
+
     Value *contextBitcastInst;
+    Value *startIterationAddress;
+    Value *startIteration;
+    PHINode *currentIteration;
+    Value *maxIterationAddress;
+    Value *maxIteration;
     BasicBlock *pollingBlock;
     CallInst *callToPollingFunction;
     BasicBlock *loopHandlerBlock;
+    StoreInst *storeCurrentIterationAtBeginningOfHandlerBlock;
     CallInst *callToLoopHandler;
 };
