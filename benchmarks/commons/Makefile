@@ -252,8 +252,10 @@ endif
 # macros need to enable taskparts runtime
 MACROS_HEARTBEAT += \
 	-DTASKPARTS_TPALRTS \
-	-DTASKPARTS_STATS \
 	-DTASKPARTS_USE_CHASELEV_DEQUE
+ifeq ($(STATS), true)
+	MACROS_HEARTBEAT += -DTASKPARTS_STATS
+endif
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	ifeq ($(USE_HB_KMOD), true)
 		MACROS_HEARTBEAT += \
