@@ -2,6 +2,7 @@
 #include "HeartbeatTransformation.hpp"
 #include "noelle/core/BinaryReductionSCC.hpp"
 #include "noelle/core/Architecture.hpp"
+#include "llvm/IR/Intrinsics.h"
 
 using namespace llvm;
 using namespace llvm::noelle;
@@ -332,8 +333,19 @@ bool HeartbeatTransformation::apply (
   this->callToPollingFunction = pollingBlockBuilder.CreateCall(
     pollingFunction
   );
+  // invoke llvm.expect.i1 function
+  auto llvmExpectFunction = Intrinsic::getDeclaration(program, Intrinsic::expect, ArrayRef<Type *>({ pollingBlockBuilder.getInt1Ty() }));
+  assert(llvmExpectFunction != nullptr);
+  errs() << "llvm.expect function\n" << *llvmExpectFunction << "\n";
+  auto llvmExpectCall = pollingBlockBuilder.CreateCall(
+    llvmExpectFunction,
+    ArrayRef<Value *>({
+      callToPollingFunction,
+      pollingBlockBuilder.getInt1(0)
+    })
+  );
   pollingBlockBuilder.CreateCondBr(
-    this->callToPollingFunction,
+    llvmExpectCall,
     loopHandlerBlock,
     latchBBClone
   );
