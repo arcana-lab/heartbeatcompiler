@@ -10,7 +10,9 @@
 #include "utility.hpp"
 #include <functional>
 #endif
+#if defined(SPMV_MATRIX_MARKET)
 #include <mm/mm.hpp> // matrix market loader: https://github.com/cwpearson/matrix-market
+#endif
 
 namespace spmv {
 

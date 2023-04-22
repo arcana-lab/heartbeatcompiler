@@ -29,5 +29,14 @@ int main() {
     result = plus_reduce_array_hb_compiler(a, 0, nb_items);
 #endif
 
+#if defined(TEST_CORRECTNESS)
+    test_correctness();
+#endif
+  }, [&] {
+    setup();
+  }, [&] {
+    finishup();
+  });
+
   return 0;
 }
