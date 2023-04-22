@@ -34,7 +34,8 @@ bool Heartbeat::runOnModule (Module &M) {
     errs() << this->outputPrefix << selectedLoop->getLoopStructure()->getFunction()->getName() << "\n";
   }
 
-  // create polling function and loop_handler function
+  // create heartbeat_reset, polling function and loop_handler function
+  createHBResetFunction(noelle);
   createPollingFunction(noelle);
   createLoopHandlerFunction(noelle);
   if (Enable_Rollforward) {
@@ -186,6 +187,7 @@ bool Heartbeat::runOnModule (Module &M) {
 
     if (Enable_Rollforward) {
       replaceWithRollforwardHandler(noelle);
+      eraseHBResetCall();
     }
   }
 
@@ -217,6 +219,13 @@ void Heartbeat::reset() {
   this->leftoverTaskIndexSelector = nullptr;
 
   this->loopToChunksize.clear();
+}
+
+void Heartbeat::eraseHBResetCall() {
+  auto rootTransformation = this->loopToHeartbeatTransformation[rootLoop];
+  assert(rootTransformation->getCallToHBResetFunction() != nullptr);
+  errs() << "Heartbeat::eraseHBResetCall(): erase the call to heartbeat_reset in the original root loop\n";
+  rootTransformation->eraseCallToHBResetFunction();
 }
 
 void Heartbeat::replaceWithRollforwardHandler(Noelle &noelle) {

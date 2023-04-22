@@ -58,6 +58,9 @@ void HEARTBEAT_nest0_loop0(int *dist, int vertices, int via) {
     cxts[LEVEL_ZERO * CACHELINE + START_ITER] = (uint64_t)0;
     cxts[LEVEL_ZERO * CACHELINE + MAX_ITER] = (uint64_t)vertices;
 
+    // reset the heartbeat counter
+    heartbeat_reset();
+
     // invoke loop0 in heartbeat form
     HEARTBEAT_nest0_loop0_slice(cxts, 0);
 

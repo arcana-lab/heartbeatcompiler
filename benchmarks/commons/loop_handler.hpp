@@ -12,6 +12,8 @@ void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
                std::function<void()> const &bench_end);
 
+void heartbeat_reset();
+
 bool heartbeat_polling();
 
 int64_t loop_handler(

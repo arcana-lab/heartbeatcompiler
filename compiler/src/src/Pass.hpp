@@ -45,6 +45,7 @@ class Heartbeat : public ModulePass {
     StringRef outputPrefix;
     StringRef functionSubString;
 
+    void createHBResetFunction(Noelle &noelle);
     void createPollingFunction(Noelle &noelle);
     void createLoopHandlerFunction(Noelle &noelle);
     void createRFHandlerFunction(Noelle &noelle);
@@ -223,5 +224,6 @@ class Heartbeat : public ModulePass {
      * Replace call to rollforward_handler if Enable_Rollforward is specified
      */
     void replaceWithRollforwardHandler(Noelle &noelle);
+    void eraseHBResetCall();
 
 };

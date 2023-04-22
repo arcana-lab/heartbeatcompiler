@@ -65,6 +65,14 @@ class HeartbeatTransformation : public DOALL {
       return this->contextBitcastInst;
     }
 
+    inline CallInst * getCallToHBResetFunction() {
+      return this->callToHBResetFunction;
+    }
+
+    inline void eraseCallToHBResetFunction() {
+      this->callToHBResetFunction->eraseFromParent();
+    }
+
     inline BasicBlock * getPollingBlock() {
       return this->pollingBlock;
     }
@@ -140,6 +148,7 @@ class HeartbeatTransformation : public DOALL {
     PHINode *currentIteration;
     Value *maxIterationAddress;
     Value *maxIteration;
+    CallInst *callToHBResetFunction;
     BasicBlock *pollingBlock;
     CallInst *callToPollingFunction;
     BasicBlock *loopHandlerBlock;

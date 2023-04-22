@@ -41,16 +41,20 @@ void run_bench(std::function<void()> const &bench_body,
 #endif
 }
 
+__attribute__((always_inline))
+void heartbeat_reset() {
+#if !defined(ENABLE_ROLLFORWARD)
+  taskparts::prev.mine() = taskparts::cycles::now();
+#endif
+}
+
 bool heartbeat_polling() {
 #if defined(STATS)
   polls++;
 #endif
-  auto &p = taskparts::prev.mine();
-  auto n = taskparts::cycles::now();
-  if ((p + taskparts::kappa_cycles) > n) {
+  if ((taskparts::prev.mine() + taskparts::kappa_cycles) > taskparts::cycles::now()) {
     return false;
   }
-  p = n;
 #if defined(STATS)
   heartbeats++;
 #endif
@@ -124,8 +128,10 @@ int64_t loop_handler(
     cxts[receivingLevel * CACHELINE + START_ITER]++;
 
     taskparts::tpalrts_promote_via_nativefj([&] {
+      heartbeat_reset();
       slice_tasks[receivingLevel](cxts, 0);
     }, [&] {
+      heartbeat_reset();
       slice_tasks[receivingLevel](cxtsSecond, 1);
     }, [] { }, taskparts::bench_scheduler());
   
@@ -143,8 +149,10 @@ int64_t loop_handler(
      */
     uint64_t leftoverTaskIndex = leftover_selector(receivingLevel, splittingLevel);
     taskparts::tpalrts_promote_via_nativefj([&] {
+      heartbeat_reset();
       (*leftover_tasks[leftoverTaskIndex])(cxts, 0);
     }, [&] {
+      heartbeat_reset();
       slice_tasks[splittingLevel](cxtsSecond, 1);
     }, [&] { }, taskparts::bench_scheduler());
   }

@@ -1,6 +1,21 @@
 #include "Pass.hpp"
 
 /*
+ * heartbeat_reset
+ */
+void Heartbeat::createHBResetFunction(Noelle &noelle) {
+  auto tm = noelle.getTypesManager();
+
+  FunctionType *funcType = FunctionType::get(tm->getVoidType(), false);
+  Function::Create(
+    funcType,
+    GlobalValue::ExternalLinkage,
+    "heartbeat_reset",
+    *noelle.getProgram()
+  );
+}
+
+/*
  * heartbeat_polling
  */
 void Heartbeat::createPollingFunction(Noelle &noelle) {

@@ -1249,6 +1249,14 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
     )
   );
 
+  /*
+   * Invoke the heartbeat_reset function
+   */
+  auto hbResetFunction = this->noelle.getProgram()->getFunction("heartbeat_reset");
+  assert(hbResetFunction != nullptr);
+  errs() << "heartbeat_reset function " << *hbResetFunction << "\n";
+  this->callToHBResetFunction = loopEntryBuilder.CreateCall(hbResetFunction);
+
   // invoke the root loop slice task
   std::vector<Value *> loopSliceParameters;
   loopSliceParameters.push_back(contextArrayCasted);
