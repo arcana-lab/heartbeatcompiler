@@ -7,7 +7,7 @@ void Heartbeat::createPollingFunction(Noelle &noelle) {
   auto tm = noelle.getTypesManager();
 
   FunctionType *funcType = FunctionType::get(tm->getIntegerType(1), false);
-  this->pollingFunction = Function::Create(
+  Function::Create(
     funcType,
     GlobalValue::ExternalLinkage,
     "heartbeat_polling",
@@ -59,7 +59,7 @@ void Heartbeat::createLoopHandlerFunction(Noelle &noelle) {
   args.push_back(PointerType::getUnqual(leftoverSelectorType));
 
   FunctionType *funcType = FunctionType::get(tm->getIntegerType(64), args, false);
-  this->loopHandlerFunction = Function::Create(
+  Function::Create(
     funcType,
     GlobalValue::ExternalLinkage,
     "loop_handler",
@@ -112,7 +112,7 @@ void Heartbeat::createRFHandlerFunction(Noelle &noelle) {
   args.push_back(PointerType::getUnqual(leftoverSelectorType));
 
   FunctionType *funcType = FunctionType::get(tm->getVoidType(), args, false);
-  this->rfHandlerFunction = Function::Create(
+  Function::Create(
     funcType,
     GlobalValue::ExternalLinkage,
     "__rf_handle_wrapper",

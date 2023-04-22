@@ -37,6 +37,9 @@ bool Heartbeat::runOnModule (Module &M) {
   // create polling function and loop_handler function
   createPollingFunction(noelle);
   createLoopHandlerFunction(noelle);
+  if (Enable_Rollforward) {
+    createRFHandlerFunction(noelle);
+  }
 
   /*
    * Determine the loop nest and all loops in that nest
@@ -182,7 +185,6 @@ bool Heartbeat::runOnModule (Module &M) {
     }
 
     if (Enable_Rollforward) {
-      createRFHandlerFunction(noelle);
       replaceWithRollforwardHandler(noelle);
     }
   }

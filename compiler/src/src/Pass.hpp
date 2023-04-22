@@ -44,9 +44,6 @@ class Heartbeat : public ModulePass {
   private:
     StringRef outputPrefix;
     StringRef functionSubString;
-    Function *pollingFunction;
-    Function *loopHandlerFunction;
-    Function *rfHandlerFunction;
 
     void createPollingFunction(Noelle &noelle);
     void createLoopHandlerFunction(Noelle &noelle);
