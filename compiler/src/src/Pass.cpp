@@ -160,6 +160,25 @@ bool Heartbeat::runOnModule (Module &M) {
         callInst->setArgOperand(4, this->leftoverTaskIndexSelector);
         errs() << "updated loop_handler function in loop level " << this->loopToLevel[pair.first] << "\n" << *callInst << "\n";
       }
+    } else {
+      // only need to replace the sliceTasks pointer in the loop_handler call
+      assert(this->numLevels == 1);
+      createSliceTasks(noelle, nestID);
+
+      auto callInst = loopToHeartbeatTransformation[this->rootLoop]->getCallToLoopHandler();
+      IRBuilder<> builder{ callInst };
+      auto sliceTasksGlobal = noelle.getProgram()->getNamedGlobal(std::string("sliceTasks_nest").append(std::to_string(nestID)));
+      auto sliceTasksGEP = builder.CreateInBoundsGEP(
+        sliceTasksGlobal->getType()->getPointerElementType(),
+        sliceTasksGlobal,
+        ArrayRef<Value *>({
+          builder.getInt64(0),
+          builder.getInt64(0),
+        })
+      );
+      callInst->setArgOperand(2, sliceTasksGEP);
+
+      errs() << "updated loop_handler function in root loop\n" << *callInst << "\n";
     }
 
     if (Enable_Rollforward) {

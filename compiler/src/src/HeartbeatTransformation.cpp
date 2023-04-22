@@ -357,21 +357,15 @@ bool HeartbeatTransformation::apply (
   IRBuilder<> loopHandlerBuilder{ loopHandlerBlock };
   // create the vector to represent arguments
   std::vector<Value *> loopHandlerParameters{ hbTask->getContextArg() };
-  if (this->numLevels == 1) {
-    loopHandlerParameters.push_back(IVClone);
-    loopHandlerParameters.push_back(this->maxIteration);
-    loopHandlerParameters.push_back(hbTask->getTaskBody());
-  } else {
-    // first store the current iteration into startIterationAddress
-    this->storeCurrentIterationAtBeginningOfHandlerBlock = loopHandlerBuilder.CreateStore(
-      IVClone,
-      this->startIterationAddress
-    );
-    loopHandlerParameters.push_back(loopHandlerBuilder.getInt64(this->loopToLevel[loop]));
-    loopHandlerParameters.push_back(nullptr); // pointer to slice tasks, change this value later
-    loopHandlerParameters.push_back(nullptr); // pointer to leftover tasks, change this value later
-    loopHandlerParameters.push_back(nullptr); // pointer to leftover task selector, change this value later
-  }
+  // first store the current iteration into startIterationAddress
+  this->storeCurrentIterationAtBeginningOfHandlerBlock = loopHandlerBuilder.CreateStore(
+    IVClone,
+    this->startIterationAddress
+  );
+  loopHandlerParameters.push_back(loopHandlerBuilder.getInt64(this->loopToLevel[loop]));
+  loopHandlerParameters.push_back(Constant::getNullValue(loopHandlerFunction->getArg(2)->getType())); // pointer to slice tasks, change this value later
+  loopHandlerParameters.push_back(Constant::getNullValue(loopHandlerFunction->getArg(3)->getType())); // pointer to leftover tasks, change this value later
+  loopHandlerParameters.push_back(Constant::getNullValue(loopHandlerFunction->getArg(4)->getType())); // pointer to leftover task selector, change this value later
 
   this->callToLoopHandler = loopHandlerBuilder.CreateCall(
     loopHandlerFunction,
