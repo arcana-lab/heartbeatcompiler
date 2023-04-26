@@ -61,6 +61,15 @@ bool heartbeat_polling() {
   return true;
 }
 
+#if defined(DEBUG)
+void printGIS(uint64_t *cxts, uint64_t startLevel, uint64_t maxLevel) {
+  assert(startLevel <= maxLevel && startLevel >=0 && maxLevel >=0);
+  for (uint64_t level = startLevel; level <= maxLevel; level++) {
+    printf("level: %ld, [%ld, %ld)\n", level, cxts[level * CACHELINE + START_ITER], cxts[level * CACHELINE + MAX_ITER]);
+  }
+}
+#endif
+
 #ifndef SMALLEST_GRANULARITY
   #error "Macro SMALLEST_GRANULARITY undefined"
 #endif
@@ -87,7 +96,7 @@ int64_t loop_handler(
    */
   uint64_t splittingLevel = receivingLevel + 1;
   for (uint64_t level = 0; level <= receivingLevel; level++) {
-    if (cxts[level * CACHELINE + MAX_ITER] - cxts[level * CACHELINE + START_ITER] >= (SMALLEST_GRANULARITY + 1)) {
+    if (cxts[level * CACHELINE + MAX_ITER] - cxts[level * CACHELINE + START_ITER] >= SMALLEST_GRANULARITY) {
       splittingLevel = level;
       break;
     }
@@ -115,6 +124,9 @@ int64_t loop_handler(
   cxtsSecond[splittingLevel * CACHELINE + MAX_ITER]     = cxts[splittingLevel * CACHELINE + MAX_ITER];
   cxtsSecond[splittingLevel * CACHELINE + LIVE_IN_ENV]  = cxts[splittingLevel * CACHELINE + LIVE_IN_ENV];
   cxtsSecond[splittingLevel * CACHELINE + LIVE_OUT_ENV] = cxts[splittingLevel * CACHELINE + LIVE_OUT_ENV];
+  for (auto level = 0; level < splittingLevel; level++) {
+    cxtsSecond[level * CACHELINE + START_ITER] = cxtsSecond[level * CACHELINE + MAX_ITER] = 0;
+  }
 
   /*
    * Set the maxIteration for the first task
