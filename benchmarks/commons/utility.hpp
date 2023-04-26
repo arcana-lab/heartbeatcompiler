@@ -92,7 +92,7 @@ std::string benchmark_name = "";
 
   printf("\"input_size\": ");
 #if defined(INPUT_BENCHMARKING)
-  printf("\"benchmaring\",\n");
+  printf("\"benchmarking\",\n");
 #elif defined(INPUT_TPAL)
   printf("\"tpal\",\n");
 #elif defined(INPUT_TESTING)
