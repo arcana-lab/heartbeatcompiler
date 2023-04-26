@@ -125,7 +125,7 @@ int64_t HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t myIndex) {
     if (unlikely(heartbeat_polling())) {
       cxts[LEVEL_ZERO * CACHELINE + START_ITER] = low - 1;
       rc = loop_handler(
-        cxts, LEVEL_ZERO,
+        cxts, LEVEL_ZERO, NUM_LEVELS_NEST0,
         slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
       );
       if (rc > 0) {
@@ -170,7 +170,7 @@ int64_t HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t myIndex) {
     if (unlikely(heartbeat_polling())) {
       cxts[LEVEL_ZERO * CACHELINE + START_ITER] = startIter;
       rc = loop_handler(
-        cxts, LEVEL_ZERO,
+        cxts, LEVEL_ZERO, NUM_LEVELS_NEST0,
         slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
       );
       if (rc > 0) {
@@ -227,7 +227,7 @@ int64_t HEARTBEAT_nest0_loop1_slice(uint64_t *cxts, uint64_t myIndex) {
     if (unlikely(heartbeat_polling())) {
       cxts[LEVEL_ONE * CACHELINE + START_ITER] = low - 1;
       rc = loop_handler(
-        cxts, LEVEL_ONE,
+        cxts, LEVEL_ONE, NUM_LEVELS_NEST0,
         slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
       );
       if (rc > 0) {
@@ -257,7 +257,7 @@ int64_t HEARTBEAT_nest0_loop1_slice(uint64_t *cxts, uint64_t myIndex) {
     if (unlikely(heartbeat_polling())) {
       cxts[LEVEL_ONE * CACHELINE + START_ITER] = startIter;
       rc = loop_handler(
-        cxts, LEVEL_ONE,
+        cxts, LEVEL_ONE, NUM_LEVELS_NEST0,
         slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
       );
       if (rc > 0) {

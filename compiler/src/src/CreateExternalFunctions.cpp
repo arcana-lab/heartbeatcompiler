@@ -38,6 +38,7 @@ void Heartbeat::createLoopHandlerFunction(Noelle &noelle) {
 
   std::vector<Type *> args{
     PointerType::getUnqual(tm->getIntegerType(64)),
+    tm->getIntegerType(64),
     tm->getIntegerType(64)
   };
   // slice tasks
@@ -91,6 +92,7 @@ void Heartbeat::createRFHandlerFunction(Noelle &noelle) {
   std::vector<Type *> args{
     PointerType::getUnqual(tm->getIntegerType(64)),
     PointerType::getUnqual(tm->getIntegerType(64)),
+    tm->getIntegerType(64),
     tm->getIntegerType(64)
   };
   // slice tasks

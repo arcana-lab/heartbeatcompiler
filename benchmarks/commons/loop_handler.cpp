@@ -55,9 +55,6 @@ bool heartbeat_polling() {
   if ((taskparts::prev.mine() + taskparts::kappa_cycles) > taskparts::cycles::now()) {
     return false;
   }
-#if defined(STATS)
-  heartbeats++;
-#endif
   return true;
 }
 
@@ -83,12 +80,16 @@ void printGIS(uint64_t *cxts, uint64_t startLevel, uint64_t maxLevel) {
 int64_t loop_handler(
   uint64_t *cxts,
   uint64_t receivingLevel,
+  uint64_t numLevels,
   int64_t (*slice_tasks[])(uint64_t *, uint64_t),
   void (*leftover_tasks[])(uint64_t *, uint64_t),
   uint64_t (*leftover_selector)(uint64_t, uint64_t)
 ) {
 #if defined(DISABLE_HEARTBEAT_PROMOTION)
   return 0;
+#endif
+#if defined(STATS)
+  heartbeats++;
 #endif
 
   /*
@@ -119,7 +120,7 @@ int64_t loop_handler(
   /*
    * Allocate and construct the context at the splittingLevel for the second task
    */
-  uint64_t cxtsSecond[2 * CACHELINE];
+  uint64_t *cxtsSecond = (uint64_t *)__builtin_alloca(numLevels * CACHELINE * sizeof(uint64_t));
   cxtsSecond[splittingLevel * CACHELINE + START_ITER]   = mid;
   cxtsSecond[splittingLevel * CACHELINE + MAX_ITER]     = cxts[splittingLevel * CACHELINE + MAX_ITER];
   cxtsSecond[splittingLevel * CACHELINE + LIVE_IN_ENV]  = cxts[splittingLevel * CACHELINE + LIVE_IN_ENV];
@@ -180,12 +181,13 @@ void rollforward_handler_annotation __rf_handle_wrapper(
   int64_t &rc,
   uint64_t *cxts,
   uint64_t receivingLevel,
+  uint64_t numLevels,
   int64_t (*slice_tasks[])(uint64_t *, uint64_t),
   void (*leftover_tasks[])(uint64_t *, uint64_t),
   uint64_t (*leftover_selector)(uint64_t, uint64_t)
 ) {
   rc = loop_handler(
-    cxts, receivingLevel,
+    cxts, receivingLevel, numLevels,
     slice_tasks, leftover_tasks, leftover_selector
   );
   rollbackward

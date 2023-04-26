@@ -19,6 +19,7 @@ bool heartbeat_polling();
 int64_t loop_handler(
   uint64_t *cxts,
   uint64_t receivingLevel,
+  uint64_t numLevels,
   int64_t (*slice_tasks[])(uint64_t *, uint64_t),
   void (*leftover_tasks[])(uint64_t *, uint64_t),
   uint64_t (*leftover_selector)(uint64_t, uint64_t)
@@ -28,6 +29,7 @@ int64_t loop_handler(
 void rollforward_handler_annotation __rf_handle_wrapper(
   int64_t &rc,
   uint64_t *cxts,
+  uint64_t numLevels,
   uint64_t receivingLevel,
   int64_t (*slice_tasks[])(uint64_t *, uint64_t),
   void (*leftover_tasks[])(uint64_t *, uint64_t),

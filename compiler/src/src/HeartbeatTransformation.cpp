@@ -355,17 +355,20 @@ bool HeartbeatTransformation::apply (
    * to decide whether to exit the loop directly
    */
   IRBuilder<> loopHandlerBuilder{ loopHandlerBlock };
-  // create the vector to represent arguments
-  std::vector<Value *> loopHandlerParameters{ hbTask->getContextArg() };
   // first store the current iteration into startIterationAddress
   this->storeCurrentIterationAtBeginningOfHandlerBlock = loopHandlerBuilder.CreateStore(
     IVClone,
     this->startIterationAddress
   );
-  loopHandlerParameters.push_back(loopHandlerBuilder.getInt64(this->loopToLevel[loop]));
-  loopHandlerParameters.push_back(Constant::getNullValue(loopHandlerFunction->getArg(2)->getType())); // pointer to slice tasks, change this value later
-  loopHandlerParameters.push_back(Constant::getNullValue(loopHandlerFunction->getArg(3)->getType())); // pointer to leftover tasks, change this value later
-  loopHandlerParameters.push_back(Constant::getNullValue(loopHandlerFunction->getArg(4)->getType())); // pointer to leftover task selector, change this value later
+  // create the vector to represent arguments
+  std::vector<Value *> loopHandlerParameters{ 
+    hbTask->getContextArg(),
+    loopHandlerBuilder.getInt64(this->loopToLevel[loop]),
+    loopHandlerBuilder.getInt64(this->numLevels),
+    Constant::getNullValue(loopHandlerFunction->getArg(3)->getType()),  // pointer to slice tasks, change this value later
+    Constant::getNullValue(loopHandlerFunction->getArg(4)->getType()),  // pointer to leftover tasks, change this value later
+    Constant::getNullValue(loopHandlerFunction->getArg(5)->getType())   // pointer to leftover task selector, change this value later
+  };
 
   this->callToLoopHandler = loopHandlerBuilder.CreateCall(
     loopHandlerFunction,
