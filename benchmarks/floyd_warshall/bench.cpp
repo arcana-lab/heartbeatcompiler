@@ -144,8 +144,23 @@ void floyd_warshall_cilkplus(int* dist, int vertices) {
 
 void floyd_warshall_openmp(int* dist, int vertices) {
   for(int via = 0; via < vertices; via++) {
+#if defined(OMP_SCHEDULE_STATIC)
     #pragma omp parallel for schedule(static)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+    #pragma omp parallel for schedule(dynamic)
+#elif defined(OMP_SCHEDULE_GUIDED)
+    #pragma omp parallel for schedule(guided)
+#endif
     for(int from = 0; from < vertices; from++) {
+#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_SCHEDULE_STATIC)
+      #pragma omp parallel for schedule(static)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+      #pragma omp parallel for schedule(dynamic)
+#elif defined(OMP_SCHEDULE_GUIDED)
+      #pragma omp parallel for schedule(guided)
+#endif
+#endif
       for(int to = 0; to < vertices; to++) {
         if ((from != to) && (from != via) && (to != via)) {
           SUB(dist, vertices, from, to) = 

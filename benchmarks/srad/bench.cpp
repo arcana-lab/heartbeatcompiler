@@ -308,9 +308,23 @@ void srad_cilkplus(int rows, int cols, int size_I, int size_R, float* I, float* 
 #include <omp.h>
 
 void srad_openmp(int rows, int cols, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda) {
+#if defined(OMP_SCHEDULE_STATIC)
   #pragma omp parallel for schedule(static)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp parallel for schedule(guided)
+#endif
   for (int i = 0 ; i < rows ; i++) {
-    // #pragma omp parallel for schedule(static)
+#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_SCHEDULE_STATIC)
+    #pragma omp parallel for schedule(static)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+    #pragma omp parallel for schedule(dynamic)
+#elif defined(OMP_SCHEDULE_GUIDED)
+    #pragma omp parallel for schedule(guided)
+#endif
+#endif
     for (int j = 0; j < cols; j++) { 
 		
       int k = i * cols + j;
@@ -342,9 +356,23 @@ void srad_openmp(int rows, int cols, int size_I, int size_R, float* I, float* J,
     }
   
   }
+#if defined(OMP_SCHEDULE_STATIC)
   #pragma omp parallel for schedule(static)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp parallel for schedule(guided)
+#endif
   for (int i = 0; i < rows; i++) {
-    // #pragma omp parallel for schedule(static)
+#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_SCHEDULE_STATIC)
+    #pragma omp parallel for schedule(static)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+    #pragma omp parallel for schedule(dynamic)
+#elif defined(OMP_SCHEDULE_GUIDED)
+    #pragma omp parallel for schedule(guided)
+#endif
+#endif
     for (int j = 0; j < cols; j++) {        
 
       // current index

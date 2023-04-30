@@ -734,10 +734,24 @@ void spmv_openmp(
   double* x,
   double* y,
   uint64_t n) {
+#if defined(OMP_SCHEDULE_STATIC)
   #pragma omp parallel for schedule(static)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp parallel for schedule(guided)
+#endif
   for (uint64_t i = 0; i < n; i++) { // row loop
     double r = 0.0;
-    // #pragma omp parallel for schedule(static) reduction(+:r)
+#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_SCHEDULE_STATIC)
+    #pragma omp parallel for schedule(static) reduction(+:r)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+    #pragma omp parallel for schedule(dynamic) reduction(+:r)
+#elif defined(OMP_SCHEDULE_GUIDED)
+    #pragma omp parallel for schedule(guided) reduction(+:r)
+#endif
+#endif
     for (uint64_t k = row_ptr[i]; k < row_ptr[i + 1]; k++) { // col loop
       r += val[k] * x[col_ind[k]];
     }

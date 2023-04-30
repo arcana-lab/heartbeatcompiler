@@ -108,6 +108,20 @@ std::string benchmark_name = "";
   printf("\"cilkplus\",\n");
 #elif defined(USE_OPENMP)
   printf("\"openmp\",\n");
+  printf("\"schedule\": ");
+#if defined(OMP_SCHEDULE_STATIC)
+  printf("\"static\",\n");
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  printf("\"dynamic\",\n");
+#elif defined(OMP_SCHEDULE_GUIDED)
+  printf("\"guided\",\n");
+#endif
+  printf("\"nested_scheduling\": ");
+#if defined(OMP_NESTED_SCHEDULING)
+  printf("true,\n");
+#else
+  printf("false,\n");
+#endif
 #elif defined(USE_HB_MANUAL)
   printf("\"heartbeat_manual\",\n");
 #elif defined(USE_HB_COMPILER)

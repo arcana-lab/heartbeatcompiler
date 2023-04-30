@@ -46,6 +46,12 @@ Several options can be applied during the compilation stage to control how the f
 
 - `TEST_CORRECTNESS`: this enables running a serial version of the benchmark in the end and compare the result against any implemenation and report the result is either CORRECT or INCORRECT. The default is `false`.
 
+### OpenMP-specific options
+
+- `OMP_SCHEDULE`: decide which openmp schedule to use, available options are `static`, `dynamic` and `guided`. The default is `static`.
+
+- `OMP_NESTED_SCHEDULING`: decide whether to enable nested parallelism on all loop levels. The default is `false` and OpenMP only parallelizes the outermost loop.
+
 ### Heartbeat-specific options
 - `ENABLE_HEARTBEAT_PROMOTION`: decide whether to enable heartbeat promotion. loop_handler will return 0 immediately if this option is disabled. The default is `true`.
 

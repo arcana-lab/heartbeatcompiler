@@ -164,9 +164,23 @@ unsigned char* mandelbrot_openmp(double x0, double y0, double x1, double y1,
   double ystep = (y1 - y0) / height;
   //  unsigned char* output = static_cast<unsigned char*>(_mm_malloc(width * height * sizeof(unsigned char), 64));
   unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
+#if defined(OMP_SCHEDULE_STATIC)
   #pragma omp parallel for schedule(static)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp parallel for schedule(guided)
+#endif
   for(int j = 0; j < height; ++j) { // col loop
-    // #pragma omp parallel for schedule(static)
+#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_SCHEDULE_STATIC)
+    #pragma omp parallel for schedule(static)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+    #pragma omp parallel for schedule(dynamic)
+#elif defined(OMP_SCHEDULE_GUIDED)
+    #pragma omp parallel for schedule(guided)
+#endif
+#endif
     for (int i = 0; i < width; ++i) { // row loop
       double z_real = x0 + i*xstep;
       double z_imaginary = y0 + j*ystep;

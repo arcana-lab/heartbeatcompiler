@@ -92,9 +92,23 @@ double nested_plus_reduce_array_opencilk(double** a, uint64_t lo1, uint64_t hi1,
 
 double nested_plus_reduce_array_openmp(double** a, uint64_t lo1, uint64_t hi1, uint64_t lo2, uint64_t hi2) {
   double r = 0.0;
+#if defined(OMP_SCHEDULE_STATIC)
   #pragma omp parallel for schedule(static) reduction(+:r)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic) reduction(+:r)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp parallel for schedule(guided) reduction(+:r)
+#endif
   for (uint64_t i = lo1; i != hi1; i++) {
+#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_SCHEDULE_STATIC)
     #pragma omp parallel for schedule(static) reduction(+:r)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+    #pragma omp parallel for schedule(dynamic) reduction(+:r)
+#elif defined(OMP_SCHEDULE_GUIDED)
+    #pragma omp parallel for schedule(guided) reduction(+:r)
+#endif
+#endif
     for (uint64_t j = lo2; j != hi2 ; j++) {
       r += a[i][j];
     }
