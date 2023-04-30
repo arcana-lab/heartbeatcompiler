@@ -59,7 +59,7 @@ FLAGS += \
 # Global OPTS used by all implementations
 # ============================================
 ifeq ($(DEBUG), false)
-	OPTS += -O1 -g
+	OPTS += -O3 -march=native
 else
 	OPTS += -O0 -g
 endif
