@@ -103,10 +103,11 @@ class HeartbeatTransformation : public DOALL {
     std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns;
     std::unordered_map<int, int> &constantLiveInsArgIndexToIndex;
     uint64_t valuesInCacheLine;
-    uint64_t startIterationIndex = 0;
-    uint64_t maxIterationIndex = 1;
-    uint64_t liveInEnvIndex = 2;
-    uint64_t liveOutEnvIndex = 3;
+    uint64_t startIterationIndex =  0;
+    uint64_t maxIterationIndex =    1;
+    uint64_t liveInEnvIndex =       2;
+    uint64_t liveOutEnvIndex =      3;
+    uint64_t chunksizeIndex =       4;
 
     /*
      * Helpers
@@ -142,6 +143,8 @@ class HeartbeatTransformation : public DOALL {
     std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> &loopToHeartbeatTransformation;
     std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop;
 
+    AllocaInst *contextArrayAlloca;  // context array is allocated in the original root loop, this
+                                      // field is available to the transformation of the root loop only
     Value *contextBitcastInst;
     Value *startIterationAddress;
     Value *startIteration;

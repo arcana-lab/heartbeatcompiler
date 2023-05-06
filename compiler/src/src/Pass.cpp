@@ -80,11 +80,6 @@ bool Heartbeat::runOnModule (Module &M) {
     this->performConstantLiveInAnalysis(noelle, pair.second);
 
     /*
-     * Create constant live-ins global pointer
-     */
-    this->createConstantLiveInsGlobalPointer(noelle, nestID);
-
-    /*
      * Parallelize the selected loop.
      */
     this->parallelizeRootLoop(noelle, nestID, this->rootLoop);
@@ -116,12 +111,12 @@ bool Heartbeat::runOnModule (Module &M) {
      * Chunksize is supposed to be passed from the command line
      */
     if (this->chunkLoopIterations) {
+      storeChunksizeInRootLoop();
+
       for (auto pair : this->loopToHeartbeatTransformation) {
         auto ldi = pair.first;
-        if (this->loopToChunksize[ldi] > 0) {
-          errs() << "found a loop that needs to be executed in chunk, do the chunking transformation\n";
-          this->executeLoopInChunk(ldi, pair.second, this->loopToLevel[ldi] == this->numLevels - 1);
-        }
+        errs() << "found a loop that needs to be executed in chunk, do the chunking transformation\n";
+        this->executeLoopInChunk(ldi, pair.second, this->loopToLevel[ldi] == this->numLevels - 1);
       }
     }
 
@@ -159,9 +154,9 @@ bool Heartbeat::runOnModule (Module &M) {
           })
         );
 
-        callInst->setArgOperand(3, sliceTasksGEP);
-        callInst->setArgOperand(4, leftoverTasksGEP);
-        callInst->setArgOperand(5, this->leftoverTaskIndexSelector);
+        callInst->setArgOperand(4, sliceTasksGEP);
+        callInst->setArgOperand(5, leftoverTasksGEP);
+        callInst->setArgOperand(6, this->leftoverTaskIndexSelector);
         errs() << "updated loop_handler function in loop level " << this->loopToLevel[pair.first] << "\n" << *callInst << "\n";
       }
     } else {
@@ -180,7 +175,7 @@ bool Heartbeat::runOnModule (Module &M) {
           builder.getInt64(0),
         })
       );
-      callInst->setArgOperand(3, sliceTasksGEP);
+      callInst->setArgOperand(4, sliceTasksGEP);
 
       errs() << "updated loop_handler function in root loop\n" << *callInst << "\n";
     }

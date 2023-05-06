@@ -31,11 +31,13 @@ class HeartbeatTask : public llvm::noelle::DOALLTask {
     }
 
     inline Value * getContextArg() { return this->contextArg; };
+    inline Value * getConstLiveInsArg() { return this->constLiveInsArg; };
     inline Value * getMyIndexArg() { return this->myIndexArg; };
 
   protected:
     uint64_t level;
 
     Value *contextArg;
+    Value *constLiveInsArg;
     Value *myIndexArg;
 };

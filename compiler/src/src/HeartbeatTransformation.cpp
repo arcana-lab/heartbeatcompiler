@@ -38,9 +38,11 @@ HeartbeatTransformation::HeartbeatTransformation (
    * Create the slice task signature
    */
   auto tm = noelle.getTypesManager();
-  std::vector<Type *> sliceTaskSignatureTypes;
-  sliceTaskSignatureTypes.push_back(PointerType::getUnqual(tm->getIntegerType(64))); // pointer to compressed environment
-  sliceTaskSignatureTypes.push_back(tm->getIntegerType(64));  // index variable
+  std::vector<Type *> sliceTaskSignatureTypes {
+    PointerType::getUnqual(tm->getIntegerType(64)), // cxts
+    PointerType::getUnqual(tm->getIntegerType(64)), // constLiveIns
+    tm->getIntegerType(64)                          // myIndex
+  };
   this->sliceTaskSignature = FunctionType::get(tm->getIntegerType(64), ArrayRef<Type *>(sliceTaskSignatureTypes), false);
 
   errs() << "create function signature for slice task " << ldi->getLoopStructure()->getFunction()->getName() << ": " << *(this->sliceTaskSignature) << "\n";
@@ -363,6 +365,7 @@ bool HeartbeatTransformation::apply (
   // create the vector to represent arguments
   std::vector<Value *> loopHandlerParameters{ 
     hbTask->getContextArg(),
+    hbTask->getConstLiveInsArg(),
     loopHandlerBuilder.getInt64(this->loopToLevel[loop]),
     loopHandlerBuilder.getInt64(this->numLevels),
     Constant::getNullValue(loopHandlerFunction->getArg(3)->getType()),  // pointer to slice tasks, change this value later
@@ -748,17 +751,10 @@ void HeartbeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceIn
     task->addLiveIn(producer, envLoad);
   }
 
-  // Cast constLiveInsPointer to its correct type
-  std::string constantLiveInsGlobalName = std::string("constantLiveInsPointer_nest").append(std::to_string(this->nestID));
-  auto constantLiveInsPointerGlobal = this->noelle.getProgram()->getNamedGlobal(constantLiveInsGlobalName);
-  assert(constantLiveInsPointerGlobal != nullptr);
-  errs() << "constant live-ins pointer " << *constantLiveInsPointerGlobal << "\n";
-  auto constantLiveInsLoadInst = builder.CreateLoad(
+  // Cast constLiveIns to its array type
+  auto constLiveIns = builder.CreateBitCast(
+    this->hbTask->getConstLiveInsArg(),
     PointerType::getUnqual(ArrayType::get(builder.getInt64Ty(), this->constantLiveInsArgIndexToIndex.size())),
-    builder.CreateBitCast(
-      cast<Value>(constantLiveInsPointerGlobal),
-      PointerType::getUnqual(PointerType::getUnqual(ArrayType::get(builder.getInt64Ty(), this->constantLiveInsArgIndexToIndex.size())))
-    ),
     "constantLiveIns"
   );
 
@@ -776,7 +772,7 @@ void HeartbeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceIn
     // create gep in to the constant live-in
     auto constLiveInGEPInst = builder.CreateInBoundsGEP(
       ArrayType::get(builder.getInt64Ty(), this->constantLiveInsArgIndexToIndex.size()),
-      cast<Value>(constantLiveInsLoadInst),
+      cast<Value>(constLiveIns),
       ArrayRef<Value *>({ zeroV, const_index_V }),
       std::string("constantLiveIn_").append(std::to_string(const_index)).append("_addr")
     );
@@ -1066,27 +1062,20 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   auto loopFunction = loopStructure->getFunction();
   auto firstBB = loopFunction->begin();
   auto firstI = firstBB->begin();
-  // uint32_t reducerCount = 1;
   IRBuilder<> builder{ &*firstI };
 
-  // allocate the constLiveIns using alloca
-  // constLiveIns = (uint64_t *)alloca(sizeof(uint64_t) * 1);
+  // allocate the constLiveIns array using alloca
+  // uint64_t constLiveIns[num_of_const_live_ins];
   auto constantLiveIns = builder.CreateAlloca(
     ArrayType::get(builder.getInt64Ty(), this->constantLiveInsArgIndexToIndex.size()),
     nullptr,
     "constantLiveIns"
   );
   constantLiveIns->setAlignment(Align(64));
-
-  // store constant live-ins array into global
-  std::string constantLiveInsGlobalName = std::string("constantLiveInsPointer_nest").append(std::to_string(this->nestID));
-  auto constantLiveInsGlobal = this->noelle.getProgram()->getNamedGlobal(constantLiveInsGlobalName);
-  builder.CreateStore(
-    builder.CreateBitCast(
-      constantLiveIns,
-      PointerType::getUnqual(builder.getInt64Ty())
-    ),
-    constantLiveInsGlobal
+  auto constantLiveInsCasted = builder.CreateBitCast(
+    constantLiveIns,
+    PointerType::getUnqual(builder.getInt64Ty()),
+    "constantLiveIns_casted"
   );
 
   // store the args into constant live-ins array
@@ -1151,14 +1140,14 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   }
 
   // allocate context
-  auto contextArrayAlloca = builder.CreateAlloca(
+  this->contextArrayAlloca = builder.CreateAlloca(
     ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getContextArrayType(),
     nullptr,
     "contextArray"
   );
-  contextArrayAlloca->setAlignment(Align(64));
+  this->contextArrayAlloca->setAlignment(Align(64));
   auto contextArrayCasted = builder.CreateBitCast(
-    contextArrayAlloca,
+    this->contextArrayAlloca,
     PointerType::getUnqual(builder.getInt64Ty()),
     "contextArray_casted"
   );
@@ -1177,7 +1166,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
     auto liveInEnv = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArray();
     auto gepInst = builder.CreateInBoundsGEP(
       builder.getInt64Ty(),
-      contextArrayAlloca,
+      this->contextArrayAlloca,
       ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), 0), ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine + this->liveInEnvIndex) })
     );
     auto gepCasted = builder.CreateBitCast(
@@ -1191,8 +1180,8 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
     // auto liveOutEnvCasted = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArrayPointer();
     auto liveOutEnv = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArray();
     auto gepInst = builder.CreateInBoundsGEP(
-      contextArrayAlloca->getType()->getPointerElementType(),
-      contextArrayAlloca,
+      this->contextArrayAlloca->getType()->getPointerElementType(),
+      this->contextArrayAlloca,
       ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), 0), ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine + this->liveOutEnvIndex) })
     );
     auto gepCasted = builder.CreateBitCast(
@@ -1223,8 +1212,8 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   loopEntryBuilder.CreateStore(
     firstIterationGoverningIVValue,
     loopEntryBuilder.CreateInBoundsGEP(
-      contextArrayAlloca->getType()->getPointerElementType(),
-      contextArrayAlloca,
+      this->contextArrayAlloca->getType()->getPointerElementType(),
+      this->contextArrayAlloca,
       ArrayRef<Value *>({
         loopEntryBuilder.getInt64(0),
         loopEntryBuilder.getInt64(this->startIterationIndex)
@@ -1242,8 +1231,8 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   loopEntryBuilder.CreateStore(
     lastIterationGoverningIVValue,
     loopEntryBuilder.CreateInBoundsGEP(
-      contextArrayAlloca->getType()->getPointerElementType(),
-      contextArrayAlloca,
+      this->contextArrayAlloca->getType()->getPointerElementType(),
+      this->contextArrayAlloca,
       ArrayRef<Value *>({
         loopEntryBuilder.getInt64(0),
         loopEntryBuilder.getInt64(this->maxIterationIndex)
@@ -1261,9 +1250,11 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   this->callToHBResetFunction = loopEntryBuilder.CreateCall(hbResetFunction);
 
   // invoke the root loop slice task
-  std::vector<Value *> loopSliceParameters;
-  loopSliceParameters.push_back(contextArrayCasted);
-  loopSliceParameters.push_back(ConstantInt::get(loopEntryBuilder.getInt64Ty(), 0));
+  std::vector<Value *> loopSliceParameters {
+    contextArrayCasted,
+    constantLiveInsCasted,
+    ConstantInt::get(loopEntryBuilder.getInt64Ty(), 0)
+  };
   loopEntryBuilder.CreateCall(
     this->tasks[0]->getTaskBody(),
     ArrayRef<Value *>({
@@ -1641,11 +1632,11 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
 
   // okay, preparing the environment is done, now replace the call to original code in the caller hbTask
   // to the callee's hbTask
-  std::vector<Value *> parametersVec;
-  // 1) the context uint64_t pointer
-  parametersVec.push_back(callerHBTask->getContextArg());
-  // 2) myIndex
-  parametersVec.push_back(liveInEnvBuilder.getInt64(0));
+  std::vector<Value *> parametersVec {
+    callerHBTask->getContextArg(),
+    callerHBTask->getConstLiveInsArg(),
+    liveInEnvBuilder.getInt64(0)
+  };
   auto calleeHBTaskCallInst = liveInEnvBuilder.CreateCall(
     this->hbTask->getTaskBody(),
     ArrayRef<Value *>({

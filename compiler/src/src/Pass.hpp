@@ -138,11 +138,6 @@ class Heartbeat : public ModulePass {
       LoopDependenceInfo *ldi
     );
 
-    void createConstantLiveInsGlobalPointer(
-      Noelle &noelle,
-      uint64_t nestID
-    );
-
     std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> loopToSkippedLiveIns;
     std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> loopToConstantLiveIns;
     std::unordered_set<int> constantLiveInsArgIndex;
@@ -187,6 +182,8 @@ class Heartbeat : public ModulePass {
     /*
      * Chunking transformation
      */
+    void storeChunksizeInRootLoop();
+
     void executeLoopInChunk(
       LoopDependenceInfo *,
       HeartbeatTransformation *,

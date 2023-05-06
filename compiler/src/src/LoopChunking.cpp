@@ -1,14 +1,43 @@
 #include "Pass.hpp"
 #include "HeartbeatTransformation.hpp"
 
+void Heartbeat::storeChunksizeInRootLoop() {
+  auto hbTransformation = this->loopToHeartbeatTransformation[this->rootLoop];
+  auto contextArrayAlloca = hbTransformation->contextArrayAlloca;
+  assert(contextArrayAlloca != nullptr && "contextArrayAlloc hasn't been set in the original root loop\n");
+
+  IRBuilder<> loopEntryBuilder{ &*(hbTransformation->getParLoopEntryPoint()->begin()) };
+  for (auto pair : this->loopToChunksize) {
+    auto loopLevel = this->loopToLevel[pair.first];
+    auto chunksize = pair.second;
+    assert(chunksize > 0 && "chunksize should be >= 1 to avoid infinite loop\n");
+
+    loopEntryBuilder.CreateStore(
+      loopEntryBuilder.getInt64(chunksize),
+      loopEntryBuilder.CreateInBoundsGEP(
+        contextArrayAlloca->getType()->getPointerElementType(),
+        contextArrayAlloca,
+        ArrayRef<Value *>({
+          loopEntryBuilder.getInt64(0),
+          loopEntryBuilder.getInt64(loopLevel * hbTransformation->valuesInCacheLine + hbTransformation->chunksizeIndex)
+        }),
+        std::string("chunksize_level_").append(std::to_string(loopLevel)).append("_addr")
+      )
+    );
+  }
+
+  errs() << "original root loop after storing chunking info\n" << *(this->rootLoop->getLoopStructure()->getFunction()) << "\n";
+}
+
 void Heartbeat::executeLoopInChunk(LoopDependenceInfo *ldi, HeartbeatTransformation *hbt, bool isLeafLoop) {
   // errs() << "current task before chunking\n";
   // errs() << *(hbt->hbTask->getTaskBody()) << "\n";
 
   // How the loop looks like after making the chunking transformation
-  // for (; startIter < maxIter; startIter += CHUNKSIZE_1) {
+  // uint64_t chunksize = cxts[myLevel * CACHELINE + CHUNKSIZE];
+  // for (; startIter < maxIter; startIter += chunksize) {
   //   auto low = startIter;
-  //   auto high = std::min(maxIter, startIter + CHUNKSIZE_1);
+  //   auto high = std::min(maxIter, startIter + chunksize);
   //   for (; low < high; low++) {
   //     r_private += a[i][low];
   //   }
@@ -31,6 +60,25 @@ void Heartbeat::executeLoopInChunk(LoopDependenceInfo *ldi, HeartbeatTransformat
   assert(loopExits.size() == 1 && "hb pass doesn't handle multiple exit blocks");
   auto loopExit = *(loopExits.begin());
   auto loopExitCloned = hbt->hbTask->getCloneOfOriginalBasicBlock(loopExit);
+
+  // Step 0: load the chunksize from the context array
+  auto entryBlock = hbt->hbTask->getEntry();
+  auto loopLevel = this->loopToLevel[ldi];
+  IRBuilder<> entryBuilder { entryBlock };
+  entryBuilder.SetInsertPoint(entryBlock->getTerminator());
+  auto chunksize = entryBuilder.CreateLoad(
+    entryBuilder.getInt64Ty(),
+    entryBuilder.CreateInBoundsGEP(
+      ((HeartbeatLoopEnvironmentBuilder *)hbt->getEnvBuilder())->getContextArrayType(),
+      hbt->contextBitcastInst,
+      ArrayRef<Value *>({
+        entryBuilder.getInt64(0),
+        entryBuilder.getInt64(loopLevel * hbt->valuesInCacheLine + hbt->chunksizeIndex)
+      }),
+      std::string("chunksize_level_").append(std::to_string(loopLevel)).append("_addr")
+    ),
+    std::string("chunksize_level_").append(std::to_string(loopLevel))
+  );
 
   // Step 1: Create blocks for the chunk-executed loop
   auto chunkLoopHeaderBlock = BasicBlock::Create(hbt->hbTask->getTaskBody()->getContext(), "chunk_loop_header", hbt->hbTask->getTaskBody());
@@ -62,7 +110,7 @@ void Heartbeat::executeLoopInChunk(LoopDependenceInfo *ldi, HeartbeatTransformat
   auto IV_cloned_update = cast<PHINode>(IV_cloned)->getIncomingValue(1);
   assert(isa<BinaryOperator>(IV_cloned_update));
   errs() << "update of induction variable " << *IV_cloned_update << "\n";
-  cast<Instruction>(IV_cloned_update)->setOperand(1, chunkLoopHeaderBlockBuilder.getInt64(this->loopToChunksize[ldi]));
+  cast<Instruction>(IV_cloned_update)->setOperand(1, chunksize);
 
   // Step: ensure the instruction that use to determine whether keep running the loop is icmp slt but not icmp ne
   auto exitCmpInst = IV_attr->getHeaderCompareInstructionToComputeExitCondition();
@@ -158,7 +206,7 @@ void Heartbeat::executeLoopInChunk(LoopDependenceInfo *ldi, HeartbeatTransformat
   // Step 5: determine the max value
   auto startIterPlusChunk = chunkLoopHeaderBlockBuilder.CreateAdd(
     IV_cloned,
-    chunkLoopHeaderBlockBuilder.getInt64(this->loopToChunksize[ldi])
+    chunksize
   );
   auto highCompareInst = chunkLoopHeaderBlockBuilder.CreateICmpSLT(
     hbt->maxIteration,

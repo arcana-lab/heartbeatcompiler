@@ -37,14 +37,16 @@ void Heartbeat::createLoopHandlerFunction(Noelle &noelle) {
   auto tm = noelle.getTypesManager();
 
   std::vector<Type *> args{
-    PointerType::getUnqual(tm->getIntegerType(64)),
-    tm->getIntegerType(64),
-    tm->getIntegerType(64)
+    PointerType::getUnqual(tm->getIntegerType(64)), // cxts
+    PointerType::getUnqual(tm->getIntegerType(64)), // constLiveIns
+    tm->getIntegerType(64),                         // receivingLevel
+    tm->getIntegerType(64)                          // numLevels
   };
   // slice tasks
   FunctionType *sliceTasksType = FunctionType::get(
     tm->getIntegerType(64),
     ArrayRef<Type *>({
+      PointerType::getUnqual(tm->getIntegerType(64)),
       PointerType::getUnqual(tm->getIntegerType(64)),
       tm->getIntegerType(64)
     }),
@@ -56,6 +58,7 @@ void Heartbeat::createLoopHandlerFunction(Noelle &noelle) {
   FunctionType *leftoverTasksType = FunctionType::get(
     tm->getVoidType(),
     ArrayRef<Type *>({
+      PointerType::getUnqual(tm->getIntegerType(64)),
       PointerType::getUnqual(tm->getIntegerType(64)),
       tm->getIntegerType(64)
     }),
@@ -90,15 +93,17 @@ void Heartbeat::createRFHandlerFunction(Noelle &noelle) {
   auto tm = noelle.getTypesManager();
 
   std::vector<Type *> args{
-    PointerType::getUnqual(tm->getIntegerType(64)),
-    PointerType::getUnqual(tm->getIntegerType(64)),
-    tm->getIntegerType(64),
-    tm->getIntegerType(64)
+    PointerType::getUnqual(tm->getIntegerType(64)), // &rc
+    PointerType::getUnqual(tm->getIntegerType(64)), // cxts
+    PointerType::getUnqual(tm->getIntegerType(64)), // constLiveIns
+    tm->getIntegerType(64),                         // receivingLevel
+    tm->getIntegerType(64)                          // numLevels
   };
   // slice tasks
   FunctionType *sliceTasksType = FunctionType::get(
     tm->getIntegerType(64),
     ArrayRef<Type *>({
+      PointerType::getUnqual(tm->getIntegerType(64)),
       PointerType::getUnqual(tm->getIntegerType(64)),
       tm->getIntegerType(64)
     }),
@@ -110,6 +115,7 @@ void Heartbeat::createRFHandlerFunction(Noelle &noelle) {
   FunctionType *leftoverTasksType = FunctionType::get(
     tm->getVoidType(),
     ArrayRef<Type *>({
+      PointerType::getUnqual(tm->getIntegerType(64)),
       PointerType::getUnqual(tm->getIntegerType(64)),
       tm->getIntegerType(64)
     }),
