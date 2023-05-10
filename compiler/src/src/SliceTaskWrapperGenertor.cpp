@@ -14,6 +14,7 @@ void Heartbeat::createSliceTasks(
   std::vector<Type *> sliceTaskType{
     PointerType::getUnqual(tm->getIntegerType(64)),   // uint64_t *cxt
     PointerType::getUnqual(tm->getIntegerType(64)),   // uint64_t *constLiveIns
+    tm->getIntegerType(64),                           // uint64_t startingLevel
     tm->getIntegerType(64)                            // uint64_t myIndex
   };
 

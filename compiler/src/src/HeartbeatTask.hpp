@@ -32,6 +32,7 @@ class HeartbeatTask : public llvm::noelle::DOALLTask {
 
     inline Value * getContextArg() { return this->contextArg; };
     inline Value * getConstLiveInsArg() { return this->constLiveInsArg; };
+    inline Value * getStartingLevelArg() { return this->startingLevelArg; };
     inline Value * getMyIndexArg() { return this->myIndexArg; };
 
   protected:
@@ -39,5 +40,6 @@ class HeartbeatTask : public llvm::noelle::DOALLTask {
 
     Value *contextArg;
     Value *constLiveInsArg;
+    Value *startingLevelArg;
     Value *myIndexArg;
 };

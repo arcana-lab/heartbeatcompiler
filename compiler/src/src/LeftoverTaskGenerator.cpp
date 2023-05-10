@@ -15,7 +15,8 @@ void Heartbeat::createLeftoverTasks(
   std::vector<Type *> leftoverTaskTypes{ 
     PointerType::getUnqual(tm->getIntegerType(64)),   // uint64_t *cxt
     PointerType::getUnqual(tm->getIntegerType(64)),   // uint64_t *constLiveIns
-    tm->getIntegerType(64),                           // uint64_t myIndex
+    tm->getIntegerType(64),                           // uint64_t startingLevel
+    tm->getIntegerType(64)                            // uint64_t myIndex
   };
 
   for (auto receivingLoop : heartbeatLoops) {
@@ -109,7 +110,8 @@ void Heartbeat::createLeftoverTasks(
         std::vector<Value *> loopSliceParameters{ 
           &*(leftoverTask->arg_begin()),    // *cxts
           &*(leftoverTask->arg_begin()+1),  // *constLiveIns
-          &*(leftoverTask->arg_begin()+2)   // myIndex
+          &*(leftoverTask->arg_begin()+2),  // startingLevel
+          &*(leftoverTask->arg_begin()+3)   // myIndex
         };
         if (level != receivingLevel) {
           // store startIter + 1

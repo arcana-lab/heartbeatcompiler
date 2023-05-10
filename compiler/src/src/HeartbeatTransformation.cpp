@@ -41,6 +41,7 @@ HeartbeatTransformation::HeartbeatTransformation (
   std::vector<Type *> sliceTaskSignatureTypes {
     PointerType::getUnqual(tm->getIntegerType(64)), // cxts
     PointerType::getUnqual(tm->getIntegerType(64)), // constLiveIns
+    tm->getIntegerType(64),                         // startingLevel
     tm->getIntegerType(64)                          // myIndex
   };
   this->sliceTaskSignature = FunctionType::get(tm->getIntegerType(64), ArrayRef<Type *>(sliceTaskSignatureTypes), false);
@@ -366,11 +367,12 @@ bool HeartbeatTransformation::apply (
   std::vector<Value *> loopHandlerParameters{ 
     hbTask->getContextArg(),
     hbTask->getConstLiveInsArg(),
+    hbTask->getStartingLevelArg(),
     loopHandlerBuilder.getInt64(this->loopToLevel[loop]),
     loopHandlerBuilder.getInt64(this->numLevels),
-    Constant::getNullValue(loopHandlerFunction->getArg(3)->getType()),  // pointer to slice tasks, change this value later
-    Constant::getNullValue(loopHandlerFunction->getArg(4)->getType()),  // pointer to leftover tasks, change this value later
-    Constant::getNullValue(loopHandlerFunction->getArg(5)->getType())   // pointer to leftover task selector, change this value later
+    Constant::getNullValue(loopHandlerFunction->getArg(5)->getType()),  // pointer to slice tasks, change this value later
+    Constant::getNullValue(loopHandlerFunction->getArg(6)->getType()),  // pointer to leftover tasks, change this value later
+    Constant::getNullValue(loopHandlerFunction->getArg(7)->getType())   // pointer to leftover task selector, change this value later
   };
 
   this->callToLoopHandler = loopHandlerBuilder.CreateCall(
@@ -1253,6 +1255,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   std::vector<Value *> loopSliceParameters {
     contextArrayCasted,
     constantLiveInsCasted,
+    ConstantInt::get(loopEntryBuilder.getInt64Ty(), 0),
     ConstantInt::get(loopEntryBuilder.getInt64Ty(), 0)
   };
   loopEntryBuilder.CreateCall(
@@ -1635,6 +1638,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
   std::vector<Value *> parametersVec {
     callerHBTask->getContextArg(),
     callerHBTask->getConstLiveInsArg(),
+    callerHBTask->getStartingLevelArg(),
     liveInEnvBuilder.getInt64(0)
   };
   auto calleeHBTaskCallInst = liveInEnvBuilder.CreateCall(

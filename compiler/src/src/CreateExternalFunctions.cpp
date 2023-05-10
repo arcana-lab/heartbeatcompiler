@@ -39,6 +39,7 @@ void Heartbeat::createLoopHandlerFunction(Noelle &noelle) {
   std::vector<Type *> args{
     PointerType::getUnqual(tm->getIntegerType(64)), // cxts
     PointerType::getUnqual(tm->getIntegerType(64)), // constLiveIns
+    tm->getIntegerType(64),                         // startingLevel
     tm->getIntegerType(64),                         // receivingLevel
     tm->getIntegerType(64)                          // numLevels
   };
@@ -48,6 +49,7 @@ void Heartbeat::createLoopHandlerFunction(Noelle &noelle) {
     ArrayRef<Type *>({
       PointerType::getUnqual(tm->getIntegerType(64)),
       PointerType::getUnqual(tm->getIntegerType(64)),
+      tm->getIntegerType(64),
       tm->getIntegerType(64)
     }),
     false
@@ -60,6 +62,7 @@ void Heartbeat::createLoopHandlerFunction(Noelle &noelle) {
     ArrayRef<Type *>({
       PointerType::getUnqual(tm->getIntegerType(64)),
       PointerType::getUnqual(tm->getIntegerType(64)),
+      tm->getIntegerType(64),
       tm->getIntegerType(64)
     }),
     false
@@ -96,6 +99,7 @@ void Heartbeat::createRFHandlerFunction(Noelle &noelle) {
     PointerType::getUnqual(tm->getIntegerType(64)), // &rc
     PointerType::getUnqual(tm->getIntegerType(64)), // cxts
     PointerType::getUnqual(tm->getIntegerType(64)), // constLiveIns
+    tm->getIntegerType(64),                         // startingLevel
     tm->getIntegerType(64),                         // receivingLevel
     tm->getIntegerType(64)                          // numLevels
   };
@@ -105,6 +109,7 @@ void Heartbeat::createRFHandlerFunction(Noelle &noelle) {
     ArrayRef<Type *>({
       PointerType::getUnqual(tm->getIntegerType(64)),
       PointerType::getUnqual(tm->getIntegerType(64)),
+      tm->getIntegerType(64),
       tm->getIntegerType(64)
     }),
     false
@@ -117,6 +122,7 @@ void Heartbeat::createRFHandlerFunction(Noelle &noelle) {
     ArrayRef<Type *>({
       PointerType::getUnqual(tm->getIntegerType(64)),
       PointerType::getUnqual(tm->getIntegerType(64)),
+      tm->getIntegerType(64),
       tm->getIntegerType(64)
     }),
     false

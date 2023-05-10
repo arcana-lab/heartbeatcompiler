@@ -154,9 +154,9 @@ bool Heartbeat::runOnModule (Module &M) {
           })
         );
 
-        callInst->setArgOperand(4, sliceTasksGEP);
-        callInst->setArgOperand(5, leftoverTasksGEP);
-        callInst->setArgOperand(6, this->leftoverTaskIndexSelector);
+        callInst->setArgOperand(5, sliceTasksGEP);
+        callInst->setArgOperand(6, leftoverTasksGEP);
+        callInst->setArgOperand(7, this->leftoverTaskIndexSelector);
         errs() << "updated loop_handler function in loop level " << this->loopToLevel[pair.first] << "\n" << *callInst << "\n";
       }
     } else {
@@ -175,7 +175,7 @@ bool Heartbeat::runOnModule (Module &M) {
           builder.getInt64(0),
         })
       );
-      callInst->setArgOperand(4, sliceTasksGEP);
+      callInst->setArgOperand(5, sliceTasksGEP);
 
       errs() << "updated loop_handler function in root loop\n" << *callInst << "\n";
     }

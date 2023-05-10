@@ -81,10 +81,11 @@ void printGIS(uint64_t *cxts, uint64_t startLevel, uint64_t maxLevel) {
 int64_t loop_handler(
   uint64_t *cxts,
   uint64_t *constLiveIns,
+  uint64_t startingLevel,
   uint64_t receivingLevel,
   uint64_t numLevels,
-  int64_t (*slice_tasks[])(uint64_t *, uint64_t *, uint64_t),
-  void (*leftover_tasks[])(uint64_t *, uint64_t *, uint64_t),
+  int64_t (*slice_tasks[])(uint64_t *, uint64_t *, uint64_t, uint64_t),
+  void (*leftover_tasks[])(uint64_t *, uint64_t *, uint64_t, uint64_t),
   uint64_t (*leftover_selector)(uint64_t, uint64_t)
 ) {
 #if defined(DISABLE_HEARTBEAT_PROMOTION)
@@ -98,7 +99,7 @@ int64_t loop_handler(
    * Decide the splitting level
    */
   uint64_t splittingLevel = receivingLevel + 1;
-  for (uint64_t level = 0; level <= receivingLevel; level++) {
+  for (uint64_t level = startingLevel; level <= receivingLevel; level++) {
     if (cxts[level * CACHELINE + MAX_ITER] - cxts[level * CACHELINE + START_ITER] >= SMALLEST_GRANULARITY) {
       splittingLevel = level;
       break;
@@ -125,11 +126,12 @@ int64_t loop_handler(
   uint64_t *cxtsSecond = (uint64_t *)__builtin_alloca(numLevels * CACHELINE * sizeof(uint64_t));
 
   /*
-   * Reset start/max iteration for all levels before the splittingLevel
+   * Construct the context at the splittingLevel for the second task
    */
-  for (auto level = 0; level < splittingLevel; level++) {
-    cxtsSecond[level * CACHELINE + START_ITER] = cxtsSecond[level * CACHELINE + MAX_ITER] = 0;
-  }
+  cxtsSecond[splittingLevel * CACHELINE + START_ITER]   = mid;
+  cxtsSecond[splittingLevel * CACHELINE + MAX_ITER]     = cxts[splittingLevel * CACHELINE + MAX_ITER];
+  cxtsSecond[splittingLevel * CACHELINE + LIVE_IN_ENV]  = cxts[splittingLevel * CACHELINE + LIVE_IN_ENV];
+  cxtsSecond[splittingLevel * CACHELINE + LIVE_OUT_ENV] = cxts[splittingLevel * CACHELINE + LIVE_OUT_ENV];
 
 #if defined(CHUNK_LOOP_ITERATIONS)
   /*
@@ -139,14 +141,6 @@ int64_t loop_handler(
     cxtsSecond[level * CACHELINE + CHUNKSIZE] = cxts[level * CACHELINE + CHUNKSIZE];
   }
 #endif
-
-  /*
-   * Construct the context at the splittingLevel for the second task
-   */
-  cxtsSecond[splittingLevel * CACHELINE + START_ITER]   = mid;
-  cxtsSecond[splittingLevel * CACHELINE + MAX_ITER]     = cxts[splittingLevel * CACHELINE + MAX_ITER];
-  cxtsSecond[splittingLevel * CACHELINE + LIVE_IN_ENV]  = cxts[splittingLevel * CACHELINE + LIVE_IN_ENV];
-  cxtsSecond[splittingLevel * CACHELINE + LIVE_OUT_ENV] = cxts[splittingLevel * CACHELINE + LIVE_OUT_ENV];
 
   /*
    * Set the maxIteration for the first task
@@ -161,10 +155,10 @@ int64_t loop_handler(
 
     taskparts::tpalrts_promote_via_nativefj([&] {
       heartbeat_reset();
-      slice_tasks[receivingLevel](cxts, constLiveIns, 0);
+      slice_tasks[receivingLevel](cxts, constLiveIns, receivingLevel, 0);
     }, [&] {
       heartbeat_reset();
-      slice_tasks[receivingLevel](cxtsSecond, constLiveIns, 1);
+      slice_tasks[receivingLevel](cxtsSecond, constLiveIns, receivingLevel, 1);
     }, [] { }, taskparts::bench_scheduler());
   
   } else { // the first task needs to compose the leftover work
@@ -182,10 +176,10 @@ int64_t loop_handler(
     uint64_t leftoverTaskIndex = leftover_selector(receivingLevel, splittingLevel);
     taskparts::tpalrts_promote_via_nativefj([&] {
       heartbeat_reset();
-      (*leftover_tasks[leftoverTaskIndex])(cxts, constLiveIns, 0);
+      (*leftover_tasks[leftoverTaskIndex])(cxts, constLiveIns, splittingLevel, 0);
     }, [&] {
       heartbeat_reset();
-      slice_tasks[splittingLevel](cxtsSecond, constLiveIns, 1);
+      slice_tasks[splittingLevel](cxtsSecond, constLiveIns, splittingLevel, 1);
     }, [&] { }, taskparts::bench_scheduler());
   }
 
@@ -200,14 +194,15 @@ void rollforward_handler_annotation __rf_handle_wrapper(
   int64_t &rc,
   uint64_t *cxts,
   uint64_t *constLiveIns,
+  uint64_t startingLevel,
   uint64_t receivingLevel,
   uint64_t numLevels,
-  int64_t (*slice_tasks[])(uint64_t *, uint64_t *, uint64_t),
-  void (*leftover_tasks[])(uint64_t *, uint64_t *, uint64_t),
+  int64_t (*slice_tasks[])(uint64_t *, uint64_t *, uint64_t, uint64_t),
+  void (*leftover_tasks[])(uint64_t *, uint64_t *, uint64_t, uint64_t),
   uint64_t (*leftover_selector)(uint64_t, uint64_t)
 ) {
   rc = loop_handler(
-    cxts, constLiveIns, receivingLevel, numLevels,
+    cxts, constLiveIns, startingLevel, receivingLevel, numLevels,
     slice_tasks, leftover_tasks, leftover_selector
   );
   rollbackward
