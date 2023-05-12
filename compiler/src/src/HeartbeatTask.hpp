@@ -32,14 +32,14 @@ class HeartbeatTask : public llvm::noelle::DOALLTask {
 
     inline Value * getContextArg() { return this->contextArg; };
     inline Value * getConstLiveInsArg() { return this->constLiveInsArg; };
-    inline Value * getStartingLevelArg() { return this->startingLevelArg; };
     inline Value * getMyIndexArg() { return this->myIndexArg; };
+    inline Value * getHBMemoryArg() { return this->hbmemArg; };
 
   protected:
     uint64_t level;
 
     Value *contextArg;
     Value *constLiveInsArg;
-    Value *startingLevelArg;
     Value *myIndexArg;
+    Value *hbmemArg;
 };

@@ -32,11 +32,11 @@ void HeartbeatTask::extractFuncArgs (void) {
   // Second argument: constant live-ins pointer
   this->constLiveInsArg = (Value *) &*(argIter++);
 
-  // Third argument: startingLevel
-  this->startingLevelArg = (Value *) &*(argIter++);
-
-  // Fourth argument: myIndex
+  // Third argument: myIndex
   this->myIndexArg = (Value *) &*(argIter++);
+
+  // Fourth argument: hbmem
+  this->hbmemArg = (Value *) &*(argIter++);
 
   return ;
 }

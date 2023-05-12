@@ -35,6 +35,9 @@ bool Heartbeat::runOnModule (Module &M) {
     errs() << this->outputPrefix << selectedLoop->getLoopStructure()->getFunction()->getName() << "\n";
   }
 
+  // create the heartbeat_memory struct type
+  createHBMemoryStructType(noelle, Enable_Rollforward, Chunk_Loop_Iterations, Adaptive_Chunksize_Control);
+
   // create heartbeat_reset, polling function and loop_handler function
   createHBResetFunction(noelle);
   createPollingFunction(noelle);
@@ -63,9 +66,6 @@ bool Heartbeat::runOnModule (Module &M) {
      */
     if (Chunk_Loop_Iterations) {
       this->chunkLoopIterations = true;
-      if (Adaptive_Chunksize_Control) {
-        this->adaptiveChunksizeControl = true;
-      }
       uint64_t index = 0;
       for (auto &chunksize : Chunksize) {
         this->loopToChunksize[this->levelToLoop[index]] = stoi(chunksize);
@@ -115,11 +115,7 @@ bool Heartbeat::runOnModule (Module &M) {
      * Chunksize is supposed to be passed from the command line
      */
     if (this->chunkLoopIterations) {
-      storeChunksizeAndResetPollingCountInRootLoop();
-
-      if (this->adaptiveChunksizeControl) {
-        increasePollingCountPerPoll();
-      }
+      storeChunksizeInRootLoop();
 
       for (auto pair : this->loopToHeartbeatTransformation) {
         auto ldi = pair.first;
@@ -190,7 +186,6 @@ bool Heartbeat::runOnModule (Module &M) {
 
     if (Enable_Rollforward) {
       replaceWithRollforwardHandler(noelle);
-      eraseHBResetCall();
     }
   }
 
@@ -224,13 +219,6 @@ void Heartbeat::reset() {
   this->loopToChunksize.clear();
 }
 
-void Heartbeat::eraseHBResetCall() {
-  auto rootTransformation = this->loopToHeartbeatTransformation[rootLoop];
-  assert(rootTransformation->getCallToHBResetFunction() != nullptr);
-  errs() << "Heartbeat::eraseHBResetCall(): erase the call to heartbeat_reset in the original root loop\n";
-  rootTransformation->eraseCallToHBResetFunction();
-}
-
 void Heartbeat::replaceWithRollforwardHandler(Noelle &noelle) {
   // Decide to use the rollforward loop handler
   // 1. allocate a stack space for rc (return code) at the beginning of the function
@@ -256,10 +244,16 @@ void Heartbeat::replaceWithRollforwardHandler(Noelle &noelle) {
       rcPointer
     );
 
-    // set call to the polling function with __rf_test call
+    // replace call to the polling function with __rf_test call
     auto rfTestFunction = noelle.getProgram()->getFunction("__rf_test");
     assert(rfTestFunction != nullptr);
-    pollingFunctionCall->setCalledFunction(rfTestFunction);
+    IRBuilder pollingBlockBuilder { pair.second->getPollingBlock() };
+    pollingBlockBuilder.SetInsertPoint(pollingFunctionCall);
+    auto rfTestFunctionCall = pollingBlockBuilder.CreateCall(
+      rfTestFunction
+    );
+    pollingFunctionCall->replaceAllUsesWith(rfTestFunctionCall);
+    pollingFunctionCall->eraseFromParent();
 
     IRBuilder<> builder{ loopHandlerCall };
     auto rfHandlerFunction = noelle.getProgram()->getFunction("__rf_handle_wrapper");

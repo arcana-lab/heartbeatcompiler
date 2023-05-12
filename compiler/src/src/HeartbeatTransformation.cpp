@@ -9,6 +9,7 @@ using namespace llvm::noelle;
 
 HeartbeatTransformation::HeartbeatTransformation (
   Noelle &noelle,
+  StructType *heartbeat_memory_type,
   uint64_t nestID,
   LoopDependenceInfo *ldi,
   uint64_t numLevels,
@@ -19,6 +20,7 @@ HeartbeatTransformation::HeartbeatTransformation (
   std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> &loopToHeartbeatTransformation,
   std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop
 ) : DOALL{noelle},
+    heartbeat_memory_type{heartbeat_memory_type},
     nestID{nestID},
     ldi{ldi},
     n{noelle},
@@ -39,10 +41,10 @@ HeartbeatTransformation::HeartbeatTransformation (
    */
   auto tm = noelle.getTypesManager();
   std::vector<Type *> sliceTaskSignatureTypes {
-    PointerType::getUnqual(tm->getIntegerType(64)), // cxts
-    PointerType::getUnqual(tm->getIntegerType(64)), // constLiveIns
-    tm->getIntegerType(64),                         // startingLevel
-    tm->getIntegerType(64)                          // myIndex
+    PointerType::getUnqual(tm->getIntegerType(64)),     // uint64_t *cxt
+    PointerType::getUnqual(tm->getIntegerType(64)),     // uint64_t *constLiveIns
+    tm->getIntegerType(64),                             // uint64_t myIndex
+    PointerType::getUnqual(this->heartbeat_memory_type) // hbmem
   };
   this->sliceTaskSignature = FunctionType::get(tm->getIntegerType(64), ArrayRef<Type *>(sliceTaskSignatureTypes), false);
 
@@ -334,7 +336,10 @@ bool HeartbeatTransformation::apply (
   // invoking the polling function to either jump to the loop_handler_block or latch block
   IRBuilder<> pollingBlockBuilder{ pollingBlock };
   this->callToPollingFunction = pollingBlockBuilder.CreateCall(
-    pollingFunction
+    pollingFunction,
+    ArrayRef<Value *>({
+      hbTask->getHBMemoryArg()
+    })
   );
   // invoke llvm.expect.i1 function
   auto llvmExpectFunction = Intrinsic::getDeclaration(program, Intrinsic::expect, ArrayRef<Type *>({ pollingBlockBuilder.getInt1Ty() }));
@@ -367,9 +372,9 @@ bool HeartbeatTransformation::apply (
   std::vector<Value *> loopHandlerParameters{ 
     hbTask->getContextArg(),
     hbTask->getConstLiveInsArg(),
-    hbTask->getStartingLevelArg(),
     loopHandlerBuilder.getInt64(this->loopToLevel[loop]),
     loopHandlerBuilder.getInt64(this->numLevels),
+    hbTask->getHBMemoryArg(),
     Constant::getNullValue(loopHandlerFunction->getArg(5)->getType()),  // pointer to slice tasks, change this value later
     Constant::getNullValue(loopHandlerFunction->getArg(6)->getType()),  // pointer to leftover tasks, change this value later
     Constant::getNullValue(loopHandlerFunction->getArg(7)->getType())   // pointer to leftover task selector, change this value later
@@ -1244,19 +1249,34 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   );
 
   /*
+   * Allocate the heartbeat_memory_t object and initialize the startingLevel
+   */
+  auto hbmem = loopEntryBuilder.CreateAlloca(
+    this->heartbeat_memory_type,
+    nullptr,
+    "hbmem"
+  );
+
+  /*
    * Invoke the heartbeat_reset function
    */
   auto hbResetFunction = this->noelle.getProgram()->getFunction("heartbeat_reset");
   assert(hbResetFunction != nullptr);
   errs() << "heartbeat_reset function " << *hbResetFunction << "\n";
-  this->callToHBResetFunction = loopEntryBuilder.CreateCall(hbResetFunction);
+  this->callToHBResetFunction = loopEntryBuilder.CreateCall(
+    hbResetFunction,
+    ArrayRef<Value *>({
+      hbmem,
+      loopEntryBuilder.getInt64(0)
+    })
+  );
 
   // invoke the root loop slice task
   std::vector<Value *> loopSliceParameters {
     contextArrayCasted,
     constantLiveInsCasted,
     ConstantInt::get(loopEntryBuilder.getInt64Ty(), 0),
-    ConstantInt::get(loopEntryBuilder.getInt64Ty(), 0)
+    hbmem
   };
   loopEntryBuilder.CreateCall(
     this->tasks[0]->getTaskBody(),
@@ -1638,8 +1658,8 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
   std::vector<Value *> parametersVec {
     callerHBTask->getContextArg(),
     callerHBTask->getConstLiveInsArg(),
-    callerHBTask->getStartingLevelArg(),
-    liveInEnvBuilder.getInt64(0)
+    liveInEnvBuilder.getInt64(0),
+    callerHBTask->getHBMemoryArg()
   };
   auto calleeHBTaskCallInst = liveInEnvBuilder.CreateCall(
     this->hbTask->getTaskBody(),

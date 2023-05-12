@@ -45,6 +45,8 @@ class Heartbeat : public ModulePass {
     StringRef outputPrefix;
     StringRef functionSubString;
 
+    void createHBMemoryStructType(Noelle &noelle, bool Enable_Rollforward, bool Chunk_Loop_Iterations, bool Adaptive_Chunksize_Control);
+    StructType *heartbeat_memory_type;
     void createHBResetFunction(Noelle &noelle);
     void createPollingFunction(Noelle &noelle);
     void createLoopHandlerFunction(Noelle &noelle);
@@ -182,8 +184,7 @@ class Heartbeat : public ModulePass {
     /*
      * Chunking transformation
      */
-    void storeChunksizeAndResetPollingCountInRootLoop();
-    void increasePollingCountPerPoll();
+    void storeChunksizeInRootLoop();
 
     void executeLoopInChunk(
       LoopDependenceInfo *,
@@ -195,7 +196,6 @@ class Heartbeat : public ModulePass {
 
     std::unordered_map<LoopDependenceInfo *, uint64_t> loopToChunksize;
     bool chunkLoopIterations = false;
-    bool adaptiveChunksizeControl = false;
 
     /*
      * Step 7: create slice tasks wrapper

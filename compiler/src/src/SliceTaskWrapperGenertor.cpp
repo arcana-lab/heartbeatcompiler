@@ -12,10 +12,10 @@ void Heartbeat::createSliceTasks(
 
   // wrapper function type
   std::vector<Type *> sliceTaskType{
-    PointerType::getUnqual(tm->getIntegerType(64)),   // uint64_t *cxt
-    PointerType::getUnqual(tm->getIntegerType(64)),   // uint64_t *constLiveIns
-    tm->getIntegerType(64),                           // uint64_t startingLevel
-    tm->getIntegerType(64)                            // uint64_t myIndex
+    PointerType::getUnqual(tm->getIntegerType(64)),     // uint64_t *cxt
+    PointerType::getUnqual(tm->getIntegerType(64)),     // uint64_t *constLiveIns
+    tm->getIntegerType(64),                             // uint64_t myIndex
+    PointerType::getUnqual(this->heartbeat_memory_type) // hbmem
   };
 
   for (uint64_t level = 0; level < this->numLevels; level++) {
