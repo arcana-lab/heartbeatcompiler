@@ -182,7 +182,8 @@ class Heartbeat : public ModulePass {
     /*
      * Chunking transformation
      */
-    void storeChunksizeInRootLoop();
+    void storeChunksizeAndResetPollingCountInRootLoop();
+    void increasePollingCountPerPoll();
 
     void executeLoopInChunk(
       LoopDependenceInfo *,
@@ -194,6 +195,7 @@ class Heartbeat : public ModulePass {
 
     std::unordered_map<LoopDependenceInfo *, uint64_t> loopToChunksize;
     bool chunkLoopIterations = false;
+    bool adaptiveChunksizeControl = false;
 
     /*
      * Step 7: create slice tasks wrapper

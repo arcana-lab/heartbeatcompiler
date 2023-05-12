@@ -1,7 +1,7 @@
 #include "Pass.hpp"
 #include "HeartbeatTransformation.hpp"
 
-void Heartbeat::storeChunksizeInRootLoop() {
+void Heartbeat::storeChunksizeAndResetPollingCountInRootLoop() {
   auto hbTransformation = this->loopToHeartbeatTransformation[this->rootLoop];
   auto contextArrayAlloca = hbTransformation->contextArrayAlloca;
   assert(contextArrayAlloca != nullptr && "contextArrayAlloc hasn't been set in the original root loop\n");
@@ -26,7 +26,65 @@ void Heartbeat::storeChunksizeInRootLoop() {
     );
   }
 
-  errs() << "original root loop after storing chunking info\n" << *(this->rootLoop->getLoopStructure()->getFunction()) << "\n";
+  if (this->adaptiveChunksizeControl) {
+    for (auto level = 0; level < this->numLevels; level++) {
+      loopEntryBuilder.CreateStore(
+        loopEntryBuilder.getInt64(0),
+        loopEntryBuilder.CreateInBoundsGEP(
+          contextArrayAlloca->getType()->getPointerElementType(),
+          contextArrayAlloca,
+          ArrayRef<Value *>({
+            loopEntryBuilder.getInt64(0),
+            loopEntryBuilder.getInt64(level * hbTransformation->valuesInCacheLine + hbTransformation->pollingCountIndex)
+          }),
+          std::string("polling_count_level_").append(std::to_string(level)).append("_addr")
+        )
+      );
+    }
+  }
+
+  errs() << "original root loop after storing chunking info and reset polling count\n" << *(this->rootLoop->getLoopStructure()->getFunction()) << "\n";
+}
+
+void Heartbeat::increasePollingCountPerPoll() {
+  auto hbTransformation = this->loopToHeartbeatTransformation[this->rootLoop];
+  auto contextArrayAlloca = hbTransformation->contextArrayAlloca;
+
+  for (auto pair : this->loopToHeartbeatTransformation) {
+    auto loopLevel = this->loopToLevel[pair.first];
+    auto hbt = pair.second;
+    auto pollingBlock = hbt->pollingBlock;
+
+    IRBuilder<> pollingBlockBuilder{ pollingBlock };
+    pollingBlockBuilder.SetInsertPoint(&*pollingBlock->begin());
+
+    // get the polling count addr
+    auto pollingCountGEP = pollingBlockBuilder.CreateInBoundsGEP(
+      hbt->getContextBitCastInst()->getType()->getPointerElementType(),
+      hbt->getContextBitCastInst(),
+      ArrayRef<Value *>({
+        pollingBlockBuilder.getInt64(0),
+        pollingBlockBuilder.getInt64(loopLevel * hbt->valuesInCacheLine + hbt->pollingCountIndex)
+      }),
+      std::string("polling_count_level_").append(std::to_string(loopLevel)).append("_addr")
+    );
+
+    // load the polling count
+    auto pollingCount = pollingBlockBuilder.CreateLoad(
+      pollingBlockBuilder.getInt64Ty(),
+      pollingCountGEP,
+      std::string("polling_count_level_").append(std::to_string(loopLevel))
+    );
+
+    // store the polling count
+    pollingBlockBuilder.CreateStore(
+      pollingBlockBuilder.CreateAdd(
+        pollingCount,
+        pollingBlockBuilder.getInt64(1)
+      ),
+      pollingCountGEP
+    );
+  }
 }
 
 void Heartbeat::executeLoopInChunk(LoopDependenceInfo *ldi, HeartbeatTransformation *hbt, bool isLeafLoop) {

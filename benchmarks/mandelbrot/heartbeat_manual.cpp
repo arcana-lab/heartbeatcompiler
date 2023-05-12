@@ -11,6 +11,7 @@
 #define MAX_ITER 1
 #define LIVE_IN_ENV 2
 #define CHUNKSIZE 4
+#define POLLING_COUNT 5
 
 namespace mandelbrot {
 
@@ -59,6 +60,12 @@ void HEARTBEAT_nest0_loop0(double x0, double y0, int width, int height, int max_
     // set the chunksize per loop level
     cxts[LEVEL_ZERO * CACHELINE + CHUNKSIZE] = CHUNKSIZE_0;
     cxts[LEVEL_ONE  * CACHELINE + CHUNKSIZE] = CHUNKSIZE_1;
+
+#if defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+    // reset polling count per loop level
+    cxts[LEVEL_ZERO * CACHELINE + POLLING_COUNT] = 0;
+    cxts[LEVEL_ONE * CACHELINE + POLLING_COUNT] = 0;
+#endif
 #endif
 
     // set start/max iterations for loop0
@@ -141,6 +148,9 @@ int64_t HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
     }
 
 #if !defined(ENABLE_ROLLFORWARD)
+#if defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+    cxts[LEVEL_ZERO * CACHELINE + POLLING_COUNT]++;
+#endif
     if (unlikely(heartbeat_polling())) {
       cxts[LEVEL_ZERO * CACHELINE + START_ITER] = low - 1;
       rc = loop_handler(
@@ -259,6 +269,9 @@ int64_t HEARTBEAT_nest0_loop1_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
     }
 
 #if !defined(ENABLE_ROLLFORWARD)
+#if defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+    cxts[LEVEL_ONE * CACHELINE + POLLING_COUNT]++;
+#endif
     if (unlikely(heartbeat_polling())) {
       cxts[LEVEL_ONE * CACHELINE + START_ITER] = low - 1;
       rc = loop_handler(

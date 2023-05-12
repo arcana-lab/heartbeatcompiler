@@ -254,10 +254,16 @@ SMALLEST_GRANULARITY ?= 2
 MACROS_HEARTBEAT += -DSMALLEST_GRANULARITY=$(SMALLEST_GRANULARITY)
 
 # whether to chunk loop iterations before calling loop_handler
+# whether to enable adpative chunksize control to decrease polling overhead
 CHUNK_LOOP_ITERATIONS ?= true
+ADAPTIVE_CHUNKSIZE_CONTROL ?= false
 ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 	MACROS_HEARTBEAT += -DCHUNK_LOOP_ITERATIONS
 	PASS_ARGUMENTS_HEARTBEAT_COMPILER += -chunk_loop_iterations
+	ifeq ($(ADAPTIVE_CHUNKSIZE_CONTROL), true)
+		MACROS_HEARTBEAT += -DADAPTIVE_CHUNKSIZE_CONTROL
+		PASS_ARGUMENTS_HEARTBEAT_COMPILER += -adaptive_chunksize_control
+	endif
 endif
 
 # include benchmark heartbeat specific settings

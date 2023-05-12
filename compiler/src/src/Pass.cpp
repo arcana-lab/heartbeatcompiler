@@ -4,6 +4,7 @@ using namespace llvm;
 using namespace llvm::noelle;
 
 static cl::opt<bool> Chunk_Loop_Iterations("chunk_loop_iterations", cl::desc("Execute loop iterations in chunk"));
+static cl::opt<bool> Adaptive_Chunksize_Control("adaptive_chunksize_control", cl::desc("Enable adaptive chunksize control for performance"));
 static cl::list<std::string> Chunksize("chunksize", cl::desc("Specify the chunksize for each level of nested loop"), cl::OneOrMore);
 static cl::opt<bool> Enable_Rollforward("enable_rollforward", cl::desc("Enable rollforward compilation"));
 
@@ -62,6 +63,9 @@ bool Heartbeat::runOnModule (Module &M) {
      */
     if (Chunk_Loop_Iterations) {
       this->chunkLoopIterations = true;
+      if (Adaptive_Chunksize_Control) {
+        this->adaptiveChunksizeControl = true;
+      }
       uint64_t index = 0;
       for (auto &chunksize : Chunksize) {
         this->loopToChunksize[this->levelToLoop[index]] = stoi(chunksize);
@@ -111,7 +115,11 @@ bool Heartbeat::runOnModule (Module &M) {
      * Chunksize is supposed to be passed from the command line
      */
     if (this->chunkLoopIterations) {
-      storeChunksizeInRootLoop();
+      storeChunksizeAndResetPollingCountInRootLoop();
+
+      if (this->adaptiveChunksizeControl) {
+        increasePollingCountPerPoll();
+      }
 
       for (auto pair : this->loopToHeartbeatTransformation) {
         auto ldi = pair.first;

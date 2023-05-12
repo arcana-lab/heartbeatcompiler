@@ -12,6 +12,18 @@
 
 extern "C" {
 
+#ifndef SMALLEST_GRANULARITY
+  #error "Macro SMALLEST_GRANULARITY undefined"
+#endif
+
+#define CACHELINE 8
+#define START_ITER 0
+#define MAX_ITER 1
+#define LIVE_IN_ENV 2
+#define LIVE_OUT_ENV 3
+#define CHUNKSIZE 4
+#define POLLING_COUNT 5
+
 #if defined(STATS)
 static uint64_t polls = 0;
 static uint64_t heartbeats = 0;
@@ -41,6 +53,15 @@ void run_bench(std::function<void()> const &bench_body,
 #endif
 }
 
+#if defined(DEBUG)
+void printGIS(uint64_t *cxts, uint64_t startLevel, uint64_t maxLevel) {
+  assert(startLevel <= maxLevel && startLevel >=0 && maxLevel >=0);
+  for (uint64_t level = startLevel; level <= maxLevel; level++) {
+    printf("level: %ld, [%ld, %ld)\n", level, cxts[level * CACHELINE + START_ITER], cxts[level * CACHELINE + MAX_ITER]);
+  }
+}
+#endif
+
 __attribute__((always_inline))
 void heartbeat_reset() {
 #if !defined(ENABLE_ROLLFORWARD)
@@ -58,25 +79,24 @@ bool heartbeat_polling() {
   return true;
 }
 
-#if defined(DEBUG)
-void printGIS(uint64_t *cxts, uint64_t startLevel, uint64_t maxLevel) {
-  assert(startLevel <= maxLevel && startLevel >=0 && maxLevel >=0);
-  for (uint64_t level = startLevel; level <= maxLevel; level++) {
-    printf("level: %ld, [%ld, %ld)\n", level, cxts[level * CACHELINE + START_ITER], cxts[level * CACHELINE + MAX_ITER]);
+#if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+#define TARGET_POLLING_RATIO 64
+#define AGGRESSIVENESS 0.5
+void adaptive_chunksize_control(uint64_t *cxts, uint64_t startingLevel, uint64_t numLevels) {
+  uint64_t polling_count_total = 0;
+  for (uint64_t level = startingLevel; level < numLevels; level++) {
+    polling_count_total += cxts[level * CACHELINE + POLLING_COUNT];
   }
+  printf("chunksize = %ld, polling total = %ld\n", cxts[(numLevels-1) * CACHELINE + CHUNKSIZE], polling_count_total);
+
+  int64_t error_t = polling_count_total - TARGET_POLLING_RATIO;
+  double kp = 1.0 / TARGET_POLLING_RATIO * AGGRESSIVENESS;
+  double u_t = (double)error_t * kp;
+  double new_chunksize = (1 + u_t) * cxts[(numLevels-1) * CACHELINE + CHUNKSIZE];
+  printf("\terror = %ld\n\tu = %.2f\n\tnew_chunksize = %.2f\n", error_t, u_t, new_chunksize);
+  cxts[(numLevels-1) * CACHELINE + CHUNKSIZE] = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize : 1;
 }
 #endif
-
-#ifndef SMALLEST_GRANULARITY
-  #error "Macro SMALLEST_GRANULARITY undefined"
-#endif
-
-#define CACHELINE 8
-#define START_ITER 0
-#define MAX_ITER 1
-#define LIVE_IN_ENV 2
-#define LIVE_OUT_ENV 3
-#define CHUNKSIZE 4
 
 int64_t loop_handler(
   uint64_t *cxts,
@@ -115,6 +135,10 @@ int64_t loop_handler(
   splits++;
 #endif
 
+#if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+  adaptive_chunksize_control(cxts, startingLevel, numLevels);
+#endif
+
   /*
    * Calculate the splitting point of the rest of iterations at splittingLevel
    */
@@ -139,6 +163,13 @@ int64_t loop_handler(
    */
   for (auto level = splittingLevel; level < numLevels; level++) {
     cxtsSecond[level * CACHELINE + CHUNKSIZE] = cxts[level * CACHELINE + CHUNKSIZE];
+#if !defined(ENABLE_ROLLFORWARD) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+    /*
+     * Reset polling count starting from splittingLevel
+     */
+    cxts[level * CACHELINE + POLLING_COUNT] = 0;
+    cxtsSecond[level * CACHELINE + POLLING_COUNT] = 0;
+#endif
   }
 #endif
 
