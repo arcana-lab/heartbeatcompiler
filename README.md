@@ -59,10 +59,12 @@ Several options can be applied during the compilation stage to control how the f
 
 - `CHUNK_LOOP_ITERATIONS`: whether to execute the loop in chunk before calling loop_handler. The default is `true`.
 
+- `ADAPTIVE_CHUNKSIZE_CONTROL`: whether to do adaptive chunksize control to minimize the software polling overhead. The default is `false`.
+
 - `SMALLE_GRANULARITY`: the minimal remaining iteration size for a loop to enable heartbeat promotion. The default is `2`.
 
 ### Chunksize options
-The chunksize option can be supplied in a per-loop-level manner such as `CHUNKSIZE_0` for level 0, `CHUNKSIZE_1` for level 1. Depends on the number of levels a loop nest has. If not supplied, the compilation uses the default chunksize provided in `heartbeat.config` per benchmark folder. Chunksize should not be less than `1` to avoid an infinite loop.
+The chunksize option can be supplied in a per-loop-level manner such as `CHUNKSIZE_0` for level 0, `CHUNKSIZE_1` for level 1. Depends on the number of levels a loop nest has. If not supplied, the compilation uses the default chunksize provided in `heartbeat.config` per benchmark folder. Chunksize should not be less than `1` to avoid an infinite loop. If using `SOFTWARE_POLLING` as the mechanism to detect heartbeat and `ADAPTIVE_CHUNKSIZE_CONTROL` is turned on, the chunksize will change during program runtime.
 
 ### Benchmark-specific options
 The following benchmarks have specific compilation options
