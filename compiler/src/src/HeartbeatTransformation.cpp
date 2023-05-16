@@ -9,7 +9,7 @@ using namespace llvm::noelle;
 
 HeartbeatTransformation::HeartbeatTransformation (
   Noelle &noelle,
-  StructType *heartbeat_memory_type,
+  StructType *task_memory_t,
   uint64_t nestID,
   LoopDependenceInfo *ldi,
   uint64_t numLevels,
@@ -20,7 +20,7 @@ HeartbeatTransformation::HeartbeatTransformation (
   std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> &loopToHeartbeatTransformation,
   std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop
 ) : DOALL{noelle},
-    heartbeat_memory_type{heartbeat_memory_type},
+    task_memory_t{task_memory_t},
     nestID{nestID},
     ldi{ldi},
     n{noelle},
@@ -44,7 +44,7 @@ HeartbeatTransformation::HeartbeatTransformation (
     PointerType::getUnqual(tm->getIntegerType(64)),     // uint64_t *cxt
     PointerType::getUnqual(tm->getIntegerType(64)),     // uint64_t *constLiveIns
     tm->getIntegerType(64),                             // uint64_t myIndex
-    PointerType::getUnqual(this->heartbeat_memory_type) // hbmem
+    PointerType::getUnqual(this->task_memory_t) // tmem
   };
   this->sliceTaskSignature = FunctionType::get(tm->getIntegerType(64), ArrayRef<Type *>(sliceTaskSignatureTypes), false);
 
@@ -1249,24 +1249,24 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   );
 
   /*
-   * Allocate the heartbeat_memory_t object and initialize the startingLevel
+   * Allocate the task_memory_t object and initialize the startingLevel
    */
-  auto hbmem = loopEntryBuilder.CreateAlloca(
-    this->heartbeat_memory_type,
+  auto tmem = loopEntryBuilder.CreateAlloca(
+    this->task_memory_t,
     nullptr,
-    "hbmem"
+    "tmem"
   );
 
   /*
-   * Invoke the heartbeat_reset function
+   * Invoke the heartbeat_start function
    */
-  auto hbResetFunction = this->noelle.getProgram()->getFunction("heartbeat_reset");
+  auto hbResetFunction = this->noelle.getProgram()->getFunction("heartbeat_start");
   assert(hbResetFunction != nullptr);
-  errs() << "heartbeat_reset function " << *hbResetFunction << "\n";
+  errs() << "heartbeat_start function " << *hbResetFunction << "\n";
   this->callToHBResetFunction = loopEntryBuilder.CreateCall(
     hbResetFunction,
     ArrayRef<Value *>({
-      hbmem,
+      tmem,
       loopEntryBuilder.getInt64(0)
     })
   );
@@ -1276,7 +1276,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
     contextArrayCasted,
     constantLiveInsCasted,
     ConstantInt::get(loopEntryBuilder.getInt64Ty(), 0),
-    hbmem
+    tmem
   };
   loopEntryBuilder.CreateCall(
     this->tasks[0]->getTaskBody(),

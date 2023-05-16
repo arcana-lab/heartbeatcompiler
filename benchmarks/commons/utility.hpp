@@ -154,12 +154,11 @@ std::string benchmark_name = "";
   printf("\"software_polling\",\n");
 #endif
 
-  printf("\"chunking_settings\": {\n");
-  printf("\t\"chunk_loop_iterations\": ");
+  printf("\"chunk_loop_iterations\": ");
 #if defined(CHUNK_LOOP_ITERATIONS)
   printf("true,\n");
 // TODO: find ways to handle multiple-level chunksize declarations
-  printf("\t\"chunksizes\": [ ");
+  printf("\"chunksizes\": [ ");
 #if defined(CHUNKSIZE_0)
   printf("%d", CHUNKSIZE_0);
 #endif
@@ -169,11 +168,18 @@ std::string benchmark_name = "";
 #if defined(CHUNKSIZE_2)
   printf(", %d", CHUNKSIZE_2);
 #endif
-  printf(" ]\n");
+  printf(" ],\n");
 #else
   printf("false\n");
 #endif
-  printf("},\n");
+#if !defined(ENABLE_ROLLFORWARD)
+  printf("\"adaptive_chunksize_control\": ");
+#if defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+  printf("true,\n");
+#else
+  printf("false\n");
+#endif
+#endif
 
 #endif // #if defined(ENABLE_HEARTBEAT_PROMOTION)
 

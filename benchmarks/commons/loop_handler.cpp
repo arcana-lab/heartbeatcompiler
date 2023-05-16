@@ -12,8 +12,8 @@
 
 extern "C" {
 
-#ifndef SMALLEST_GRANULARITY
-  #error "Macro SMALLEST_GRANULARITY undefined"
+#if !defined(SMALLEST_GRANULARITY)
+  #error "Macro SMALLEST_GRANULARITY no defined"
 #endif
 
 #define CACHELINE 8
@@ -46,36 +46,32 @@ void run_bench(std::function<void()> const &bench_body,
 
 #if defined(STATS)
   utility::stats_end();
-#if !defined(ENABLE_ROLLFORWARD)
   printf("polls: %ld\n", polls);
-#endif
   printf("heartbeats: %ld\n", heartbeats);
   printf("splits: %ld\n", splits);
 #endif
 }
 
-#if defined(DEBUG)
-void printGIS(uint64_t *cxts, uint64_t startLevel, uint64_t maxLevel) {
+void printGIS(uint64_t *cxts, uint64_t startLevel, uint64_t maxLevel, std::string prefix) {
   assert(startLevel <= maxLevel && startLevel >=0 && maxLevel >=0);
   for (uint64_t level = startLevel; level <= maxLevel; level++) {
-    printf("level: %ld, [%ld, %ld)\n", level, cxts[level * CACHELINE + START_ITER], cxts[level * CACHELINE + MAX_ITER]);
+    printf("%slevel: %ld, [%ld, %ld)\n", prefix.c_str(), level, cxts[level * CACHELINE + START_ITER], cxts[level * CACHELINE + MAX_ITER]);
   }
 }
-#endif
 
 __attribute__((always_inline))
-void heartbeat_reset(heartbeat_memory_t *hbmem, uint64_t startingLevel) {
+void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
   /*
    * Set the starting level
    */
-  hbmem->startingLevel = startingLevel;
+  tmem->startingLevel = startingLevel;
 
 #if !defined(ENABLE_ROLLFORWARD)
 #if defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
   /*
    * Reset polling count if using adaptive chunksize control
    */
-  hbmem->polling_count = 0;
+  tmem->polling_count = 0;
 #endif
 
   /*
@@ -86,58 +82,153 @@ void heartbeat_reset(heartbeat_memory_t *hbmem, uint64_t startingLevel) {
 }
 
 #if !defined(ENABLE_ROLLFORWARD)
-bool heartbeat_polling(heartbeat_memory_t *hbmem) {
+
+bool heartbeat_polling(task_memory_t *tmem) {
 #if defined(STATS)
   polls++;
 #endif
 
 #if defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
-  hbmem->polling_count++;
+  /*
+   * Increase the polling count in the task memory
+   */
+  tmem->polling_count++;
 #endif
   if ((taskparts::prev.mine() + taskparts::kappa_cycles) > taskparts::cycles::now()) {
     return false;
   }
   return true;
 }
-#endif
 
-#if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
-#define TARGET_POLLING_RATIO 64
-#define AGGRESSIVENESS 0.5
-void adaptive_chunksize_control(uint64_t *cxts, uint64_t numLevels, heartbeat_memory_t *hbmem) {
-  // printf("chunksize = %ld, polling count total = %ld\n", cxts[(numLevels-1) * CACHELINE + CHUNKSIZE], hbmem->polling_count);
+#if defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+/*
+ * Memorization information tracked by the runtime worker thread and
+ * accessed and analyzed by the runtime functions
+ */
+struct runtime_memory_t {
+  uint64_t heartbeat_count;
+  uint64_t minimal_polling_count;
+  uint64_t chunksize;
+};
 
-  int64_t error_t = hbmem->polling_count - TARGET_POLLING_RATIO;
-  double kp = 1.0 / TARGET_POLLING_RATIO * AGGRESSIVENESS;
-  double u_t = (double)error_t * kp;
-  double new_chunksize = (1 + u_t) * cxts[(numLevels-1) * CACHELINE + CHUNKSIZE];
-  // printf("\terror = %ld\n\tu = %.2f\n\tnew_chunksize = %.2f\n", error_t, u_t, new_chunksize);
-  cxts[(numLevels-1) * CACHELINE + CHUNKSIZE] = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize : 1;
+taskparts::perworker::array<runtime_memory_t> rtmem;
+
+void runtime_memory_reset() {
+  for (size_t i = 0; i < rtmem.size(); i++) {
+    rtmem[i].heartbeat_count = 0;
+    rtmem[i].minimal_polling_count = INT64_MAX;
+    rtmem[i].chunksize = CHUNKSIZE_0;
+  }
 }
+
+#define SLIDING_WINDOW_SIZE 5
+#define TARGET_POLLING_RATIO 64
+#define AGGRESSIVENESS 0.9
+__attribute__((always_inline))
+void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLevels) {
+  /*
+   * Increase the heartbeat count in the runtime memory
+   */
+  rtmem.mine().heartbeat_count++;
+
+  /*
+   * Reset minimal polling count if in a new window
+   */
+  if (rtmem.mine().heartbeat_count % SLIDING_WINDOW_SIZE == 1) {
+    rtmem.mine().minimal_polling_count = INT64_MAX;
+  }
+
+  /*
+   * Update the minimal polling count for this window,
+   * as well as the chunksize used for this new polling count
+   */
+  if (tmem->polling_count < rtmem.mine().minimal_polling_count) {
+    rtmem.mine().minimal_polling_count = tmem->polling_count;
+    rtmem.mine().chunksize = cxts[(numLevels - 1) * CACHELINE + CHUNKSIZE];
+  }
+
+#if defined(ACC_STATS)
+  printf("runtime_memory_update: ");
+  printf("heartbeat_count = %ld, ", rtmem.mine().heartbeat_count);
+  printf("polling_count = %ld, ", tmem->polling_count);
+  printf("minimal_polling_count = %ld, ", rtmem.mine().minimal_polling_count);
+  printf("chunksize = %ld\n", rtmem.mine().chunksize);
 #endif
+}
+
+__attribute__((always_inline))
+void adaptive_chunksize_control(uint64_t *cxts, uint64_t startingLevel, uint64_t numLevels) {
+#if defined(ACC_STATS)
+  printGIS(cxts, startingLevel, startingLevel, "\t");
+  printf("\tadaptive_chunksize_control: ");
+  printf("heartbeat_count = %ld, ", rtmem.mine().heartbeat_count);
+  printf("minimal_polling_count = %ld, ", rtmem.mine().minimal_polling_count);
+  printf("chunksize = %ld\n", rtmem.mine().chunksize);
+#endif
+
+  /*
+   * Early return if inside the sliding window
+   */
+  if (rtmem.mine().heartbeat_count % SLIDING_WINDOW_SIZE != 0) {
+#if defined(ACC_STATS)
+    printf("\t\tinside the sliding window, return\n");
+#endif
+    cxts[(numLevels-1) * CACHELINE + CHUNKSIZE] = rtmem.mine().chunksize;
+    return;
+  }
+
+  /*
+   * Adaptive chunksize control algorithm
+   */
+  double u_t = (double)rtmem.mine().minimal_polling_count / (double)TARGET_POLLING_RATIO * (double)AGGRESSIVENESS;
+  double new_chunksize = u_t * rtmem.mine().chunksize;
+#if defined(ACC_STATS)
+  printf("\t\tapplying adpative chunksize control:\n");
+  printf("\t\t\tu = %.2f\n", u_t);
+  printf("\t\t\tnew chunksize = %ld\n", (uint64_t)new_chunksize);
+#endif
+  cxts[(numLevels-1) * CACHELINE + CHUNKSIZE] = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize : 1;
+
+  /*
+   * Update the new chunksize to the runtime memory as well,
+   * so whichever task running by this thread can inherit the new chunksize setting
+   */
+  rtmem.mine().chunksize = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize : 1;
+}
+
+#endif  // defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+#endif  // !defined(ENABLE_ROLLFORWARD)
+
+void heartbeat_start(task_memory_t *tmem) {
+#if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+  runtime_memory_reset();
+#endif
+
+  task_memory_reset(tmem, 0);
+}
 
 int64_t loop_handler(
   uint64_t *cxts,
   uint64_t *constLiveIns,
   uint64_t receivingLevel,
   uint64_t numLevels,
-  heartbeat_memory_t *hbmem,
-  int64_t (*slice_tasks[])(uint64_t *, uint64_t *, uint64_t, heartbeat_memory_t *),
-  void (*leftover_tasks[])(uint64_t *, uint64_t *, uint64_t, heartbeat_memory_t *),
+  task_memory_t *tmem,
+  int64_t (*slice_tasks[])(uint64_t *, uint64_t *, uint64_t, task_memory_t *),
+  void (*leftover_tasks[])(uint64_t *, uint64_t *, uint64_t, task_memory_t *),
   uint64_t (*leftover_selector)(uint64_t, uint64_t)
 ) {
-#if defined(DISABLE_HEARTBEAT_PROMOTION)
-  return 0;
-#endif
 #if defined(STATS)
   heartbeats++;
+#endif
+#if defined(DISABLE_HEARTBEAT_PROMOTION)
+  return 0;
 #endif
 
   /*
    * Decide the splitting level
    */
   uint64_t splittingLevel = receivingLevel + 1;
-  for (uint64_t level = hbmem->startingLevel; level <= receivingLevel; level++) {
+  for (uint64_t level = tmem->startingLevel; level <= receivingLevel; level++) {
     if (cxts[level * CACHELINE + MAX_ITER] - cxts[level * CACHELINE + START_ITER] >= SMALLEST_GRANULARITY) {
       splittingLevel = level;
       break;
@@ -154,7 +245,7 @@ int64_t loop_handler(
 #endif
 
 #if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
-  adaptive_chunksize_control(cxts, numLevels, hbmem);
+  runtime_memory_update(tmem, cxts, numLevels);
 #endif
 
   /*
@@ -196,11 +287,21 @@ int64_t loop_handler(
     cxts[receivingLevel * CACHELINE + START_ITER]++;
 
     taskparts::tpalrts_promote_via_nativefj([&] {
-      heartbeat_reset(hbmem, receivingLevel);
-      slice_tasks[receivingLevel](cxts, constLiveIns, 0, hbmem);
+#if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+      adaptive_chunksize_control(cxts, receivingLevel, numLevels);
+#endif
+      task_memory_reset(tmem, receivingLevel);
+      slice_tasks[receivingLevel](cxts, constLiveIns, 0, tmem);
     }, [&] {
-      heartbeat_memory_t hbmemSecond;
-      heartbeat_reset(&hbmemSecond, receivingLevel);
+#if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+      /*
+       * Consider the start execution of the second task as a new heartbeat count
+       */
+      rtmem.mine().heartbeat_count++;
+      adaptive_chunksize_control(cxtsSecond, receivingLevel, numLevels);
+#endif
+      task_memory_t hbmemSecond;
+      task_memory_reset(&hbmemSecond, receivingLevel);
       slice_tasks[receivingLevel](cxtsSecond, constLiveIns, 1, &hbmemSecond);
     }, [] { }, taskparts::bench_scheduler());
   
@@ -218,11 +319,21 @@ int64_t loop_handler(
      */
     uint64_t leftoverTaskIndex = leftover_selector(receivingLevel, splittingLevel);
     taskparts::tpalrts_promote_via_nativefj([&] {
-      heartbeat_reset(hbmem, splittingLevel);
-      (*leftover_tasks[leftoverTaskIndex])(cxts, constLiveIns, 0, hbmem);
+#if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+      adaptive_chunksize_control(cxts, splittingLevel, numLevels);
+#endif
+      task_memory_reset(tmem, splittingLevel);
+      (*leftover_tasks[leftoverTaskIndex])(cxts, constLiveIns, 0, tmem);
     }, [&] {
-      heartbeat_memory_t hbmemSecond;
-      heartbeat_reset(&hbmemSecond, splittingLevel);
+#if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+      /*
+       * Consider the start execution of the second task as a new heartbeat count
+       */
+      rtmem.mine().heartbeat_count++;
+      adaptive_chunksize_control(cxtsSecond, splittingLevel, numLevels);
+#endif
+      task_memory_t hbmemSecond;
+      task_memory_reset(&hbmemSecond, splittingLevel);
       slice_tasks[splittingLevel](cxtsSecond, constLiveIns, 1, &hbmemSecond);
     }, [&] { }, taskparts::bench_scheduler());
   }
@@ -240,13 +351,13 @@ void rollforward_handler_annotation __rf_handle_wrapper(
   uint64_t *constLiveIns,
   uint64_t receivingLevel,
   uint64_t numLevels,
-  heartbeat_memory_t *hbmem,
-  int64_t (*slice_tasks[])(uint64_t *, uint64_t *, uint64_t, heartbeat_memory_t *),
-  void (*leftover_tasks[])(uint64_t *, uint64_t *, uint64_t, heartbeat_memory_t *),
+  task_memory_t *tmem,
+  int64_t (*slice_tasks[])(uint64_t *, uint64_t *, uint64_t, task_memory_t *),
+  void (*leftover_tasks[])(uint64_t *, uint64_t *, uint64_t, task_memory_t *),
   uint64_t (*leftover_selector)(uint64_t, uint64_t)
 ) {
   rc = loop_handler(
-    cxts, constLiveIns, receivingLevel, numLevels, hbmem,
+    cxts, constLiveIns, receivingLevel, numLevels, tmem,
     slice_tasks, leftover_tasks, leftover_selector
   );
   rollbackward

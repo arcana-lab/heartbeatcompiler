@@ -38,8 +38,8 @@ bool Heartbeat::runOnModule (Module &M) {
   // create the heartbeat_memory struct type
   createHBMemoryStructType(noelle, Enable_Rollforward, Chunk_Loop_Iterations, Adaptive_Chunksize_Control);
 
-  // create heartbeat_reset, polling function and loop_handler function
-  createHBResetFunction(noelle);
+  // create heartbeat_start, polling function and loop_handler function
+  createHBStartFunction(noelle);
   createPollingFunction(noelle);
   createLoopHandlerFunction(noelle);
   if (Enable_Rollforward) {

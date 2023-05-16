@@ -35,7 +35,7 @@ void HeartbeatTask::extractFuncArgs (void) {
   // Third argument: myIndex
   this->myIndexArg = (Value *) &*(argIter++);
 
-  // Fourth argument: hbmem
+  // Fourth argument: tmem
   this->hbmemArg = (Value *) &*(argIter++);
 
   return ;

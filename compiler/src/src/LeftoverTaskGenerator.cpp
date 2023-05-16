@@ -16,7 +16,7 @@ void Heartbeat::createLeftoverTasks(
     PointerType::getUnqual(tm->getIntegerType(64)),     // uint64_t *cxt
     PointerType::getUnqual(tm->getIntegerType(64)),     // uint64_t *constLiveIns
     tm->getIntegerType(64),                             // uint64_t myIndex
-    PointerType::getUnqual(this->heartbeat_memory_type) // hbmem
+    PointerType::getUnqual(this->task_memory_t)         // tmem
   };
 
   for (auto receivingLoop : heartbeatLoops) {

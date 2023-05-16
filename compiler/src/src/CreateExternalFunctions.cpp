@@ -1,13 +1,13 @@
 #include "Pass.hpp"
 
 /*
- * heartbeat_reset
+ * heartbeat_start
  */
-void Heartbeat::createHBResetFunction(Noelle &noelle) {
+void Heartbeat::createHBStartFunction(Noelle &noelle) {
   auto tm = noelle.getTypesManager();
 
   std::vector<Type *> args{
-    PointerType::getUnqual(this->heartbeat_memory_type),  // hbmem
+    PointerType::getUnqual(this->task_memory_t),          // tmem
     tm->getIntegerType(64)                                // startingLevel
   };
 
@@ -15,7 +15,7 @@ void Heartbeat::createHBResetFunction(Noelle &noelle) {
   Function::Create(
     funcType,
     GlobalValue::ExternalLinkage,
-    "heartbeat_reset",
+    "heartbeat_start",
     *noelle.getProgram()
   );
 }
@@ -27,7 +27,7 @@ void Heartbeat::createPollingFunction(Noelle &noelle) {
   auto tm = noelle.getTypesManager();
 
   std::vector<Type *> args{
-    PointerType::getUnqual(this->heartbeat_memory_type) // hbmem
+    PointerType::getUnqual(this->task_memory_t) // tmem
   };
 
   FunctionType *funcType = FunctionType::get(tm->getIntegerType(1), args, false);
@@ -50,7 +50,7 @@ void Heartbeat::createLoopHandlerFunction(Noelle &noelle) {
     PointerType::getUnqual(tm->getIntegerType(64)),     // constLiveIns
     tm->getIntegerType(64),                             // receivingLevel
     tm->getIntegerType(64),                             // numLevels
-    PointerType::getUnqual(this->heartbeat_memory_type) // hbmem
+    PointerType::getUnqual(this->task_memory_t)         // tmem
   };
   // slice tasks
   FunctionType *sliceTasksType = FunctionType::get(
@@ -59,7 +59,7 @@ void Heartbeat::createLoopHandlerFunction(Noelle &noelle) {
       PointerType::getUnqual(tm->getIntegerType(64)),
       PointerType::getUnqual(tm->getIntegerType(64)),
       tm->getIntegerType(64),
-      PointerType::getUnqual(this->heartbeat_memory_type)
+      PointerType::getUnqual(this->task_memory_t)
     }),
     false
   );
@@ -72,7 +72,7 @@ void Heartbeat::createLoopHandlerFunction(Noelle &noelle) {
       PointerType::getUnqual(tm->getIntegerType(64)),
       PointerType::getUnqual(tm->getIntegerType(64)),
       tm->getIntegerType(64),
-      PointerType::getUnqual(this->heartbeat_memory_type)
+      PointerType::getUnqual(this->task_memory_t)
     }),
     false
   );
@@ -110,7 +110,7 @@ void Heartbeat::createRFHandlerFunction(Noelle &noelle) {
     PointerType::getUnqual(tm->getIntegerType(64)),     // constLiveIns
     tm->getIntegerType(64),                             // receivingLevel
     tm->getIntegerType(64),                             // numLevels
-    PointerType::getUnqual(this->heartbeat_memory_type) // hbmem
+    PointerType::getUnqual(this->task_memory_t)         // tmem
   };
   // slice tasks
   FunctionType *sliceTasksType = FunctionType::get(
@@ -119,7 +119,7 @@ void Heartbeat::createRFHandlerFunction(Noelle &noelle) {
       PointerType::getUnqual(tm->getIntegerType(64)),
       PointerType::getUnqual(tm->getIntegerType(64)),
       tm->getIntegerType(64),
-      PointerType::getUnqual(this->heartbeat_memory_type)
+      PointerType::getUnqual(this->task_memory_t)
     }),
     false
   );
@@ -132,7 +132,7 @@ void Heartbeat::createRFHandlerFunction(Noelle &noelle) {
       PointerType::getUnqual(tm->getIntegerType(64)),
       PointerType::getUnqual(tm->getIntegerType(64)),
       tm->getIntegerType(64),
-      PointerType::getUnqual(this->heartbeat_memory_type)
+      PointerType::getUnqual(this->task_memory_t)
     }),
     false
   );

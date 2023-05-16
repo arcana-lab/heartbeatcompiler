@@ -46,8 +46,8 @@ class Heartbeat : public ModulePass {
     StringRef functionSubString;
 
     void createHBMemoryStructType(Noelle &noelle, bool Enable_Rollforward, bool Chunk_Loop_Iterations, bool Adaptive_Chunksize_Control);
-    StructType *heartbeat_memory_type;
-    void createHBResetFunction(Noelle &noelle);
+    StructType *task_memory_t;
+    void createHBStartFunction(Noelle &noelle);
     void createPollingFunction(Noelle &noelle);
     void createLoopHandlerFunction(Noelle &noelle);
     void createRFHandlerFunction(Noelle &noelle);

@@ -36,7 +36,7 @@ class HeartbeatTransformation : public DOALL {
      */
     HeartbeatTransformation (
       Noelle &noelle,
-      StructType *heartbeat_memory_type,
+      StructType *task_memory_t,
       uint64_t nestID,
       LoopDependenceInfo *ldi,
       uint64_t numLevels,
@@ -96,7 +96,7 @@ class HeartbeatTransformation : public DOALL {
 
   // protected:
     Noelle &n;
-    StructType *heartbeat_memory_type;
+    StructType *task_memory_t;
     uint64_t nestID;
     LoopDependenceInfo *ldi;
     uint64_t numLevels;

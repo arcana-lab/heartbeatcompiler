@@ -12,7 +12,7 @@ bool Heartbeat::parallelizeRootLoop (
   errs() << "Start to parallelize loop in function " << ldi->getLoopStructure()->getFunction()->getName() << "\n";
   HeartbeatTransformation *HB = new HeartbeatTransformation(
     noelle,
-    this->heartbeat_memory_type,
+    this->task_memory_t,
     nestID,
     ldi,
     this->numLevels,
@@ -197,7 +197,7 @@ bool Heartbeat::parallelizeNestedLoop (
   errs() << "Start to parallelize loop in function " << ldi->getLoopStructure()->getFunction()->getName() << "\n";
   HeartbeatTransformation *HB = new HeartbeatTransformation(
     noelle,
-    this->heartbeat_memory_type,
+    this->task_memory_t,
     nestID,
     ldi,
     this->numLevels,
