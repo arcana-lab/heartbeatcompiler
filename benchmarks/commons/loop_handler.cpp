@@ -114,29 +114,33 @@ struct runtime_memory_t {
 taskparts::perworker::array<runtime_memory_t> rtmem;
 
 void runtime_memory_reset() {
-  for (size_t i = 0; i < rtmem.size(); i++) {
+  for (size_t i = 0; i < taskparts::perworker::nb_workers(); i++) {
     rtmem[i].heartbeat_count = 0;
     rtmem[i].minimal_polling_count = INT64_MAX;
-    rtmem[i].chunksize = CHUNKSIZE_0;
+    rtmem[i].chunksize = CHUNKSIZE_1 * CHUNKSIZE_0;
   }
 }
 
 #define SLIDING_WINDOW_SIZE 5
-#define TARGET_POLLING_RATIO 64
+#define TARGET_POLLING_RATIO 32
 #define AGGRESSIVENESS 0.9
+/*
+ * Function invoked inside the loop_handler (when received a heartbeat),
+ * to update the memory tracked by the runtime thread
+ */
 __attribute__((always_inline))
 void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLevels) {
+  /*
+   * Reset minimal polling count if starting a new window
+   */
+  if (rtmem.mine().heartbeat_count % SLIDING_WINDOW_SIZE == 0) {
+    rtmem.mine().minimal_polling_count = INT64_MAX;
+  }
+
   /*
    * Increase the heartbeat count in the runtime memory
    */
   rtmem.mine().heartbeat_count++;
-
-  /*
-   * Reset minimal polling count if in a new window
-   */
-  if (rtmem.mine().heartbeat_count % SLIDING_WINDOW_SIZE == 1) {
-    rtmem.mine().minimal_polling_count = INT64_MAX;
-  }
 
   /*
    * Update the minimal polling count for this window,
@@ -144,7 +148,7 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
    */
   if (tmem->polling_count < rtmem.mine().minimal_polling_count) {
     rtmem.mine().minimal_polling_count = tmem->polling_count;
-    rtmem.mine().chunksize = cxts[(numLevels - 1) * CACHELINE + CHUNKSIZE];
+    rtmem.mine().chunksize = cxts[(numLevels-1) * CACHELINE + CHUNKSIZE];
   }
 
 #if defined(ACC_STATS)
@@ -187,13 +191,16 @@ void adaptive_chunksize_control(uint64_t *cxts, uint64_t startingLevel, uint64_t
   printf("\t\t\tu = %.2f\n", u_t);
   printf("\t\t\tnew chunksize = %ld\n", (uint64_t)new_chunksize);
 #endif
-  cxts[(numLevels-1) * CACHELINE + CHUNKSIZE] = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize : 1;
-
   /*
-   * Update the new chunksize to the runtime memory as well,
-   * so whichever task running by this thread can inherit the new chunksize setting
+   * Update the new chunksize to the runtime memory, so whichever 
+   * task run by this thread can inherit the new chunksize setting
    */
   rtmem.mine().chunksize = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize : 1;
+
+  /*
+   * Update chunksize for the heartbeat task
+   */
+  cxts[(numLevels-1) * CACHELINE + CHUNKSIZE] = rtmem.mine().chunksize;
 }
 
 #endif  // defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
