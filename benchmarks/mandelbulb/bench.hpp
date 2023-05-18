@@ -1,12 +1,21 @@
 #pragma once
 
-#include <cmath>
-#include <taskparts/benchmark.hpp>
+#include <functional>
 
 namespace mandelbulb {
-  
-double power = 8.0;
-double maxLength = 2.0;
+
+extern unsigned char *output;
+extern double _mb_x0;
+extern double _mb_y0;
+extern double _mb_z0;
+extern double _mb_x1;
+extern double _mb_y1;
+extern double _mb_z1;
+extern int _mb_nx;
+extern int _mb_ny;
+extern int _mb_nz;
+extern int _mb_iterations;
+extern double power;
 
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 void run_bench(std::function<void()> const &bench_body,
@@ -17,17 +26,17 @@ void setup();
 void finishup();
 
 #if defined(USE_BASELINE)
-unsigned char* mandelbulb_serial(int nx, int ny, int nz, int iterations,
-				 double x0, double y0, double z0,
-				 double x1, double y1, double z1);
+unsigned char* mandelbulb_serial(double x0, double y0, double z0,
+                                 double x1, double y1, double z1,
+                                 int nx, int ny, int nz, int iterations);
 #elif defined(USE_OPENCILK)
-unsigned char* mandelbulb_cilk(int nx, int ny, int nz, int iterations,
-			       double x0, double y0, double z0,
-			       double x1, double y1, double z1);
+unsigned char* mandelbulb_opencilk(double x0, double y0, double z0,
+                                   double x1, double y1, double z1,
+                                   int nx, int ny, int nz, int iterations);
 #elif defined(USE_OPENMP)
-unsigned char* mandelbulb_openmp(int nx, int ny, int nz, int iterations,
-				 double x0, double y0, double z0,
-				 double x1, double y1, double z1);
+unsigned char* mandelbulb_openmp(double x0, double y0, double z0,
+                                 double x1, double y1, double z1,
+                                 int nx, int ny, int nz, int iterations);
 #endif
 
 #if defined(TEST_CORRECTNESS)

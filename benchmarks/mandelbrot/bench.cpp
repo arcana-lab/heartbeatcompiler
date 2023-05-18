@@ -1,7 +1,6 @@
 #include "bench.hpp"
 #include <cmath>
 #include <cstdlib>
-#include <emmintrin.h>
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 #include "utility.hpp"
 #include <functional>
@@ -52,7 +51,7 @@ void setup() {
 }
 
 void finishup() {
-  _mm_free(output);
+  free(output);
 }
 
 #if defined(USE_BASELINE) || defined(TEST_CORRECTNESS)
@@ -61,7 +60,6 @@ unsigned char* mandelbrot_serial(double x0, double y0, double x1, double y1,
                                  int width, int height, int max_depth) {
   double xstep = (x1 - x0) / width;
   double ystep = (y1 - y0) / height;
-  //  unsigned char* output = static_cast<unsigned char*>(_mm_malloc(width * height * sizeof(unsigned char), 64));
   unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
   for(int j = 0; j < height; ++j) { // col loop
     for (int i = 0; i < width; ++i) { // row loop
@@ -96,7 +94,6 @@ unsigned char* mandelbrot_opencilk(double x0, double y0, double x1, double y1,
                                  int width, int height, int max_depth) {
   double xstep = (x1 - x0) / width;
   double ystep = (y1 - y0) / height;
-  //  unsigned char* output = static_cast<unsigned char*>(_mm_malloc(width * height * sizeof(unsigned char), 64));
   unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
   cilk_for(int j = 0; j < height; ++j) { // col loop
     cilk_for (int i = 0; i < width; ++i) { // row loop
@@ -129,7 +126,6 @@ unsigned char* mandelbrot_cilkplus(double x0, double y0, double x1, double y1,
                                  int width, int height, int max_depth) {
   double xstep = (x1 - x0) / width;
   double ystep = (y1 - y0) / height;
-  //  unsigned char* output = static_cast<unsigned char*>(_mm_malloc(width * height * sizeof(unsigned char), 64));
   unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
   cilk_for(int j = 0; j < height; ++j) { // col loop
     cilk_for (int i = 0; i < width; ++i) { // row loop
@@ -162,7 +158,6 @@ unsigned char* mandelbrot_openmp(double x0, double y0, double x1, double y1,
                                  int width, int height, int max_depth) {
   double xstep = (x1 - x0) / width;
   double ystep = (y1 - y0) / height;
-  //  unsigned char* output = static_cast<unsigned char*>(_mm_malloc(width * height * sizeof(unsigned char), 64));
   unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
 #if defined(OMP_SCHEDULE_STATIC)
   #pragma omp parallel for schedule(static)

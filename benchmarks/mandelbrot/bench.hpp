@@ -36,7 +36,7 @@ unsigned char* mandelbrot_openmp(double x0, double y0, double x1, double y1,
 #endif
 
 #if defined(TEST_CORRECTNESS)
-  void test_correctness();
+void test_correctness();
 #endif
 
 } // namespace mandelbrot
