@@ -100,7 +100,7 @@ public:
   }
 
   inline Value * getLocationOfSingleVariable(uint32_t id) {
-    return this->envIndexToVar[this->singleEnvIDToIndex[id]];
+    return this->envIndexToVar[this->getIndexOLiveIn(id)];
   }
 
 private:

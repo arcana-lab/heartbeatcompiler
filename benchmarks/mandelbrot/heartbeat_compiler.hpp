@@ -5,8 +5,8 @@
 
 namespace mandelbrot {
 
-void HEARTBEAT_nest0_loop0(double x0, double y0, uint64_t width, uint64_t height, int max_depth, double xstep, double ystep, unsigned char *output);
-void HEARTBEAT_nest0_loop1(double x0, double y0, uint64_t width, int max_depth, double xstep, double ystep, unsigned char *output, uint64_t j);
+void HEARTBEAT_nest0_loop0(double x0, double y0, uint64_t width, uint64_t height, uint64_t max_depth, double xstep, double ystep, unsigned char *output);
+void HEARTBEAT_nest0_loop1(double x0, double y0, uint64_t width, uint64_t max_depth, double xstep, double ystep, unsigned char *output, uint64_t j);
 
 unsigned char * mandelbrot_hb_compiler(double x0, double y0, double x1, double y1,
                                        int width, int height, int max_depth) {
@@ -20,7 +20,7 @@ unsigned char * mandelbrot_hb_compiler(double x0, double y0, double x1, double y
 
 // Outlined loops
 // void HEARTBEAT_nest0_loop0(double x0, double y0, int width, int height, int max_depth, double xstep, double ystep, unsigned char *output) {
-void HEARTBEAT_nest0_loop0(double x0, double y0, uint64_t width, uint64_t height, int max_depth, double xstep, double ystep, unsigned char *output) {
+void HEARTBEAT_nest0_loop0(double x0, double y0, uint64_t width, uint64_t height, uint64_t max_depth, double xstep, double ystep, unsigned char *output) {
   // for(int j = 0; j < height; ++j) { // col loop
   for(uint64_t j = 0; j < height; ++j) { // col loop
     HEARTBEAT_nest0_loop1(x0, y0, width, max_depth, xstep, ystep, output, j);
@@ -28,7 +28,7 @@ void HEARTBEAT_nest0_loop0(double x0, double y0, uint64_t width, uint64_t height
 }
 
 // void HEARTBEAT_nest0_loop1(double x0, double y0, int width, int max_depth, double xstep, double ystep, unsigned char *output, int j) {
-void HEARTBEAT_nest0_loop1(double x0, double y0, uint64_t width, int max_depth, double xstep, double ystep, unsigned char *output, uint64_t j) {
+void HEARTBEAT_nest0_loop1(double x0, double y0, uint64_t width, uint64_t max_depth, double xstep, double ystep, unsigned char *output, uint64_t j) {
   // for (int i = 0; i < width; ++i) { // row loop
   for (uint64_t i = 0; i < width; ++i) { // row loop
     double z_real = x0 + i*xstep;

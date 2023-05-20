@@ -1266,8 +1266,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   this->callToHBResetFunction = loopEntryBuilder.CreateCall(
     hbResetFunction,
     ArrayRef<Value *>({
-      tmem,
-      loopEntryBuilder.getInt64(0)
+      tmem
     })
   );
 
@@ -1491,7 +1490,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
 
   // 3) build the live-in/out array inside the hbTask
   this->allocateEnvironmentArrayInCallerTask(callerHBTask);
-  errs() << "callerTask after allocating environment for children" << *callerHBTask->getTaskBody() << "\n";
+  errs() << "callerTask after allocating environment for children\n" << *callerHBTask->getTaskBody() << "\n";
 
   auto firstBB = &*(callerHBTask->getTaskBody()->begin());
   IRBuilder<> builder { firstBB->getTerminator() };
@@ -1534,11 +1533,10 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
     );
     builder.CreateStore(liveOutEnv, gepCasted);
   }
-  errs() << "callerTask after storing live-in/out environment into context" << *callerHBTask->getTaskBody() << "\n";
+  errs() << "callerTask after storing live-in/out environment into context\n" << *callerHBTask->getTaskBody() << "\n";
 
   // this->populateLiveInEnvironment(LDI);
   // corretly let the callerHBTask to prepare the live-in environment
-  std::set<uint32_t> liveInArgumentIndexInOriginalFunction;
   auto env = LDI->getEnvironment();
   for (auto liveInID : env->getEnvIDsOfLiveInVars()) {
     if (!((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->isIncludedEnvironmentVariable(liveInID)) {
@@ -1571,16 +1569,30 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
 
     // now we found the orignal value corresponding to the live-in of the callee function,
     // we then need to find it's clone and let the hbTask to prepare the liveIn environment
-    auto callerParameterClone = this->loopToHeartbeatTransformation[callerLoop]->getHeartbeatTask()->getCloneOfOriginalInstruction(cast<Instruction>(callerParameter));
+    //
+    // if the callerParameter is an instruction, then there'll be a clone in original caller's loop body
+    // else the callerParameter is an argument, then this parameter is a liveIn to the caller's hbTask,
+    // instead of looking at original caller's loop body, we shall look at caller's hbTask to find the liveIn value
+    Value *callerParameterClone = nullptr;
+    if (isa<Instruction>(callerParameter)) {
+      errs() << "the parameter origins from an instruction in the caller's original loop body\n";
+      callerParameterClone = this->loopToHeartbeatTransformation[callerLoop]->getHeartbeatTask()->getCloneOfOriginalInstruction(cast<Instruction>(callerParameter));
+    } else {
+      assert(isa<Argument>(callerParameter));
+      errs() << "the parameter origins from an argument in caller's function signature\n";
+      callerParameterClone = this->loopToHeartbeatTransformation[callerLoop]->getHeartbeatTask()->getCloneOfOriginalLiveIn(cast<Argument>(callerParameter));
+    }
     errs() << "clone of the liveIn in caller's hbTask: " << *callerParameterClone << "\n";
 
-    // we finally found the correct liveIn in caller's hbTask, now let caller's hbTask to store the address of this liveIn
+    // we finally found the correct liveIn in caller's hbTask, now let caller's hbTask to store this liveIn's value in the liveInEnv
     auto liveInEnvArray = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArray();
     errs() << "liveInEnvArray: " << *liveInEnvArray << "\n";
     auto liveInIndex = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getIndexOLiveIn(liveInID);
     errs() << "liveInIndex: " << liveInIndex << "\n";
+    auto liveInLocation = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getLocationOfSingleVariable(liveInID);
+    errs() << "liveInLocation: " << *liveInLocation << "\n";
 
-    liveInEnvBuilder.CreateStore(callerParameterClone, ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getLocationOfSingleVariable(liveInIndex));
+    liveInEnvBuilder.CreateStore(callerParameterClone, liveInLocation);
   }
   errs() << "callerTask after storing live-in variables\n" << *callerHBTask->getTaskBody() << "\n";
 

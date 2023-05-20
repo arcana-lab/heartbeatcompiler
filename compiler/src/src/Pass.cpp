@@ -91,23 +91,18 @@ bool Heartbeat::runOnModule (Module &M) {
       errs() << this->outputPrefix << "  The root loop has been modified\n";
     }
 
-    for (auto loop : pair.second) {
-      if (loop == this->rootLoop) {
-        // root loop has already been parallelized, skip it
-        continue;
-      } else {
-        modified |= this->parallelizeNestedLoop(noelle, nestID, loop);
-      }
+    // parallelize the loop starting from lower level
+    for (auto level = 1; level < this->numLevels; level++) {
+      modified |= this->parallelizeNestedLoop(noelle, nestID, this->levelToLoop[level]);
     }
 
     errs() << "parallelization completed!\n";
     errs() << "original root loop after parallelization\n" << *(this->rootLoop->getLoopStructure()->getFunction()) << "\n";
     errs() << "cloned root loop after parallelization\n" << *(this->loopToHeartbeatTransformation[rootLoop]->getHeartbeatTask()->getTaskBody()) << "\n";
-    for (auto pair : this->loopToHeartbeatTransformation) {
-      if (pair.first == this->rootLoop) {
-        continue;
-      }
-      errs() << "cloned loop of level " << this->loopToLevel[pair.first] << "\n" << *(pair.second->getHeartbeatTask()->getTaskBody()) << "\n";
+    for (auto level = 1; level < this->numLevels; level++) {
+      auto loop = this->levelToLoop[level];
+      auto hbt = this->loopToHeartbeatTransformation[loop];
+      errs() << "cloned loop of level " << level << "\n" << *(hbt->getHeartbeatTask()->getTaskBody()) << "\n";
     }
 
     /*

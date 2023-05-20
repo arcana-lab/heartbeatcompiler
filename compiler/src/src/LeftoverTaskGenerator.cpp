@@ -19,6 +19,8 @@ void Heartbeat::createLeftoverTasks(
     PointerType::getUnqual(this->task_memory_t)         // tmem
   };
 
+  // track the receivingLevel, splittingLevel pair for the leftoverTasks
+  std::vector<std::pair<uint64_t, uint64_t>> leftoverTasksPairs;
   for (auto receivingLoop : heartbeatLoops) {
     // no leftover task generated for root loop
     if (this->loopToLevel[receivingLoop] == 0) {
@@ -54,6 +56,7 @@ void Heartbeat::createLeftoverTasks(
       );
       auto leftoverTask = cast<Function>(leftoverTaskCallee.getCallee());
       this->leftoverTasks.push_back(leftoverTask);
+      leftoverTasksPairs.push_back(std::pair(receivingLevel, splittingLevel));
 
       // create entry block and cast the cxts to the correct type
       auto entryBlock = BasicBlock::Create(cxt, "entry", leftoverTask);
@@ -75,7 +78,7 @@ void Heartbeat::createLeftoverTasks(
       // map from level invoking block
       std::unordered_map<uint64_t, BasicBlock *> levelToInvokingBlock;
 
-      // iterating from splittingLevel to receivingLevel to create a block to invoke the loop slice
+      // iterating from receivingLevel to splittingLevel to create a block to invoke the loop slice
       for (uint64_t level = receivingLevel; level >= splittingLevel && level <= receivingLevel; level--) {
         auto invokingBlock = BasicBlock::Create(cxt, std::string("loop_").append(std::to_string(level)), leftoverTask);
         IRBuilder<> invokingBlockBuilder{ invokingBlock };
@@ -214,19 +217,78 @@ void Heartbeat::createLeftoverTasks(
   );
   this->leftoverTaskIndexSelector = cast<Function>(leftoverTaskIndexSelectorCallee.getCallee());
 
+  // create entry block
+  auto entryBlock = BasicBlock::Create(cxt, "entry", leftoverTaskIndexSelector);
+  IRBuilder<> entryBlockBuilder{ entryBlock };
+
   // create exit block
   auto exitBlock = BasicBlock::Create(cxt, "exit", leftoverTaskIndexSelector);
-  IRBuilder <> exitBlockBuilder{ exitBlock };
+  IRBuilder<> exitBlockBuilder{ exitBlock };
+
+  // create br from entry to exit block
+  auto exitBlockBr = entryBlockBuilder.CreateBr(exitBlock);
 
   if (this->leftoverTasks.size() == 1) {
     exitBlockBuilder.CreateRet(
       exitBlockBuilder.getInt64(0)
     );
   } else {
-    // TODO
-    // when there're multiple leftover tasks, given the fact
-    // that the loop nest we're considering have at least level 3
-    // need to differentiate them
+    // create return
+    auto indexPHI = exitBlockBuilder.CreatePHI(
+      exitBlockBuilder.getInt64Ty(),
+      leftoverTasks.size(),
+      "leftover_task_index"
+    );
+    exitBlockBuilder.CreateRet(indexPHI);
+
+    IRBuilder<> *prevBuilder = &entryBlockBuilder;
+    IRBuilder<> *currentBuilder = &entryBlockBuilder;
+    Value *prevSelect;
+
+    // have multiple leftover tasks
+    // use leftoverTasksPairs to create blocks and determine control flow
+    for (auto i = 0; i < this->leftoverTasks.size(); i++) {
+      auto receivingLevel = leftoverTasksPairs[i].first;
+      auto splittingLevel = leftoverTasksPairs[i].second;
+
+      // create a block to determine the leftover task index
+      auto leftoverTaskIndexBlock = BasicBlock::Create(
+        cxt,
+        std::string("leftover_").append(std::to_string(receivingLevel)).append("_").append(std::to_string(splittingLevel)).append("_index_block"),
+        leftoverTaskIndexSelector
+      );
+
+      // fix the control flow by creating a condBr inst from the last basic
+      if (i == 0) {
+        // this is the first block
+        entryBlockBuilder.CreateBr(leftoverTaskIndexBlock);
+        exitBlockBr->eraseFromParent();
+      } else {
+        prevBuilder->CreateCondBr(prevSelect, exitBlock, leftoverTaskIndexBlock);
+      }
+
+      currentBuilder->SetInsertPoint(leftoverTaskIndexBlock);
+
+      if (i != this->leftoverTasks.size()-1) {
+        // create two icmp using function arguments
+        auto firstCmp = currentBuilder->CreateICmpEQ(&*(leftoverTaskIndexSelector->arg_begin()), currentBuilder->getInt64(receivingLevel));
+        auto secondCmp = currentBuilder->CreateICmpEQ(&*(leftoverTaskIndexSelector->arg_begin()+1), currentBuilder->getInt64(splittingLevel));
+
+        // create selectInst
+        // if firstCmp ? secondCmp : false == if firstCmp ? secondCmp : firstCmp
+        auto selectInst = currentBuilder->CreateSelect(firstCmp, secondCmp, currentBuilder->getInt1(0));
+
+        // update the prevSelect and preBuilder so the next block can correctly add the condBr inst
+        prevSelect = selectInst;
+        prevBuilder = currentBuilder;
+      } else {
+        // ths last index block jumps to the exit block directly
+        currentBuilder->CreateBr(exitBlock);
+      }
+
+      // add the incoming value in the exit block
+      indexPHI->addIncoming(exitBlockBuilder.getInt64(i), leftoverTaskIndexBlock);
+    }
   }
   errs() << "leftover task index selector created\n" << *leftoverTaskIndexSelector << "\n";
 
