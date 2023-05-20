@@ -122,7 +122,7 @@ void runtime_memory_reset() {
 }
 
 #define SLIDING_WINDOW_SIZE 5
-#define TARGET_POLLING_RATIO 32
+#define TARGET_POLLING_RATIO 16
 #define AGGRESSIVENESS 0.9
 /*
  * Function invoked inside the loop_handler (when received a heartbeat),
@@ -195,7 +195,7 @@ void adaptive_chunksize_control(uint64_t *cxts, uint64_t startingLevel, uint64_t
    * Update the new chunksize to the runtime memory, so whichever 
    * task run by this thread can inherit the new chunksize setting
    */
-  rtmem.mine().chunksize = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize : 1;
+  rtmem.mine().chunksize = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize <= INT32_MAX ? (uint64_t)new_chunksize : INT32_MAX : 1;
 
   /*
    * Update chunksize for the heartbeat task
