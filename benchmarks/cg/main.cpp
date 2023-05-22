@@ -12,19 +12,17 @@ using namespace cg;
 bool run_heartbeat = true;
 #endif
 
-scalar rnorm;
-int cgitmax = 25;
-
 int main() {
+
   run_bench([&] {
 #if defined(USE_BASELINE)
-    rnorm = conj_gradient_serial(n, col_ind, row_ptr, x, z, a, p, q, r, cgitmax);
+    rnorm = conj_grad_serial(n, col_ind, row_ptr, x, z, val, p, q, r);
 #elif defined(USE_OPENCILK)
-    rnorm = conj_gradient_cilk(n, col_ind, row_ptr, x, z, a, p, q, r, cgitmax);
+    rnorm = conj_grad_opencilk(n, col_ind, row_ptr, x, z, val, p, q, r);
 #elif defined(USE_OPENMP)
-    rnorm = conj_gradient_openmp(n, col_ind, row_ptr, x, z, a, p, q, r, cgitmax);
+    rnorm = conj_grad_openmp(n, col_ind, row_ptr, x, z, val, p, q, r);
 #elif defined(USE_HB_COMPILER)
-    rnorm = conj_gradient_compiler(n, col_ind, row_ptr, x, z, a, p, q, r, cgitmax);
+    rnorm = conj_grad_hb_compiler(n, col_ind, row_ptr, x, z, val, p, q, r);
 #endif
 
 #if defined(TEST_CORRECTNESS)

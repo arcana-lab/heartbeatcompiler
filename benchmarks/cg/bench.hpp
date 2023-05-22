@@ -11,19 +11,17 @@ using scalar = double;
 using scalar = float;
 #endif
 
-#include <taskparts/benchmark.hpp>
+extern uint64_t n;
+extern uint64_t *col_ind;
+extern uint64_t *row_ptr;
+extern scalar *x;
+extern scalar *z;
+extern scalar *val;
+extern scalar *p;
+extern scalar *q;
+extern scalar *r;
+extern scalar rnorm;
 
-uint64_t n;
-uint64_t nb_vals;
-scalar* val;
-uint64_t* row_ptr;
-uint64_t* col_ind;
-scalar* x;
-scalar* y;
-scalar *p;
-scalar *q;
-scalar* r;
-  
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
@@ -39,23 +37,21 @@ scalar conj_grad_serial(
   uint64_t* row_ptr,
   scalar* x,
   scalar* z,
-  scalar* a,
+  scalar* val,
   scalar* p,
   scalar* q,
-  scalar* r,
-  uint64_t cgitmax);
+  scalar* r);
 #elif defined(USE_OPENCILK)
-scalar conj_grad_cilk(
+scalar conj_grad_opencilk(
   uint64_t n,
   uint64_t* col_ind,
   uint64_t* row_ptr,
   scalar* x,
   scalar* z,
-  scalar* a,
+  scalar* val,
   scalar* p,
   scalar* q,
-  scalar* r,
-  uint64_t cgitmax);
+  scalar* r);
 #elif defined(USE_OPENMP)
 scalar conj_grad_openmp(
   uint64_t n,
@@ -63,11 +59,10 @@ scalar conj_grad_openmp(
   uint64_t* row_ptr,
   scalar* x,
   scalar* z,
-  scalar* a,
+  scalar* val,
   scalar* p,
   scalar* q,
-  scalar* r,
-  uint64_t cgitmax);
+  scalar* r);
 #endif
 
 #if defined(TEST_CORRECTNESS)

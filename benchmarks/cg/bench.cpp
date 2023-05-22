@@ -1,11 +1,58 @@
 #include "bench.hpp"
-// benchmark adapted from https://github.com/benchmark-subsetting/NPB3.0-omp-C/blob/master/CG/cg.c
+#include <cstdlib>
+#include <cstdint>
+#include <cassert>
+#include <mm/mm.hpp> // matrix market loader: https://github.com/cwpearson/matrix-market
+#if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
+#include "utility.hpp"
+#include <functional>
+#endif
 
+// benchmark adapted from https://github.com/benchmark-subsetting/NPB3.0-omp-C/blob/master/CG/cg.c
 namespace cg {
+
+uint64_t nb_vals;
+uint64_t n;
+uint64_t *col_ind;
+uint64_t *row_ptr;
+scalar *x;
+scalar *z;
+scalar *val;
+scalar *p;
+scalar *q;
+scalar *r;
+scalar rnorm;
+
+#if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
+void run_bench(std::function<void()> const &bench_body,
+               std::function<void()> const &bench_start,
+               std::function<void()> const &bench_end) {
+  utility::run([&] {
+    bench_body();
+  }, [&] {
+    bench_start();
+  }, [&] {
+    bench_end();
+  });
+}
+#endif
+
+inline
+uint64_t hash(uint64_t u) {
+  uint64_t v = u * 3935559000370003845ul + 2691343689449507681ul;
+  v ^= v >> 21;
+  v ^= v << 37;
+  v ^= v >>  4;
+  v *= 4768777513237032717ul;
+  v ^= v << 20;
+  v ^= v >> 41;
+  v ^= v <<  5;
+  return v;
+}
 
 auto rand_float(size_t i) -> scalar {
   int m = 1000000;
-  scalar v = taskparts::hash(i) % m;
+  scalar v = hash(i) % m;
   return v / m;
 }
 
@@ -17,8 +64,11 @@ void zero_init(T* a, std::size_t n) {
   }
 }
 
-auto setup() -> void {
-  std::string fname = taskparts::cmdline::parse_or_default_string("fname", "1138_bus.mtx");
+void setup() {
+  std::string fname = "1138_bus.mtx";
+  if (const auto env_p = std::getenv("MATRIX_MARKET_FILE")) {
+    fname = env_p;
+  }
   typedef size_t Offset;
   typedef uint64_t Ordinal;
   typedef scalar Scalar;
@@ -26,7 +76,7 @@ auto setup() -> void {
   typedef typename reader_t::coo_type coo_t;
   typedef typename coo_t::entry_type entry_t;
   typedef CSR<Ordinal, Scalar, Offset> csr_type;
-  
+
   // read matrix as coo
   reader_t reader(fname);
   coo_t coo = reader.read_coo();
@@ -36,9 +86,7 @@ auto setup() -> void {
   std::copy(csr.val().begin(), csr.val().end(), val);
   auto nb_rows = csr.num_rows();
   auto nb_cols = csr.num_cols();
-  if (nb_rows != nb_cols) {  // Houson, we have a problem...
-    taskparts::die("input matrix must be *symmetric* positive definite");
-  }
+  assert(nb_rows == nb_cols && "input matrix must be *symmetric* positive definite");
   n = nb_rows;
   row_ptr = (Ordinal*)malloc(sizeof(Ordinal) * (n + 1));
   std::copy(csr.row_ptr().begin(), csr.row_ptr().end(), row_ptr);
@@ -46,20 +94,20 @@ auto setup() -> void {
   std::copy(&csr.col_ind()[0], (&csr.col_ind()[nb_cols-1]) + 1, col_ind);
 
   x = (scalar*)malloc(sizeof(scalar) * n);
-  y = (scalar*)malloc(sizeof(scalar) * n);
+  z = (scalar*)malloc(sizeof(scalar) * n);
   p = (scalar*)malloc(sizeof(scalar) * n);
   q = (scalar*)malloc(sizeof(scalar) * n);
   r = (scalar*)malloc(sizeof(scalar) * n);
 
-  if ((val == nullptr) || (row_ptr == nullptr) || (col_ind == nullptr) || (x == nullptr) || (y == nullptr)) {
+  if ((val == nullptr) || (row_ptr == nullptr) || (col_ind == nullptr) || (x == nullptr) || (z == nullptr)) {
     exit(1);
   }
-  // initialize x and y vectors
+  // initialize x and z vectors
   {
     for (size_t i = 0; i < n; i++) {
       x[i] = rand_float(i);
     }
-    zero_init(y, n);
+    zero_init(z, n);
     zero_init(p, n);
     zero_init(q, n);
     zero_init(r, n);
@@ -68,12 +116,12 @@ auto setup() -> void {
   printf("nbr=%lu nnz=%lu\n",n,nb_vals);
 }
 
-auto finishup() {
+void finishup() {
   free(val);
   free(row_ptr);
   free(col_ind);
   free(x);
-  free(y);
+  free(z);
   free(p);
   free(q);
   free(r);
@@ -101,9 +149,10 @@ void spmv_serial(
   scalar* x,
   scalar* y,
   uint64_t n) {
+  // parallel for
   for (uint64_t i = 0; i < n; i++) { // row loop
     scalar r = 0.0;
-#pragma clang loop vectorize_width(4) interleave_count(4)
+    // parallel for reduction(+:r)
     for (uint64_t k = row_ptr[i]; k < row_ptr[i + 1]; k++) { // col loop
       r += val[k] * x[col_ind[k]];
     }
@@ -120,32 +169,65 @@ scalar conj_grad_serial(
     scalar* a,
     scalar* p,
     scalar* q,
-    scalar* r,
-    uint64_t cgitmax) {
+    scalar* r) {
+  int cgitmax = 25;
+
+/*--------------------------------------------------------------------
+c  Initialize the CG algorithm:
+c-------------------------------------------------------------------*/
+  // parallel for
   for (uint64_t j = 0; j < n; j++) {
     q[j] = 0.0;
     z[j] = 0.0;
     r[j] = x[j];
     p[j] = r[j];
   }
+/*--------------------------------------------------------------------
+c  rho = r.r
+c  Now, obtain the norm of r: First, sum squares of r elements locally...
+c-------------------------------------------------------------------*/
   scalar rho = norm(n, r);
+/*--------------------------------------------------------------------
+c---->
+c  The conj grad iteration loop
+c---->
+c-------------------------------------------------------------------*/
   for (uint64_t cgit = 0; cgit < cgitmax; cgit++) {
     scalar rho0 = rho;
     rho = 0.0;
+/*--------------------------------------------------------------------
+c  q = A.p
+c-------------------------------------------------------------------*/
     spmv_serial(a, row_ptr, col_ind, p, q, n);
+/*--------------------------------------------------------------------
+c  Obtain alpha = rho / (p.q)
+c-------------------------------------------------------------------*/
     scalar alpha = rho0 / dotp(n, p, q);
+/*---------------------------------------------------------------------
+c  Obtain z = z + alpha*p
+c  and    r = r - alpha*q
+c---------------------------------------------------------------------*/
+    // parallel for reduction(:+rho)
     for (uint64_t j = 0; j < n; j++) {
       z[j] = z[j] + alpha * p[j];
       r[j] = r[j] - alpha * q[j];
       rho += r[j] * r[j];
     }
     scalar beta = rho / rho0;
+/*--------------------------------------------------------------------
+c  p = r + beta*p
+c-------------------------------------------------------------------*/
+    // parallel for
     for (uint64_t j = 0; j < n; j++) {
       p[j] = r[j] + beta * p[j];
     }
   }
   spmv_serial(a, row_ptr, col_ind, z, r, n);
+/*--------------------------------------------------------------------
+c  At this point, r contains A.z
+c-------------------------------------------------------------------*/
   scalar sum = 0.0;
+  // parallel for reduction(+:sum)
   for (uint64_t j = 0; j < n; j++) {
     scalar d = x[j] - r[j];
     sum += d * d;
@@ -270,7 +352,7 @@ auto loop2(uint64_t n, scalar* x, scalar* r) -> scalar {
   return loop2_rec(0, n, x, r, get_grainsize(n));
 }
 
-scalar conj_grad_cilk(
+scalar conj_grad_opencilk(
     uint64_t n,
     uint64_t* col_ind,
     uint64_t* row_ptr,
@@ -279,8 +361,7 @@ scalar conj_grad_cilk(
     scalar* a,
     scalar* p,
     scalar* q,
-    scalar* r,
-    uint64_t cgitmax) {
+    scalar* r) {
   cilk_for (uint64_t j = 0; j < n; j++) {
     q[j] = 0.0;
     z[j] = 0.0;
@@ -303,20 +384,125 @@ scalar conj_grad_cilk(
   return sqrt(loop2(n, x, r));
 }
 
-#endif
+#elif defined(USE_OPENMP)
 
-#if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
-void run_bench(std::function<void()> const &bench_body,
-               std::function<void()> const &bench_start,
-               std::function<void()> const &bench_end) {
-  utility::run([&] {
-    bench_body();
-  }, [&] {
-    bench_start();
-  }, [&] {
-    bench_end();
-  });
+#include <omp.h>
+
+scalar dotp(uint64_t n, scalar* r, scalar* q) {
+  scalar sum = 0.0;
+#pragma omp parallel default(shared)
+{
+  #pragma omp for reduction(+:sum)
+  for (uint64_t j = 0; j < n; j++) {
+    sum += r[j] * q[j];
+  }
 }
+  return sum;
+}
+
+scalar norm(uint64_t n, scalar* r) {
+  return dotp(n, r, r);
+}
+
+void spmv_openmp(
+  scalar* val,
+  uint64_t* row_ptr,
+  uint64_t* col_ind,
+  scalar* x,
+  scalar* y,
+  uint64_t n) {
+  #pragma omp for
+  for (uint64_t i = 0; i < n; i++) { // row loop
+    scalar r = 0.0;
+    for (uint64_t k = row_ptr[i]; k < row_ptr[i + 1]; k++) { // col loop
+      r += val[k] * x[col_ind[k]];
+    }
+    y[i] = r;
+  }
+}
+
+scalar conj_grad_openmp(
+  uint64_t n,
+  uint64_t* col_ind,
+  uint64_t* row_ptr,
+  scalar* x,
+  scalar* z,
+  scalar* a,
+  scalar* p,
+  scalar* q,
+  scalar* r) {
+  int cgitmax = 25;
+
+/*--------------------------------------------------------------------
+c  Initialize the CG algorithm:
+c-------------------------------------------------------------------*/
+  #pragma omp for
+  for (uint64_t j = 0; j < n; j++) {
+    q[j] = 0.0;
+    z[j] = 0.0;
+    r[j] = x[j];
+    p[j] = r[j];
+  }
+/*--------------------------------------------------------------------
+c  rho = r.r
+c  Now, obtain the norm of r: First, sum squares of r elements locally...
+c-------------------------------------------------------------------*/
+  scalar rho = norm(n, r);
+/*--------------------------------------------------------------------
+c---->
+c  The conj grad iteration loop
+c---->
+c-------------------------------------------------------------------*/
+  for (uint64_t cgit = 0; cgit < cgitmax; cgit++) {
+    scalar rho0 = rho;
+    rho = 0.0;
+/*--------------------------------------------------------------------
+c  q = A.p
+c-------------------------------------------------------------------*/
+    spmv_openmp(a, row_ptr, col_ind, p, q, n);
+/*--------------------------------------------------------------------
+c  Obtain alpha = rho / (p.q)
+c-------------------------------------------------------------------*/
+    scalar alpha = rho0 / dotp(n, p, q);
+/*---------------------------------------------------------------------
+c  Obtain z = z + alpha*p
+c  and    r = r - alpha*q
+c---------------------------------------------------------------------*/
+#pragma omp parallel default(shared)
+{
+    #pragma omp for reduction(+:rho)
+    for (uint64_t j = 0; j < n; j++) {
+      z[j] = z[j] + alpha * p[j];
+      r[j] = r[j] - alpha * q[j];
+      rho += r[j] * r[j];
+    }
+    scalar beta = rho / rho0;
+/*--------------------------------------------------------------------
+c  p = r + beta*p
+c-------------------------------------------------------------------*/
+    #pragma omp for
+    for (uint64_t j = 0; j < n; j++) {
+      p[j] = r[j] + beta * p[j];
+    }
+}
+}
+  spmv_openmp(a, row_ptr, col_ind, z, r, n);
+/*--------------------------------------------------------------------
+c  At this point, r contains A.z
+c-------------------------------------------------------------------*/
+  scalar sum = 0.0;
+#pragma omp parallel default(shared)
+{
+  #pragma omp for reduction(+:sum)
+  for (uint64_t j = 0; j < n; j++) {
+    scalar d = x[j] - r[j];
+    sum += d * d;
+  }
+}
+
+  return sqrt(sum);
+}
+
 #endif
 
 #if defined(TEST_CORRECTNESS)
