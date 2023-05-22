@@ -59,28 +59,6 @@ void printGIS(uint64_t *cxts, uint64_t startLevel, uint64_t maxLevel, std::strin
   }
 }
 
-__attribute__((always_inline))
-void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
-  /*
-   * Set the starting level
-   */
-  tmem->startingLevel = startingLevel;
-
-#if !defined(ENABLE_ROLLFORWARD)
-#if defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
-  /*
-   * Reset polling count if using adaptive chunksize control
-   */
-  tmem->polling_count = 0;
-#endif
-
-  /*
-   * Reset heartbeat timer if using software polling
-   */
-  taskparts::prev.mine() = taskparts::cycles::now();
-#endif
-}
-
 #if !defined(ENABLE_ROLLFORWARD)
 
 bool heartbeat_polling(task_memory_t *tmem) {
@@ -136,11 +114,6 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
   if (rtmem.mine().heartbeat_count % SLIDING_WINDOW_SIZE == 0) {
     rtmem.mine().minimal_polling_count = INT64_MAX;
   }
-
-  /*
-   * Increase the heartbeat count in the runtime memory
-   */
-  rtmem.mine().heartbeat_count++;
 
   /*
    * Update the minimal polling count for this window,
@@ -205,6 +178,33 @@ void adaptive_chunksize_control(uint64_t *cxts, uint64_t startingLevel, uint64_t
 
 #endif  // defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
 #endif  // !defined(ENABLE_ROLLFORWARD)
+
+__attribute__((always_inline))
+void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
+  /*
+   * Set the starting level
+   */
+  tmem->startingLevel = startingLevel;
+
+#if !defined(ENABLE_ROLLFORWARD)
+  /*
+   * Reset heartbeat timer if using software polling
+   */
+  taskparts::prev.mine() = taskparts::cycles::now();
+
+#if defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+  /*
+   * Reset polling count if using adaptive chunksize control
+   */
+  tmem->polling_count = 0;
+
+  /*
+   * Increase the heartbeat count in the running thread
+   */
+  rtmem.mine().heartbeat_count++;
+#endif
+#endif
+}
 
 void heartbeat_start(task_memory_t *tmem) {
 #if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
@@ -301,10 +301,6 @@ int64_t loop_handler(
       slice_tasks[receivingLevel](cxts, constLiveIns, 0, tmem);
     }, [&] {
 #if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
-      /*
-       * Consider the start execution of the second task as a new heartbeat count
-       */
-      rtmem.mine().heartbeat_count++;
       adaptive_chunksize_control(cxtsSecond, receivingLevel, numLevels);
 #endif
       task_memory_t hbmemSecond;
@@ -333,10 +329,6 @@ int64_t loop_handler(
       (*leftover_tasks[leftoverTaskIndex])(cxts, constLiveIns, 0, tmem);
     }, [&] {
 #if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
-      /*
-       * Consider the start execution of the second task as a new heartbeat count
-       */
-      rtmem.mine().heartbeat_count++;
       adaptive_chunksize_control(cxtsSecond, splittingLevel, numLevels);
 #endif
       task_memory_t hbmemSecond;
