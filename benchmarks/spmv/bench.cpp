@@ -32,7 +32,6 @@ namespace spmv {
     uint64_t n_normal = 50000;
   #elif defined(SPMV_MATRIX_MARKET)
   // nothing to do
-  uint64_t  n_normal = 0;
   #else
     #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL, MATRIX_MARKET}"
   #endif
@@ -44,8 +43,10 @@ namespace spmv {
     uint64_t n_bigcols = 23;
   #elif defined(SPMV_ARROWHEAD)
     uint64_t n_arrowhead = 100000000;
+  #elif defined(SPMV_MATRIX_MARKET)
+  // nothing to do
   #else
-    #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD}"
+    #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, MATRIX_MARKET}"
   #endif
 #elif defined(INPUT_TESTING)
   #if defined(SPMV_RANDOM)
@@ -61,8 +62,10 @@ namespace spmv {
     uint64_t n_diagonal = 50000000;
   #elif defined(SPMV_NORMAL)
     uint64_t n_normal = 400;
+  #elif defined(SPMV_MATRIX_MARKET)
+  // nothing to do
   #else
-    #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL}"
+    #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL, MATRIX_MARKET}"
   #endif
 #else
   #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TPAL, TESTING}"
@@ -490,9 +493,9 @@ auto bench_pre_normal() {
 
 auto bench_pre_matrix_market() -> void {
   using nonzero_type = double;
-  auto dflt_fname = "../../../infiles/s3dkt3m2/s3dkt3m2.mtx";
-  std::string fname =  dflt_fname;
-  if (const auto env_p = std::getenv("SPMV_MATRIX_MARKET_FILE")) {
+  auto dflt_fname = "Trefethen_20/Trefethen_20.mtx";
+  std::string fname = dflt_fname;
+  if (const auto env_p = std::getenv("MATRIX_MARKET_FILE")) {
     fname = env_p;
   }
   typedef size_t Offset;
@@ -521,7 +524,7 @@ auto bench_pre_matrix_market() -> void {
 
 #else
 
-  #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL}"
+  #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL, MATRIX_MARKET}"
 
 #endif
 
@@ -541,7 +544,7 @@ void setup() {
 #elif defined(SPMV_MATRIX_MARKET)
   bench_pre_matrix_market();
 #else
-  #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL}"
+  #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL, MATRIX_MARKET}"
 #endif
 }
 
