@@ -8,7 +8,7 @@ noelle:
 	git clone https://github.com/yiansu/noelle.git noelle ;
 	cd noelle ; git checkout origin/llvm15 -b llvm15 ;
 
-matrix-matrix:
+matrix-market:
 	git clone https://github.com/cwpearson/matrix-market.git matrix-market ;
 
 patches: runtime noelle matrix-market
