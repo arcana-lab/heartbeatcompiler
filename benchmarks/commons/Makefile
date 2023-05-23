@@ -38,7 +38,7 @@ ifeq ($(DEBUG), true)
 endif
 
 # whether to print compilation configurations
-STATS ?= true
+STATS ?= false
 ifeq ($(STATS), true)
 	MACROS += -DSTATS
 endif
