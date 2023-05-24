@@ -1,7 +1,4 @@
 #include "bench.hpp"
-#if defined(USE_HB_MANUAL)
-#include "heartbeat_manual.hpp"
-#endif
 #if defined(USE_HB_COMPILER)
 #include "heartbeat_compiler.hpp"
 #endif

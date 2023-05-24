@@ -65,7 +65,7 @@ void zero_init(T* a, std::size_t n) {
 }
 
 void setup() {
-  std::string fname = "1138_bus.mtx";
+  std::string fname = "Trefethen_20/Trefethen_20.mtx";
   if (const auto env_p = std::getenv("MATRIX_MARKET_FILE")) {
     fname = env_p;
   }
@@ -86,7 +86,7 @@ void setup() {
   std::copy(csr.val().begin(), csr.val().end(), val);
   auto nb_rows = csr.num_rows();
   auto nb_cols = csr.num_cols();
-  assert(nb_rows == nb_cols && "input matrix must be *symmetric* positive definite");
+  assert(nb_rows == nb_cols && "input matrix must be a symmetric positive definite floating point matrix");
   n = nb_rows;
   row_ptr = (Ordinal*)malloc(sizeof(Ordinal) * (n + 1));
   std::copy(csr.row_ptr().begin(), csr.row_ptr().end(), row_ptr);
@@ -102,18 +102,20 @@ void setup() {
   if ((val == nullptr) || (row_ptr == nullptr) || (col_ind == nullptr) || (x == nullptr) || (z == nullptr)) {
     exit(1);
   }
-  // initialize x and z vectors
-  {
-    for (size_t i = 0; i < n; i++) {
-      x[i] = rand_float(i);
-    }
-    zero_init(z, n);
-    zero_init(p, n);
-    zero_init(q, n);
-    zero_init(r, n);
-  }  
+/*--------------------------------------------------------------------
+c  set starting vector to (1, 1, .... 1)
+c-------------------------------------------------------------------*/
+  for (size_t i = 0; i < n; i++) {
+    x[i] = 1.0;
+  }
+  zero_init(z, n);
+  zero_init(p, n);
+  zero_init(q, n);
+  zero_init(r, n);
 
-  printf("nbr=%lu nnz=%lu\n",n,nb_vals);
+#if defined(STATS)
+  printf("nb_rows=%lu n_nonzeros=%lu\n", n, nb_vals);
+#endif
 }
 
 void finishup() {
@@ -132,6 +134,7 @@ void finishup() {
 
 scalar dotp(uint64_t n, scalar* r, scalar* q) {
   scalar sum = 0.0;
+  // parallel for reduction(+:sum)
   for (uint64_t j = 0; j < n; j++) {
     sum += r[j] * q[j];
   }
@@ -182,11 +185,13 @@ c-------------------------------------------------------------------*/
     r[j] = x[j];
     p[j] = r[j];
   }
+
 /*--------------------------------------------------------------------
 c  rho = r.r
 c  Now, obtain the norm of r: First, sum squares of r elements locally...
 c-------------------------------------------------------------------*/
   scalar rho = norm(n, r);
+
 /*--------------------------------------------------------------------
 c---->
 c  The conj grad iteration loop
@@ -195,14 +200,17 @@ c-------------------------------------------------------------------*/
   for (uint64_t cgit = 0; cgit < cgitmax; cgit++) {
     scalar rho0 = rho;
     rho = 0.0;
+
 /*--------------------------------------------------------------------
 c  q = A.p
 c-------------------------------------------------------------------*/
     spmv_serial(a, row_ptr, col_ind, p, q, n);
+
 /*--------------------------------------------------------------------
 c  Obtain alpha = rho / (p.q)
 c-------------------------------------------------------------------*/
     scalar alpha = rho0 / dotp(n, p, q);
+
 /*---------------------------------------------------------------------
 c  Obtain z = z + alpha*p
 c  and    r = r - alpha*q
@@ -214,6 +222,7 @@ c---------------------------------------------------------------------*/
       rho += r[j] * r[j];
     }
     scalar beta = rho / rho0;
+
 /*--------------------------------------------------------------------
 c  p = r + beta*p
 c-------------------------------------------------------------------*/
@@ -222,7 +231,9 @@ c-------------------------------------------------------------------*/
       p[j] = r[j] + beta * p[j];
     }
   }
+
   spmv_serial(a, row_ptr, col_ind, z, r, n);
+
 /*--------------------------------------------------------------------
 c  At this point, r contains A.z
 c-------------------------------------------------------------------*/
@@ -388,7 +399,7 @@ scalar conj_grad_opencilk(
 
 #include <omp.h>
 
-scalar dotp(uint64_t n, scalar* r, scalar* q) {
+scalar dotp_openmp(uint64_t n, scalar* r, scalar* q) {
   scalar sum = 0.0;
 #pragma omp parallel default(shared)
 {
@@ -400,8 +411,8 @@ scalar dotp(uint64_t n, scalar* r, scalar* q) {
   return sum;
 }
 
-scalar norm(uint64_t n, scalar* r) {
-  return dotp(n, r, r);
+scalar norm_openmp(uint64_t n, scalar* r) {
+  return dotp_openmp(n, r, r);
 }
 
 void spmv_openmp(
@@ -447,7 +458,7 @@ c-------------------------------------------------------------------*/
 c  rho = r.r
 c  Now, obtain the norm of r: First, sum squares of r elements locally...
 c-------------------------------------------------------------------*/
-  scalar rho = norm(n, r);
+  scalar rho = norm_openmp(n, r);
 /*--------------------------------------------------------------------
 c---->
 c  The conj grad iteration loop
@@ -463,7 +474,7 @@ c-------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 c  Obtain alpha = rho / (p.q)
 c-------------------------------------------------------------------*/
-    scalar alpha = rho0 / dotp(n, p, q);
+    scalar alpha = rho0 / dotp_openmp(n, p, q);
 /*---------------------------------------------------------------------
 c  Obtain z = z + alpha*p
 c  and    r = r - alpha*q
@@ -485,8 +496,10 @@ c-------------------------------------------------------------------*/
       p[j] = r[j] + beta * p[j];
     }
 }
-}
+  }
+
   spmv_openmp(a, row_ptr, col_ind, z, r, n);
+
 /*--------------------------------------------------------------------
 c  At this point, r contains A.z
 c-------------------------------------------------------------------*/
@@ -510,8 +523,48 @@ c-------------------------------------------------------------------*/
 #include <stdio.h>
 
 void test_correctness() {
+  scalar *x_ref = (scalar*)malloc(sizeof(scalar) * n);
+  scalar *z_ref = (scalar*)malloc(sizeof(scalar) * n);
+  scalar *p_ref = (scalar*)malloc(sizeof(scalar) * n);
+  scalar *q_ref = (scalar*)malloc(sizeof(scalar) * n);
+  scalar *r_ref = (scalar*)malloc(sizeof(scalar) * n);
+
+  if ((x_ref == nullptr) || (z_ref == nullptr)) {
+    exit(1);
+  }
+  for (size_t i = 0; i < n; i++) {
+    x_ref[i] = 1.0;
+  }
+  zero_init(z_ref, n);
+  zero_init(p_ref, n);
+  zero_init(q_ref, n);
+  zero_init(r_ref, n);
+
+  scalar rnorm_ref = conj_grad_serial(n, col_ind, row_ptr, x_ref, z_ref, val, p_ref, q_ref, r_ref);
+
+  uint64_t num_diffs = 0;
+  double epsilon = 0.01;
+  auto diff = std::abs(rnorm - rnorm_ref);
+  printf("diff=%f rnorm=%f rnorm_ref=%f\n", diff, rnorm, rnorm_ref);
+  if (diff > epsilon) {
+    printf("diff=%f rnorm=%f rnorm_ref=%f\n", diff, rnorm, rnorm_ref);
+    num_diffs++;
+  }
+
+  if (num_diffs > 0) {
+    printf("\033[0;31mINCORRECT!\033[0m");
+    printf("  num_diffs = %lu\n", num_diffs);
+  } else {
+    printf("\033[0;32mCORRECT!\033[0m\n");
+  }
+
+  free(x_ref);
+  free(z_ref);
+  free(p_ref);
+  free(q_ref);
+  free(r_ref);
 }
-  
+
 #endif
 
 } // namespace cg
