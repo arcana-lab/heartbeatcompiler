@@ -25,6 +25,9 @@ extern "C" {
 
 #if defined(STATS)
 static uint64_t polls = 0;
+#if defined(POLLS_STATS)
+static uint64_t prev_polls = 0;
+#endif
 static uint64_t heartbeats = 0;
 static uint64_t splits = 0;
 #endif
@@ -226,6 +229,10 @@ int64_t loop_handler(
 ) {
 #if defined(STATS)
   heartbeats++;
+#if defined(POLLS_STATS)
+  printf("%ld\n", polls-prev_polls);
+  prev_polls = polls;
+#endif
 #endif
 #if defined(DISABLE_HEARTBEAT_PROMOTION)
   return 0;

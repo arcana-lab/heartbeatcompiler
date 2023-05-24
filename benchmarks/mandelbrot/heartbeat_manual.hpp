@@ -11,7 +11,6 @@ unsigned char * mandelbrot_hb_manual(double x0, double y0, double x1, double y1,
                                      int width, int height, int max_depth) {
   double xstep = (x1 - x0) / width;
   double ystep = (y1 - y0) / height;
-  //  unsigned char* output = static_cast<unsigned char*>(_mm_malloc(width * height * sizeof(unsigned char), 64));
   unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
   HEARTBEAT_nest0_loop0(x0, y0, width, height, max_depth, xstep, ystep, output);
   return output;

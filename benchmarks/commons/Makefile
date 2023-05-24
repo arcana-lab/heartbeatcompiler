@@ -39,8 +39,12 @@ endif
 
 # whether to print compilation configurations
 STATS ?= false
+POLLS_STATS ?= false
 ifeq ($(STATS), true)
 	MACROS += -DSTATS
+	ifeq ($(POLLS_STATS), true)
+		MACROS += -DPOLLS_STATS
+	endif
 endif
 
 # include benchmark specific settings

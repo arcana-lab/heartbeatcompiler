@@ -9,9 +9,9 @@
 namespace mandelbrot {
 
 #if defined(INPUT_BENCHMARKING)
-  int _mb_height = 8384;
-  int _mb_width = 8384;
-  int _mb_max_depth = 200;
+  int _mb_height = 16768;
+  int _mb_width = 16768;
+  int _mb_max_depth = 400;
 #elif defined(INPUT_TPAL)
   int _mb_height = 4192;
   int _mb_width = 4192;
