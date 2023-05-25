@@ -183,6 +183,7 @@ void read_matrix_from_file(const char *filename) {
     exit(1);
   }
 
+  fread(&nb_rows, sizeof(uint64_t), 1, infile);
   fread(&nb_vals, sizeof(uint64_t), 1, infile);
 
   row_ptr = (uint64_t*)malloc(sizeof(uint64_t) * (nb_rows + 1));
@@ -207,6 +208,7 @@ void write_matrix_to_file(const char *filename) {
     exit(1);
   }
 
+  fwrite(&nb_rows, sizeof(uint64_t), 1, outfile);
   fwrite(&nb_vals, sizeof(uint64_t), 1, outfile);
   fwrite(row_ptr, sizeof(uint64_t), nb_rows + 1, outfile);
   fwrite(col_ind, sizeof(uint64_t), nb_vals, outfile);
@@ -507,18 +509,28 @@ auto bench_pre_matrix_market() -> void {
   typedef CSR<Ordinal, Scalar, Offset> csr_type;
 
   bench_pre_shared([&] {
-    reader_t reader(fname);
-    coo_t coo = reader.read_coo();
-    csr_type csr(coo);
-    nb_vals = csr.nnz();
-    val = (nonzero_type*)malloc(sizeof(nonzero_type) * nb_vals);
-    std::copy(csr.val().begin(), csr.val().end(), val);
-    nb_rows = csr.num_rows();
-    uint64_t nb_cols = csr.num_cols();
-    row_ptr = (Ordinal*)malloc(sizeof(Ordinal) * (nb_rows + 1));
-    std::copy(csr.row_ptr().begin(), csr.row_ptr().end(), row_ptr);
-    col_ind = (Offset*)malloc(sizeof(Offset) * nb_vals);
-    std::copy(&csr.col_ind()[0], (&csr.col_ind()[nb_cols-1]) + 1, col_ind);
+    size_t pos = fname.find('.');
+    std::string datname = fname.substr(0, pos) + ".dat";
+    if (!access(datname.c_str(), F_OK)) {
+      printf("read matrix from %s\n", datname.c_str());
+      read_matrix_from_file(datname.c_str());
+    } else {
+      reader_t reader(fname);
+      coo_t coo = reader.read_coo();
+      csr_type csr(coo);
+      nb_vals = csr.nnz();
+      val = (nonzero_type*)malloc(sizeof(nonzero_type) * nb_vals);
+      std::copy(csr.val().begin(), csr.val().end(), val);
+      nb_rows = csr.num_rows();
+      uint64_t nb_cols = csr.num_cols();
+      row_ptr = (Ordinal*)malloc(sizeof(Ordinal) * (nb_rows + 1));
+      std::copy(csr.row_ptr().begin(), csr.row_ptr().end(), row_ptr);
+      col_ind = (Offset*)malloc(sizeof(Offset) * nb_vals);
+      std::copy(&csr.col_ind()[0], (&csr.col_ind()[nb_cols-1]) + 1, col_ind);
+
+      write_matrix_to_file(datname.c_str());
+      printf("write matrix to %s\n", datname.c_str());
+    }
   });
 }
 
