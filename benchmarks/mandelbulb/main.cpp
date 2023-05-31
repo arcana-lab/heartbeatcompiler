@@ -1,4 +1,7 @@
 #include "bench.hpp"
+#if defined(INPUT_USER)
+#include <stdio.h>
+#endif
 #if defined(USE_HB_MANUAL)
 #include "heartbeat_manual.hpp"
 #endif
@@ -12,7 +15,18 @@ using namespace mandelbulb;
 bool run_heartbeat = true;
 #endif
 
-int main() {
+int main(int argc, char *argv[]) {
+
+#if defined(INPUT_USER)
+  if (argc < 5) {
+    fprintf(stderr, "USAGE: %s nx ny nz iterations\n", argv[0]);
+    return 1;
+  }
+  _mb_nx = atoi(argv[1]);
+  _mb_ny = atoi(argv[2]);
+  _mb_nz = atoi(argv[3]);
+  _mb_iterations = atoi(argv[4]);
+#endif
 
   run_bench([&] {
 #if defined(USE_BASELINE)

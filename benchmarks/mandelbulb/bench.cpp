@@ -25,8 +25,13 @@ namespace mandelbulb {
   int _mb_ny = 16;
   int _mb_nz = 16;
   int _mb_iterations = 10;
+#elif defined(INPUT_USER)
+  int _mb_nx;
+  int _mb_ny;
+  int _mb_nz;
+  int _mb_iterations;
 #else
-  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TPAL, TESTING}"
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TPAL, TESTING, USER}"
 #endif
 unsigned char *output = nullptr;
 double _mb_x0 = -2.5;
