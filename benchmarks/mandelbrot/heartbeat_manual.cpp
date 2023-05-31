@@ -14,7 +14,7 @@
 
 namespace mandelbrot {
 
-void HEARTBEAT_nest0_loop0(double x0, double y0, int width, int height, int max_depth, double xstep, double ystep, unsigned char *output);
+void HEARTBEAT_nest0_loop0(double x0, double y0, int height, int width, int max_depth, double xstep, double ystep, unsigned char *output);
 void HEARTBEAT_nest0_loop1(double x0, double y0, int width, int max_depth, double xstep, double ystep, unsigned char *output, int j);
 
 int64_t HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t myIndex, task_memory_t *tmem);
@@ -38,7 +38,7 @@ uint64_t leftover_selector_nest0(uint64_t receivingLevel, uint64_t splittingLeve
 bool run_heartbeat = true;
 
 // Outlined loops
-void HEARTBEAT_nest0_loop0(double x0, double y0, int width, int height, int max_depth, double xstep, double ystep, unsigned char *output) {
+void HEARTBEAT_nest0_loop0(double x0, double y0, int height, int width, int max_depth, double xstep, double ystep, unsigned char *output) {
   if (run_heartbeat) {
     run_heartbeat = false;
 

@@ -97,6 +97,8 @@ std::string benchmark_name = "";
   printf("\"tpal\",\n");
 #elif defined(INPUT_TESTING)
   printf("\"testing\",\n");
+#elif defined(INPUT_USER)
+  printf("\"user\",\n");
 #endif
 
   printf("\"implementation\": ");

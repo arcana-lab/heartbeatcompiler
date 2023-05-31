@@ -9,9 +9,9 @@
 namespace mandelbrot {
 
 #if defined(INPUT_BENCHMARKING)
-  int _mb_height = 16768;
-  int _mb_width = 16768;
-  int _mb_max_depth = 400;
+  int _mb_height = 8384;
+  int _mb_width = 201096;
+  int _mb_max_depth = 100;
 #elif defined(INPUT_TPAL)
   int _mb_height = 4192;
   int _mb_width = 4192;
@@ -20,8 +20,12 @@ namespace mandelbrot {
   int _mb_height = 4192;
   int _mb_width = 4192;
   int _mb_max_depth = 100;
+#elif defined(INPUT_USER)
+  int _mb_height;
+  int _mb_width;
+  int _mb_max_depth;
 #else
-  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TPAL, TESTING}"
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TPAL, TESTING, USER}"
 #endif
 unsigned char *output = nullptr;
 double _mb_x0 = -2.5;
@@ -57,7 +61,7 @@ void finishup() {
 #if defined(USE_BASELINE) || defined(TEST_CORRECTNESS)
 
 unsigned char* mandelbrot_serial(double x0, double y0, double x1, double y1,
-                                 int width, int height, int max_depth) {
+                                 int height, int width, int max_depth) {
   double xstep = (x1 - x0) / width;
   double ystep = (y1 - y0) / height;
   unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
@@ -91,7 +95,7 @@ unsigned char* mandelbrot_serial(double x0, double y0, double x1, double y1,
 #include <cilk/cilk.h>
 
 unsigned char* mandelbrot_opencilk(double x0, double y0, double x1, double y1,
-                                 int width, int height, int max_depth) {
+                                 int height, int width, int max_depth) {
   double xstep = (x1 - x0) / width;
   double ystep = (y1 - y0) / height;
   unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
@@ -123,7 +127,7 @@ unsigned char* mandelbrot_opencilk(double x0, double y0, double x1, double y1,
 #include <cilk/cilk.h>
 
 unsigned char* mandelbrot_cilkplus(double x0, double y0, double x1, double y1,
-                                 int width, int height, int max_depth) {
+                                 int height, int width, int max_depth) {
   double xstep = (x1 - x0) / width;
   double ystep = (y1 - y0) / height;
   unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
@@ -155,7 +159,7 @@ unsigned char* mandelbrot_cilkplus(double x0, double y0, double x1, double y1,
 #include <omp.h>
 
 unsigned char* mandelbrot_openmp(double x0, double y0, double x1, double y1,
-                                 int width, int height, int max_depth) {
+                                 int height, int width, int max_depth) {
   double xstep = (x1 - x0) / width;
   double ystep = (y1 - y0) / height;
   unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
@@ -205,7 +209,7 @@ unsigned char* mandelbrot_openmp(double x0, double y0, double x1, double y1,
 #include <stdio.h>
 
 void test_correctness() {
-  unsigned char *output2 = mandelbrot_serial(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_width, _mb_height, _mb_max_depth);
+  unsigned char *output2 = mandelbrot_serial(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_height, _mb_width, _mb_max_depth);
   int num_diffs = 0;
   for (int i = 0; i < _mb_height; i++) {
     for (int j = 0; j < _mb_width; j++) {

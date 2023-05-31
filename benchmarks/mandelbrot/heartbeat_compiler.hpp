@@ -5,22 +5,21 @@
 
 namespace mandelbrot {
 
-void HEARTBEAT_nest0_loop0(double x0, double y0, uint64_t width, uint64_t height, uint64_t max_depth, double xstep, double ystep, unsigned char *output);
+void HEARTBEAT_nest0_loop0(double x0, double y0, uint64_t height, uint64_t width, uint64_t max_depth, double xstep, double ystep, unsigned char *output);
 void HEARTBEAT_nest0_loop1(double x0, double y0, uint64_t width, uint64_t max_depth, double xstep, double ystep, unsigned char *output, uint64_t j);
 
 unsigned char * mandelbrot_hb_compiler(double x0, double y0, double x1, double y1,
-                                       int width, int height, int max_depth) {
+                                       int height, int width, int max_depth) {
   double xstep = (x1 - x0) / width;
   double ystep = (y1 - y0) / height;
-  //  unsigned char* output = static_cast<unsigned char*>(_mm_malloc(width * height * sizeof(unsigned char), 64));
   unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
-  HEARTBEAT_nest0_loop0(x0, y0, width, height, max_depth, xstep, ystep, output);
+  HEARTBEAT_nest0_loop0(x0, y0, height, width, max_depth, xstep, ystep, output);
   return output;
 }
 
 // Outlined loops
-// void HEARTBEAT_nest0_loop0(double x0, double y0, int width, int height, int max_depth, double xstep, double ystep, unsigned char *output) {
-void HEARTBEAT_nest0_loop0(double x0, double y0, uint64_t width, uint64_t height, uint64_t max_depth, double xstep, double ystep, unsigned char *output) {
+// void HEARTBEAT_nest0_loop0(double x0, double y0, int height, int width, int max_depth, double xstep, double ystep, unsigned char *output) {
+void HEARTBEAT_nest0_loop0(double x0, double y0, uint64_t height, uint64_t width, uint64_t max_depth, double xstep, double ystep, unsigned char *output) {
   // for(int j = 0; j < height; ++j) { // col loop
   for(uint64_t j = 0; j < height; ++j) { // col loop
     HEARTBEAT_nest0_loop1(x0, y0, width, max_depth, xstep, ystep, output, j);

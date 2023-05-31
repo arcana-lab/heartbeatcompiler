@@ -23,6 +23,8 @@ else ifeq ($(INPUT_SIZE), tpal)
 	MACROS += -DINPUT_TPAL
 else ifeq ($(INPUT_SIZE), testing)
 	MACROS += -DINPUT_TESTING
+else ifeq ($(INPUT_SIZE), user)
+	MACROS += -DINPUT_USER
 endif
 
 # whether to test the correctness of any implementation
@@ -122,7 +124,7 @@ run_baseline: baseline
 	UTILITY_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
 	UTILITY_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
 	UTILITY_BENCHMARK_VERBOSE=$(VERBOSE) \
-	./$<
+	./$< $(ARGS)
 
 # ============================================
 # OpenCilk
@@ -145,12 +147,12 @@ ifneq ($(WORKERS), 0)
 	UTILITY_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
 	UTILITY_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
 	UTILITY_BENCHMARK_VERBOSE=$(VERBOSE) \
-	./$<
+	./$< $(ARGS)
 else
 	UTILITY_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
 	UTILITY_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
 	UTILITY_BENCHMARK_VERBOSE=$(VERBOSE) \
-	./$<
+	./$< $(ARGS)
 endif
 
 # ============================================
@@ -174,12 +176,12 @@ ifneq ($(WORKERS), 0)
 	UTILITY_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
 	UTILITY_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
 	UTILITY_BENCHMARK_VERBOSE=$(VERBOSE) \
-	./$<
+	./$< $(ARGS)
 else
 	UTILITY_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
 	UTILITY_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
 	UTILITY_BENCHMARK_VERBOSE=$(VERBOSE) \
-	./$<
+	./$< $(ARGS)
 endif
 
 # ============================================
@@ -215,12 +217,12 @@ ifneq ($(WORKERS), 0)
 	UTILITY_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
 	UTILITY_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
 	UTILITY_BENCHMARK_VERBOSE=$(VERBOSE) \
-	./$<
+	./$< $(ARGS)
 else
 	UTILITY_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
 	UTILITY_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
 	UTILITY_BENCHMARK_VERBOSE=$(VERBOSE) \
-	./$<
+	./$< $(ARGS)
 endif
 
 # ============================================
