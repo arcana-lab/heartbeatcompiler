@@ -127,7 +127,7 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
     rtmem.mine().chunksize = cxts[(numLevels-1) * CACHELINE + CHUNKSIZE];
   }
 
-#if defined(ACC_STATS)
+#if defined(ACC_DEBUG)
   printf("runtime_memory_update: ");
   printf("heartbeat_count = %ld, ", rtmem.mine().heartbeat_count);
   printf("polling_count = %ld, ", tmem->polling_count);
@@ -144,16 +144,16 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
      */
     double u_t = (double)rtmem.mine().minimal_polling_count / (double)TARGET_POLLING_RATIO * (double)AGGRESSIVENESS;
     double new_chunksize = u_t * rtmem.mine().chunksize;
-  #if defined(ACC_STATS)
+  #if defined(ACC_DEBUG)
     printf("\tapplying adpative chunksize control:\n");
     printf("\t\tu = %.2f\n", u_t);
     printf("\t\told chunksize = %ld\n", (uint64_t)rtmem.mine().chunksize);
     printf("\t\tnew chunksize = %ld\n", (uint64_t)new_chunksize);
   #endif
     /*
-    * Update the new chunksize to the runtime memory, so whichever
-    * task run by this thread can inherit the new chunksize setting
-    */
+     * Update the new chunksize to the runtime memory, so whichever
+     * task run by this thread can inherit the new chunksize setting
+     */
     rtmem.mine().chunksize = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize <= INT32_MAX ? (uint64_t)new_chunksize : INT32_MAX : 1;
 
     /*
@@ -167,6 +167,13 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
 
 #endif  // defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
 #endif  // !defined(ENABLE_ROLLFORWARD)
+
+__attribute__((always_inline))
+void chunksize_set(uint64_t *cxts, uint64_t numLevels) {
+#if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+  cxts[(numLevels-1) * CACHELINE + CHUNKSIZE] = rtmem.mine().chunksize;
+#endif
+}
 
 __attribute__((always_inline))
 void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
@@ -280,15 +287,11 @@ int64_t loop_handler(
     cxts[receivingLevel * CACHELINE + START_ITER]++;
 
     taskparts::tpalrts_promote_via_nativefj([&] {
-#if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
-      cxts[(numLevels-1) * CACHELINE + CHUNKSIZE] = rtmem.mine().chunksize;
-#endif
+      chunksize_set(cxts, numLevels);
       task_memory_reset(tmem, receivingLevel);
       slice_tasks[receivingLevel](cxts, constLiveIns, 0, tmem);
     }, [&] {
-#if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
-      cxtsSecond[(numLevels-1) * CACHELINE + CHUNKSIZE] = rtmem.mine().chunksize;
-#endif
+      chunksize_set(cxtsSecond, numLevels);
       task_memory_t hbmemSecond;
       task_memory_reset(&hbmemSecond, receivingLevel);
       slice_tasks[receivingLevel](cxtsSecond, constLiveIns, 1, &hbmemSecond);
@@ -308,15 +311,11 @@ int64_t loop_handler(
      */
     uint64_t leftoverTaskIndex = leftover_selector(receivingLevel, splittingLevel);
     taskparts::tpalrts_promote_via_nativefj([&] {
-#if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
-      cxts[(numLevels-1) * CACHELINE + CHUNKSIZE] = rtmem.mine().chunksize;
-#endif
+      chunksize_set(cxts, numLevels);
       task_memory_reset(tmem, splittingLevel);
       (*leftover_tasks[leftoverTaskIndex])(cxts, constLiveIns, 0, tmem);
     }, [&] {
-#if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
-      cxtsSecond[(numLevels-1) * CACHELINE + CHUNKSIZE] = rtmem.mine().chunksize;
-#endif
+      chunksize_set(cxtsSecond, numLevels);
       task_memory_t hbmemSecond;
       task_memory_reset(&hbmemSecond, splittingLevel);
       slice_tasks[splittingLevel](cxtsSecond, constLiveIns, 1, &hbmemSecond);
