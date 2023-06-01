@@ -92,21 +92,39 @@ struct runtime_memory_t {
   uint64_t heartbeat_count;
   uint64_t minimal_polling_count;
   uint64_t chunksize;
+#if defined(ACC_EVAL)
+  uint64_t minimal_polling_count_last_window;
+  uint64_t success_count;
+#endif
 };
 
 taskparts::perworker::array<runtime_memory_t> rtmem;
+static uint64_t sliding_window_size = 10;
+static uint64_t target_polling_ratio = 2;
+static double aggressiveness = 1.0;
 
 void runtime_memory_reset() {
   for (size_t i = 0; i < taskparts::perworker::nb_workers(); i++) {
     rtmem[i].heartbeat_count = 0;
     rtmem[i].minimal_polling_count = INT64_MAX;
     rtmem[i].chunksize = 1;
+#if defined(ACC_EVAL)
+    rtmem[i].minimal_polling_count_last_window = 0;
+    uint64_t success_count = 0;
+#endif
+  }
+
+  if (const char *s = std::getenv("SLIDING_WINDOW_SIZE")) {
+    sliding_window_size = std::atoll(s);
+  }
+  if (const char *s = std::getenv("TARGET_POLLING_RATIO")) {
+    target_polling_ratio = std::atoll(s);
+  }
+  if (const char *s = std::getenv("AGGRESSIVENESS")) {
+    aggressiveness = std::atof(s);
   }
 }
 
-#define SLIDING_WINDOW_SIZE 5
-#define TARGET_POLLING_RATIO 2
-#define AGGRESSIVENESS 1
 /*
  * Function invoked inside the loop_handler (when received a heartbeat),
  * to update the memory tracked by the runtime thread
@@ -135,14 +153,20 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
   printf("chunksize = %ld\n", rtmem.mine().chunksize);
 #endif
 
+#if defined(ACC_EVAL)
+  if (rtmem.mine().minimal_polling_count_last_window <= rtmem.mine().minimal_polling_count) {
+    rtmem.mine().success_count++;
+  }
+#endif
+
   /*
    * Do adaptive chunksize control once finishes a window
    */
-  if (rtmem.mine().heartbeat_count % SLIDING_WINDOW_SIZE == 0) {
+  if (rtmem.mine().heartbeat_count % sliding_window_size == 0) {
     /*
      * Adaptive chunksize control algorithm
      */
-    double u_t = (double)rtmem.mine().minimal_polling_count / (double)TARGET_POLLING_RATIO * (double)AGGRESSIVENESS;
+    double u_t = (double)rtmem.mine().minimal_polling_count / (double)target_polling_ratio * aggressiveness;
     double new_chunksize = u_t * rtmem.mine().chunksize;
   #if defined(ACC_DEBUG)
     printf("\tapplying adpative chunksize control:\n");
@@ -154,7 +178,12 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
      * Update the new chunksize to the runtime memory, so whichever
      * task run by this thread can inherit the new chunksize setting
      */
+#if !defined(ACC_EVAL)
     rtmem.mine().chunksize = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize <= INT32_MAX ? (uint64_t)new_chunksize : INT32_MAX : 1;
+#else
+    rtmem.mine().minimal_polling_count_last_window = (uint64_t)((double)rtmem.mine().minimal_polling_count / aggressiveness);
+    printf("%.2f\n", (double)rtmem.mine().success_count / (double)rtmem.mine().heartbeat_count * 100);
+#endif
 
     /*
      * Reset minimal polling count

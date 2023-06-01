@@ -258,23 +258,22 @@ MACROS_HEARTBEAT += -DSMALLEST_GRANULARITY=$(SMALLEST_GRANULARITY)
 # whether to chunk loop iterations before calling loop_handler
 # whether to enable adpative chunksize control to decrease polling overhead
 CHUNK_LOOP_ITERATIONS ?= true
-ADAPTIVE_CHUNKSIZE_CONTROL ?= false
 ACC ?= false
 ACC_DEBUG ?= false
+ACC_EVAL ?= false
 ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 	MACROS_HEARTBEAT += -DCHUNK_LOOP_ITERATIONS
 	PASS_ARGUMENTS_HEARTBEAT_COMPILER += -chunk_loop_iterations
-	ifeq ($(ADAPTIVE_CHUNKSIZE_CONTROL), true)
-		MACROS_HEARTBEAT += -DADAPTIVE_CHUNKSIZE_CONTROL
-		PASS_ARGUMENTS_HEARTBEAT_COMPILER += -adaptive_chunksize_control
-		ifeq ($(ACC_DEBUG), true)
-			MACROS_HEARTBEAT += -DACC_DEBUG
-		endif
-	else ifeq ($(ACC), true)
-		MACROS_HEARTBEAT += -DADAPTIVE_CHUNKSIZE_CONTROL
-		PASS_ARGUMENTS_HEARTBEAT_COMPILER += -adaptive_chunksize_control
-		ifeq ($(ACC_DEBUG), true)
-			MACROS_HEARTBEAT += -DACC_DEBUG
+	ifeq ($(ENABLE_ROLLFORWARD), false)	# ACC can only be enabled when not using ROLLFORWARDING
+		ifeq ($(ACC), true)
+			MACROS_HEARTBEAT += -DADAPTIVE_CHUNKSIZE_CONTROL
+			PASS_ARGUMENTS_HEARTBEAT_COMPILER += -adaptive_chunksize_control
+			ifeq ($(ACC_DEBUG), true)
+				MACROS_HEARTBEAT += -DACC_DEBUG
+			endif
+			ifeq ($(ACC_EVAL), true)
+				MACROS_HEARTBEAT += -DACC_EVAL
+			endif
 		endif
 	endif
 endif
