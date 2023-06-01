@@ -103,8 +103,8 @@ void runtime_memory_reset() {
 }
 
 #define SLIDING_WINDOW_SIZE 5
-#define TARGET_POLLING_RATIO 16
-#define AGGRESSIVENESS 0.9
+#define TARGET_POLLING_RATIO 2
+#define AGGRESSIVENESS 1
 /*
  * Function invoked inside the loop_handler (when received a heartbeat),
  * to update the memory tracked by the runtime thread
