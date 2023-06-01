@@ -41,12 +41,8 @@ endif
 
 # whether to print compilation configurations
 STATS ?= false
-POLLS_STATS ?= false
 ifeq ($(STATS), true)
 	MACROS += -DSTATS
-	ifeq ($(POLLS_STATS), true)
-		MACROS += -DPOLLS_STATS
-	endif
 endif
 
 # include benchmark specific settings
@@ -280,6 +276,14 @@ ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 		ifeq ($(ACC_STATS), true)
 			MACROS_HEARTBEAT += -DACC_STATS
 		endif
+	endif
+endif
+
+# whether to print polling stats
+POLLS_STATS ?= false
+ifeq ($(ENABLE_ROLLFORWARD), false)
+	ifeq ($(POLLS_STATS), true)
+		MACROS += -DPOLLS_STATS
 	endif
 endif
 

@@ -23,13 +23,15 @@ extern "C" {
 #define LIVE_OUT_ENV 3
 #define CHUNKSIZE 4
 
-#if defined(STATS)
+#if defined(STATS) || defined(POLLS_STATS)
 static uint64_t polls = 0;
+#if defined(STATS)
+static uint64_t heartbeats = 0;
+static uint64_t splits = 0;
+#endif
 #if defined(POLLS_STATS)
 static uint64_t prev_polls = 0;
 #endif
-static uint64_t heartbeats = 0;
-static uint64_t splits = 0;
 #endif
 
 void run_bench(std::function<void()> const &bench_body,
@@ -65,7 +67,7 @@ void printGIS(uint64_t *cxts, uint64_t startLevel, uint64_t maxLevel, std::strin
 #if !defined(ENABLE_ROLLFORWARD)
 
 bool heartbeat_polling(task_memory_t *tmem) {
-#if defined(STATS)
+#if defined(STATS) || defined(POLLS_STATS)
   polls++;
 #endif
 
@@ -206,10 +208,10 @@ int64_t loop_handler(
 ) {
 #if defined(STATS)
   heartbeats++;
+#endif
 #if defined(POLLS_STATS)
   printf("%ld\n", polls-prev_polls);
   prev_polls = polls;
-#endif
 #endif
 #if defined(DISABLE_HEARTBEAT_PROMOTION)
   return 0;
