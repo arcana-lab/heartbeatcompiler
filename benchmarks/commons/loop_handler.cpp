@@ -168,7 +168,7 @@ void adaptive_chunksize_control(uint64_t *cxts, uint64_t startingLevel, uint64_t
   printf("\t\t\tnew chunksize = %ld\n", (uint64_t)new_chunksize);
 #endif
   /*
-   * Update the new chunksize to the runtime memory, so whichever 
+   * Update the new chunksize to the runtime memory, so whichever
    * task run by this thread can inherit the new chunksize setting
    */
   rtmem.mine().chunksize = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize <= INT32_MAX ? (uint64_t)new_chunksize : INT32_MAX : 1;
@@ -190,11 +190,6 @@ void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
   tmem->startingLevel = startingLevel;
 
 #if !defined(ENABLE_ROLLFORWARD)
-  /*
-   * Reset heartbeat timer if using software polling
-   */
-  taskparts::prev.mine() = taskparts::cycles::now();
-
 #if defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
   /*
    * Reset polling count if using adaptive chunksize control
@@ -206,6 +201,10 @@ void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
    */
   rtmem.mine().heartbeat_count++;
 #endif
+  /*
+   * Reset heartbeat timer if using software polling
+   */
+  taskparts::prev.mine() = taskparts::cycles::now();
 #endif
 }
 

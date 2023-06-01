@@ -31,8 +31,10 @@ namespace floyd_warshall {
   #endif
 #elif defined(INPUT_TESTING)
   int vertices = 1024;
+#elif defined(INPUT_USER)
+  int vertices;
 #else
-  #error "Need to select input size: INPUT_{BENCHMARKING, TPAL, TESTING}"
+  #error "Need to select input size: INPUT_{BENCHMARKING, TPAL, TESTING, USER}"
 #endif
 int *dist = nullptr;
 
