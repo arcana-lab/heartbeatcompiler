@@ -1,4 +1,7 @@
 #include "bench.hpp"
+#if defined(INPUT_USER)
+#include <stdio.h>
+#endif
 #if defined(USE_HB_MANUAL)
 #include "heartbeat_manual.hpp"
 #endif
@@ -12,7 +15,16 @@ using namespace srad;
 bool run_heartbeat = true;
 #endif
 
-int main() {
+int main(int argc, char *argv[]) {
+
+#if defined(INPUT_USER)
+  if (argc < 3) {
+    fprintf(stderr, "USAGE: %s rows cols\n", argv[0]);
+    return 1;
+  }
+  rows = atoi(argv[1]);
+  cols = atoi(argv[2]);
+#endif
 
   run_bench([&] {
 #if defined(USE_BASELINE)

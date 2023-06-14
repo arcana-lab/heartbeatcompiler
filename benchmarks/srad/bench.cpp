@@ -18,8 +18,11 @@ namespace srad {
 #elif defined(INPUT_TESTING)
   int rows=4000;
   int cols=4000;
+#elif defined(INPUT_USER)
+  int rows;
+  int cols;
 #else
-  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TPAL, TESTING}"
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TPAL, TESTING, USER}"
 #endif
 int size_I, size_R;
 float *I, *J, q0sqr, sum, sum2, tmp, meanROI,varROI ;
