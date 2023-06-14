@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <cassert>
+#include <unistd.h>
 #include <mm/mm.hpp> // matrix market loader: https://github.com/cwpearson/matrix-market
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 #include "utility.hpp"
@@ -64,6 +65,51 @@ void zero_init(T* a, std::size_t n) {
   }
 }
 
+void read_matrix_from_file(const char *filename) {
+  FILE *infile;
+
+  infile = fopen(filename, "r");
+  if (infile == NULL) {
+    fprintf(stderr, "\nError opening file\n");
+    exit(1);
+  }
+
+  fread(&n, sizeof(uint64_t), 1, infile);
+  fread(&nb_vals, sizeof(uint64_t), 1, infile);
+
+  row_ptr = (uint64_t*)malloc(sizeof(uint64_t) * (n + 1));
+  col_ind = (uint64_t*)malloc(sizeof(uint64_t) * nb_vals);
+  val = (double*)malloc(sizeof(double) * nb_vals);
+
+  fread(row_ptr, sizeof(uint64_t), n + 1, infile);
+  fread(col_ind, sizeof(uint64_t), nb_vals, infile);
+  fread(val, sizeof(double), nb_vals, infile);
+
+  fclose(infile);
+
+  return;
+}
+
+void write_matrix_to_file(const char *filename) {
+  FILE *outfile;
+
+  outfile = fopen(filename, "w");
+  if (outfile == NULL) {
+    fprintf(stderr, "\nError opening file\n");
+    exit(1);
+  }
+
+  fwrite(&n, sizeof(uint64_t), 1, outfile);
+  fwrite(&nb_vals, sizeof(uint64_t), 1, outfile);
+  fwrite(row_ptr, sizeof(uint64_t), n + 1, outfile);
+  fwrite(col_ind, sizeof(uint64_t), nb_vals, outfile);
+  fwrite(val, sizeof(double), nb_vals, outfile);
+
+  fclose(outfile);
+
+  return;
+}
+
 void setup() {
   std::string fname = "Trefethen_20/Trefethen_20.mtx";
   if (const auto env_p = std::getenv("MATRIX_MARKET_FILE")) {
@@ -77,21 +123,31 @@ void setup() {
   typedef typename coo_t::entry_type entry_t;
   typedef CSR<Ordinal, Scalar, Offset> csr_type;
 
-  // read matrix as coo
-  reader_t reader(fname);
-  coo_t coo = reader.read_coo();
-  csr_type csr(coo);
-  nb_vals = csr.nnz();
-  val = (scalar*)malloc(sizeof(scalar) * nb_vals);
-  std::copy(csr.val().begin(), csr.val().end(), val);
-  auto nb_rows = csr.num_rows();
-  auto nb_cols = csr.num_cols();
-  assert(nb_rows == nb_cols && "input matrix must be a symmetric positive definite floating point matrix");
-  n = nb_rows;
-  row_ptr = (Ordinal*)malloc(sizeof(Ordinal) * (n + 1));
-  std::copy(csr.row_ptr().begin(), csr.row_ptr().end(), row_ptr);
-  col_ind = (Offset*)malloc(sizeof(Offset) * nb_vals);
-  std::copy(&csr.col_ind()[0], (&csr.col_ind()[nb_cols-1]) + 1, col_ind);
+  size_t pos = fname.find('.');
+  std::string datname = fname.substr(0, pos) + ".dat";
+  if (!access(datname.c_str(), F_OK)) {
+    printf("read matrix from %s\n", datname.c_str());
+    read_matrix_from_file(datname.c_str());
+  } else {
+    // read matrix as coo
+    reader_t reader(fname);
+    coo_t coo = reader.read_coo();
+    csr_type csr(coo);
+    nb_vals = csr.nnz();
+    val = (scalar*)malloc(sizeof(scalar) * nb_vals);
+    std::copy(csr.val().begin(), csr.val().end(), val);
+    auto nb_rows = csr.num_rows();
+    auto nb_cols = csr.num_cols();
+    assert(nb_rows == nb_cols && "input matrix must be a symmetric positive definite floating point matrix");
+    n = nb_rows;
+    row_ptr = (Ordinal*)malloc(sizeof(Ordinal) * (n + 1));
+    std::copy(csr.row_ptr().begin(), csr.row_ptr().end(), row_ptr);
+    col_ind = (Offset*)malloc(sizeof(Offset) * nb_vals);
+    std::copy(&csr.col_ind()[0], (&csr.col_ind()[nb_cols-1]) + 1, col_ind);
+
+    write_matrix_to_file(datname.c_str());
+    printf("write matrix to %s\n", datname.c_str());
+  }
 
   x = (scalar*)malloc(sizeof(scalar) * n);
   z = (scalar*)malloc(sizeof(scalar) * n);
