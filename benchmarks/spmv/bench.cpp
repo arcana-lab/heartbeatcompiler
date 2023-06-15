@@ -495,7 +495,7 @@ auto bench_pre_normal() {
 
 auto bench_pre_matrix_market() -> void {
   using nonzero_type = double;
-  auto dflt_fname = "Trefethen_20/Trefethen_20.mtx";
+  auto dflt_fname = "twitter7/twitter7.mtx";
   std::string fname = dflt_fname;
   if (const auto env_p = std::getenv("MATRIX_MARKET_FILE")) {
     fname = env_p;
