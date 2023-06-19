@@ -14,21 +14,9 @@
 namespace floyd_warshall {
 
 #if defined(INPUT_BENCHMARKING)
-  #if defined(FW_1K)
-    int vertices = 1024;
-  #elif defined(FW_2K)
-    int vertices = 2048;
-  #else
-    #error "Need to select input class: FW_{1K, 2K}"
-  #endif
+  int vertices = 4096;
 #elif defined(INPUT_TPAL)
-  #if defined(FW_1K)
-    int vertices = 1024;
-  #elif defined(FW_2K)
-    int vertices = 2048;
-  #else
-    #error "Need to select input class: FW_{1K, 2K}"
-  #endif
+  int vertices = 2048;
 #elif defined(INPUT_TESTING)
   int vertices = 1024;
 #elif defined(INPUT_USER)
