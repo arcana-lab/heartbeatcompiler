@@ -10,8 +10,8 @@
 namespace srad {
 
 #if defined(INPUT_BENCHMARKING)
-  int rows=8000;
-  int cols=8000;
+  int rows=10000;
+  int cols=10000;
 #elif defined(INPUT_TPAL)
   int rows=4000;
   int cols=4000;
@@ -34,6 +34,7 @@ float lambda;
 #if defined(TEST_CORRECTNESS)
 float *J_ref;
 #endif
+int num_runs = 30;
 
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 void run_bench(std::function<void()> const &bench_body,

@@ -15,19 +15,21 @@ bool run_heartbeat = true;
 int main() {
 
   run_bench([&] {
+    for (int i = 0; i < 10; i++) {
 #if defined(USE_BASELINE)
-    result = plus_reduce_array_serial(a, 0, nb_items);
+      result += plus_reduce_array_serial(a, 0, nb_items);
 #elif defined(USE_OPENCILK)
-    result = plus_reduce_array_opencilk(a, 0, nb_items);
+      result += plus_reduce_array_opencilk(a, 0, nb_items);
 #elif defined(USE_CILKPLUS)
-    result = plus_reduce_array_cilkplus(a, 0, nb_items);
+      result += plus_reduce_array_cilkplus(a, 0, nb_items);
 #elif defined(USE_OPENMP)
-    result = plus_reduce_array_openmp(a, 0, nb_items);
+      result += plus_reduce_array_openmp(a, 0, nb_items);
 #elif defined(USE_HB_MANUAL)
-    result = plus_reduce_array_hb_manual(a, 0, nb_items);
+      result += plus_reduce_array_hb_manual(a, 0, nb_items);
 #elif defined(USE_HB_COMPILER)
-    result = plus_reduce_array_hb_compiler(a, 0, nb_items);
+      result += plus_reduce_array_hb_compiler(a, 0, nb_items);
 #endif
+    }
 
 #if defined(TEST_CORRECTNESS)
     test_correctness();

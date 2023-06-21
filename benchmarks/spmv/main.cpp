@@ -15,19 +15,21 @@ bool run_heartbeat = true;
 int main() {
 
   run_bench([&] {
+    for (int i = 0; i < 10; i++) {
 #if defined(USE_BASELINE)
-    spmv_serial(val, row_ptr, col_ind, x, y, nb_rows);
+      spmv_serial(val, row_ptr, col_ind, x, y, nb_rows);
 #elif defined(USE_OPENCILK)
-    spmv_opencilk(val, row_ptr, col_ind, x, y, nb_rows);
+      spmv_opencilk(val, row_ptr, col_ind, x, y, nb_rows);
 #elif defined(USE_CILKPLUS)
-    spmv_cilkplus(val, row_ptr, col_ind, x, y, nb_rows);
+      spmv_cilkplus(val, row_ptr, col_ind, x, y, nb_rows);
 #elif defined(USE_OPENMP)
-    spmv_openmp(val, row_ptr, col_ind, x, y, nb_rows);
+      spmv_openmp(val, row_ptr, col_ind, x, y, nb_rows);
 #elif defined(USE_HB_MANUAL)
-    spmv_hb_manual(val, row_ptr, col_ind, x, y, nb_rows);
+      spmv_hb_manual(val, row_ptr, col_ind, x, y, nb_rows);
 #elif defined(USE_HB_COMPILER)
-    spmv_hb_compiler(val, row_ptr, col_ind, x, y, nb_rows);
+      spmv_hb_compiler(val, row_ptr, col_ind, x, y, nb_rows);
 #endif
+    }
 
 #if defined(TEST_CORRECTNESS)
     test_correctness();

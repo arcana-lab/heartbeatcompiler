@@ -11,6 +11,7 @@ extern float *dN, *dS, *dW, *dE;
 extern float *c;
 extern int *iN, *iS, *jE, *jW;
 extern float lambda;
+extern int num_runs;
 
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 void run_bench(std::function<void()> const &bench_body,
