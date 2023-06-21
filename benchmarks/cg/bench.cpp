@@ -457,13 +457,17 @@ scalar conj_grad_opencilk(
 
 scalar dotp_openmp(uint64_t n, scalar* r, scalar* q) {
   scalar sum = 0.0;
-#pragma omp parallel default(shared)
-{
-  #pragma omp for reduction(+:sum)
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp parallel for schedule(static) reduction(+:sum)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic) reduction(+:sum)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp parallel for schedule(guided) reduction(+:sum)
+#endif
   for (uint64_t j = 0; j < n; j++) {
     sum += r[j] * q[j];
   }
-}
+
   return sum;
 }
 
@@ -478,7 +482,13 @@ void spmv_openmp(
   scalar* x,
   scalar* y,
   uint64_t n) {
-  #pragma omp for
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp for schedule(static)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp for schedule(dynamic)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp for schedule(guided)
+#endif
   for (uint64_t i = 0; i < n; i++) { // row loop
     scalar r = 0.0;
     for (uint64_t k = row_ptr[i]; k < row_ptr[i + 1]; k++) { // col loop
@@ -498,12 +508,22 @@ scalar conj_grad_openmp(
   scalar* p,
   scalar* q,
   scalar* r) {
+  double d, sum, rho, rho0, alpha, beta;
   int cgitmax = 25;
+  rho = 0.0;
 
+#pragma omp parallel default(shared) private(sum) shared(rho, n)
+{
 /*--------------------------------------------------------------------
 c  Initialize the CG algorithm:
 c-------------------------------------------------------------------*/
-  #pragma omp for
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp for schedule(static)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp for schedule(dynamic)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp for schedule(guided)
+#endif
   for (uint64_t j = 0; j < n; j++) {
     q[j] = 0.0;
     z[j] = 0.0;
@@ -514,15 +534,19 @@ c-------------------------------------------------------------------*/
 c  rho = r.r
 c  Now, obtain the norm of r: First, sum squares of r elements locally...
 c-------------------------------------------------------------------*/
-  scalar rho = norm_openmp(n, r);
+  rho = norm_openmp(n, r);
+}
 /*--------------------------------------------------------------------
 c---->
 c  The conj grad iteration loop
 c---->
 c-------------------------------------------------------------------*/
   for (uint64_t cgit = 0; cgit < cgitmax; cgit++) {
-    scalar rho0 = rho;
+    rho0 = rho;
+    d = 0.0;
     rho = 0.0;
+#pragma omp parallel default(shared) private(sum,alpha,beta) shared(d,rho0,rho)
+{
 /*--------------------------------------------------------------------
 c  q = A.p
 c-------------------------------------------------------------------*/
@@ -530,41 +554,59 @@ c-------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 c  Obtain alpha = rho / (p.q)
 c-------------------------------------------------------------------*/
-    scalar alpha = rho0 / dotp_openmp(n, p, q);
+    d = dotp_openmp(n, p, q);
+#pragma omp barrier
+    alpha = rho0 / d;
 /*---------------------------------------------------------------------
 c  Obtain z = z + alpha*p
 c  and    r = r - alpha*q
 c---------------------------------------------------------------------*/
-#pragma omp parallel default(shared)
-{
-    #pragma omp for reduction(+:rho)
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp for schedule(static) reduction(+:rho)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp for schedule(dynamic) reduction(+:rho)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp for schedule(guided) reduction(+:rho)
+#endif
     for (uint64_t j = 0; j < n; j++) {
       z[j] = z[j] + alpha * p[j];
       r[j] = r[j] - alpha * q[j];
       rho += r[j] * r[j];
     }
-    scalar beta = rho / rho0;
+    beta = rho / rho0;
 /*--------------------------------------------------------------------
 c  p = r + beta*p
 c-------------------------------------------------------------------*/
-    #pragma omp for
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp for nowait
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp for nowait
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp for nowait
+#endif
     for (uint64_t j = 0; j < n; j++) {
       p[j] = r[j] + beta * p[j];
     }
 }
   }
 
+  sum = 0.0;
+#pragma omp parallel default(shared) private(d) shared(sum)
+{
   spmv_openmp(a, row_ptr, col_ind, z, r, n);
 
 /*--------------------------------------------------------------------
 c  At this point, r contains A.z
 c-------------------------------------------------------------------*/
-  scalar sum = 0.0;
-#pragma omp parallel default(shared)
-{
-  #pragma omp for reduction(+:sum)
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp for schedule(static) reduction(+:sum)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp for schedule(dynamic) reduction(+:sum)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp for schedule(guided) reduction(+:sum)
+#endif
   for (uint64_t j = 0; j < n; j++) {
-    scalar d = x[j] - r[j];
+    d = x[j] - r[j];
     sum += d * d;
   }
 }
