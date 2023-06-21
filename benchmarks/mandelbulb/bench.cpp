@@ -11,10 +11,10 @@
 namespace mandelbulb {
 
 #if defined(INPUT_BENCHMARKING)
-  int _mb_nx = 256;
-  int _mb_ny = 256;
-  int _mb_nz = 256;
-  int _mb_iterations = 50;
+  int _mb_nx = 100;
+  int _mb_ny = 200;
+  int _mb_nz = 300;
+  int _mb_iterations = 400;
 #elif defined(INPUT_TPAL)
   int _mb_nx = 64;
   int _mb_ny = 64;
