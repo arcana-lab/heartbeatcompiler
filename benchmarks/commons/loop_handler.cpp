@@ -199,7 +199,7 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
 #endif  // !defined(ENABLE_ROLLFORWARD)
 
 __attribute__((always_inline))
-void chunksize_set(uint64_t *cxts, uint64_t numLevels) {
+void chunksize_set(uint64_t *cxts, uint64_t numLevels, uint64_t splittingLevel) {
 #if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
   if (rtmem.mine().chunksize == CHUNKSIZE_MAX) {  // potential to increase chunksize at a lower nested level
     // if innermost loop's chunksize isn't the maximum, set it to be the maximum
@@ -207,8 +207,8 @@ void chunksize_set(uint64_t *cxts, uint64_t numLevels) {
       cxts[(numLevels-1) * CACHELINE + CHUNKSIZE] = CHUNKSIZE_MAX;
     }
 
-    // iterate starting from the second innermost loop to the root loop
-    for (uint64_t level = numLevels - 2; level < numLevels && level >= 0; level--) {
+    // iterate starting from the second innermost loop to the splitting loop
+    for (uint64_t level = numLevels - 2; level < numLevels && level >= splittingLevel; level--) {
       if (cxts[level * CACHELINE + CHUNKSIZE] == CHUNKSIZE_MAX) {
         // do nothing if the chunksize is already at the maximum
         continue;
@@ -219,14 +219,14 @@ void chunksize_set(uint64_t *cxts, uint64_t numLevels) {
       }
     }
   } else {  // potential to decrease chunksize at a higher nested level
-    // iterate starting from the root loop till the second innermost loop
-    for (uint64_t level = 0; level <= numLevels - 2; level++) {
+    // iterate starting from the splitting loop till the second innermost loop
+    for (uint64_t level = splittingLevel; level <= numLevels - 2; level++) {
       if (cxts[level * CACHELINE + CHUNKSIZE] == 1) {
         // do nothing if the chunksize is already at the minimum
         continue;
       } else {
         // half the chunksize at this level
-        cxts[level * CACHELINE + CHUNKSIZE] = cxts[level * CACHELINE + CHUNKSIZE] / 2 > 0 ? 1 : cxts[level * CACHELINE + CHUNKSIZE] / 2;
+        cxts[level * CACHELINE + CHUNKSIZE] = cxts[level * CACHELINE + CHUNKSIZE] / 2 < 1 ? 1 : cxts[level * CACHELINE + CHUNKSIZE] / 2;
         return;
       }
     }
@@ -349,11 +349,11 @@ int64_t loop_handler(
     cxts[receivingLevel * CACHELINE + START_ITER]++;
 
     taskparts::tpalrts_promote_via_nativefj([&] {
-      chunksize_set(cxts, numLevels);
+      chunksize_set(cxts, numLevels, receivingLevel);
       task_memory_reset(tmem, receivingLevel);
       slice_tasks[receivingLevel](cxts, constLiveIns, 0, tmem);
     }, [&] {
-      chunksize_set(cxtsSecond, numLevels);
+      chunksize_set(cxtsSecond, numLevels, receivingLevel);
       task_memory_t hbmemSecond;
       task_memory_reset(&hbmemSecond, receivingLevel);
       slice_tasks[receivingLevel](cxtsSecond, constLiveIns, 1, &hbmemSecond);
@@ -373,11 +373,11 @@ int64_t loop_handler(
      */
     uint64_t leftoverTaskIndex = leftover_selector(receivingLevel, splittingLevel);
     taskparts::tpalrts_promote_via_nativefj([&] {
-      chunksize_set(cxts, numLevels);
+      chunksize_set(cxts, numLevels, splittingLevel);
       task_memory_reset(tmem, splittingLevel);
       (*leftover_tasks[leftoverTaskIndex])(cxts, constLiveIns, 0, tmem);
     }, [&] {
-      chunksize_set(cxtsSecond, numLevels);
+      chunksize_set(cxtsSecond, numLevels, splittingLevel);
       task_memory_t hbmemSecond;
       task_memory_reset(&hbmemSecond, splittingLevel);
       slice_tasks[splittingLevel](cxtsSecond, constLiveIns, 1, &hbmemSecond);
