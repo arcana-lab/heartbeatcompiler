@@ -99,9 +99,10 @@ struct runtime_memory_t {
 };
 
 taskparts::perworker::array<runtime_memory_t> rtmem;
-static uint64_t sliding_window_size = 10;
+static uint64_t sliding_window_size = 5;
 static uint64_t target_polling_ratio = 2;
 static double aggressiveness = 1.0;
+#define CHUNKSIZE_MAX 2048
 
 void runtime_memory_reset() {
   for (size_t i = 0; i < taskparts::perworker::nb_workers(); i++) {
@@ -168,18 +169,18 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
      */
     double u_t = (double)rtmem.mine().minimal_polling_count / (double)target_polling_ratio * aggressiveness;
     double new_chunksize = u_t * rtmem.mine().chunksize;
-  #if defined(ACC_DEBUG)
+#if defined(ACC_DEBUG)
     printf("\tapplying adpative chunksize control:\n");
     printf("\t\tu = %.2f\n", u_t);
     printf("\t\told chunksize = %ld\n", (uint64_t)rtmem.mine().chunksize);
     printf("\t\tnew chunksize = %ld\n", (uint64_t)new_chunksize);
-  #endif
+#endif
     /*
      * Update the new chunksize to the runtime memory, so whichever
      * task run by this thread can inherit the new chunksize setting
      */
 #if !defined(ACC_EVAL)
-    rtmem.mine().chunksize = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize <= INT32_MAX ? (uint64_t)new_chunksize : INT32_MAX : 1;
+    rtmem.mine().chunksize = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize <= CHUNKSIZE_MAX ? (uint64_t)new_chunksize : CHUNKSIZE_MAX : 1;
 #else
     rtmem.mine().minimal_polling_count_last_window = (uint64_t)((double)rtmem.mine().minimal_polling_count / aggressiveness);
     printf("%.2f\n", (double)rtmem.mine().success_count / (double)rtmem.mine().heartbeat_count * 100);
@@ -200,7 +201,39 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
 __attribute__((always_inline))
 void chunksize_set(uint64_t *cxts, uint64_t numLevels) {
 #if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
-  cxts[(numLevels-1) * CACHELINE + CHUNKSIZE] = rtmem.mine().chunksize;
+  if (rtmem.mine().chunksize == CHUNKSIZE_MAX) {  // potential to increase chunksize at a lower nested level
+    // if innermost loop's chunksize isn't the maximum, set it to be the maximum
+    if (cxts[(numLevels - 1) * CACHELINE + CHUNKSIZE] != CHUNKSIZE_MAX) {
+      cxts[(numLevels-1) * CACHELINE + CHUNKSIZE] = CHUNKSIZE_MAX;
+    }
+
+    // iterate starting from the second innermost loop to the root loop
+    for (uint64_t level = numLevels - 2; level < numLevels && level >= 0; level--) {
+      if (cxts[level * CACHELINE + CHUNKSIZE] == CHUNKSIZE_MAX) {
+        // do nothing if the chunksize is already at the maximum
+        continue;
+      } else {
+        // double the chunksize at this level
+        cxts[level * CACHELINE + CHUNKSIZE] = cxts[level * CACHELINE + CHUNKSIZE] * 2 > CHUNKSIZE_MAX ? CHUNKSIZE_MAX : cxts[level * CACHELINE + CHUNKSIZE] * 2;
+        return;
+      }
+    }
+  } else {  // potential to decrease chunksize at a higher nested level
+    // iterate starting from the root loop till the second innermost loop
+    for (uint64_t level = 0; level <= numLevels - 2; level++) {
+      if (cxts[level * CACHELINE + CHUNKSIZE] == 1) {
+        // do nothing if the chunksize is already at the minimum
+        continue;
+      } else {
+        // half the chunksize at this level
+        cxts[level * CACHELINE + CHUNKSIZE] = cxts[level * CACHELINE + CHUNKSIZE] / 2 > 0 ? 1 : cxts[level * CACHELINE + CHUNKSIZE] / 2;
+        return;
+      }
+    }
+
+    // set the chunksize for the inner most loop
+    cxts[(numLevels-1) * CACHELINE + CHUNKSIZE] = rtmem.mine().chunksize;
+  }
 #endif
 }
 
