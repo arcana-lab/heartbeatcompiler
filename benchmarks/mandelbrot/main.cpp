@@ -39,10 +39,15 @@ int main(int argc, char *argv[]) {
 #elif defined(USE_HB_MANUAL)
     output = mandelbrot_hb_manual(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_height, _mb_width, _mb_max_depth);
 #elif defined(USE_HB_COMPILER)
-    output = mandelbrot_hb_compiler(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_height, _mb_width, _mb_max_depth);
 #if defined(ACC_JUSTIFY)
-    output = mandelbrot_hb_compiler(_mb_x0, _mb_y0, _mb_x1, _mb_y1, 2000, 1000000, 10);
-    output = mandelbrot_hb_compiler(_mb_x0, _mb_y0, _mb_x1, _mb_y1, 10, 2000, 1000000);
+    for (int i = 0; i < 7; i++) {
+      output = mandelbrot_hb_compiler(_mb_x0, _mb_y0, _mb_x1, _mb_y1, 2000, 1000000, 1);
+    }
+    for (int i = 0; i < 3; i++) {
+      output = mandelbrot_hb_compiler(_mb_x0, _mb_y0, _mb_x1, _mb_y1, 10, 20, 10000000);
+    }
+#else
+    output = mandelbrot_hb_compiler(_mb_x0, _mb_y0, _mb_x1, _mb_y1, _mb_height, _mb_width, _mb_max_depth);
 #endif
 #endif
 
