@@ -111,7 +111,7 @@ void write_matrix_to_file(const char *filename) {
 }
 
 void setup() {
-  std::string fname = "Trefethen_20/Trefethen_20.mtx";
+  std::string fname = "nlpkkt160/nlpkkt160.mtx";
   if (const auto env_p = std::getenv("MATRIX_MARKET_FILE")) {
     fname = env_p;
   }
