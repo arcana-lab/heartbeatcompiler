@@ -1,37 +1,34 @@
 #include "heartbeat_manual.hpp"
 #include "loop_handler.hpp"
 #include <cstdint>
-#include <alloca.h>
+#include <cstdio>
 
+#define unlikely(expr) __builtin_expect(!!(expr), 0)
 #define NUM_LEVELS_NEST0 2
 #define LEVEL_ZERO 0
 #define LEVEL_ONE 1
 #define CACHELINE 8
-#define LIVE_OUT_ENV 1
 #define START_ITER 0
 #define MAX_ITER 1
+#define LIVE_IN_ENV 2
+#define LIVE_OUT_ENV 3
+#define CHUNKSIZE 4
 
 namespace spmv {
 
 void HEARTBEAT_nest0_loop0(double *val, uint64_t *row_ptr, uint64_t *col_ind, double* x, double* y, uint64_t n);
 double HEARTBEAT_nest0_loop1(double *val, uint64_t *row_ptr, uint64_t *col_ind, double* x, double* y, int i);
 
-int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t startIter, uint64_t maxIter);
-inline void HEARTBEAT_nest0_loop0_slice_wrapper(void *cxts, uint64_t myIndex, uint64_t startIter, uint64_t maxIter) {
-  HEARTBEAT_nest0_loop0_slice(cxts, myIndex, startIter, maxIter);
-}
-int64_t HEARTBEAT_nest0_loop1_slice(void *cxts, uint64_t myIndex, uint64_t s0, uint64_t m0, uint64_t startIter, uint64_t maxIter);
-inline void HEARTBEAT_nest0_loop1_slice_wrapper(void *cxts, uint64_t myIndex, uint64_t startIter, uint64_t maxIter) {
-  HEARTBEAT_nest0_loop1_slice(cxts, myIndex, 0, 0, startIter, maxIter);
-}
-typedef void (*sliceTasksWrapperPointer)(void *, uint64_t, uint64_t, uint64_t);
-sliceTasksWrapperPointer slice_tasks_nest0[2] = {
-  &HEARTBEAT_nest0_loop0_slice_wrapper,
-  &HEARTBEAT_nest0_loop1_slice_wrapper
+int64_t HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t myIndex, task_memory_t *tmem);
+int64_t HEARTBEAT_nest0_loop1_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t myIndex, task_memory_t *tmem);
+typedef int64_t (*sliceTasksPointer)(uint64_t *, uint64_t *, uint64_t, task_memory_t *);
+sliceTasksPointer slice_tasks_nest0[2] = {
+  &HEARTBEAT_nest0_loop0_slice,
+  &HEARTBEAT_nest0_loop1_slice
 };
 
-void HEARTBEAT_nest0_loop_1_0_leftover(void *cxts, uint64_t myIndex, void *itersArr);
-typedef void (*leftoverTasksPointer)(void *, uint64_t, void *);
+void HEARTBEAT_nest0_loop_1_0_leftover(uint64_t *cxts, uint64_t *constLiveIns, uint64_t myIndex, task_memory_t *tmem);
+typedef void (*leftoverTasksPointer)(uint64_t *, uint64_t *, uint64_t, task_memory_t *);
 leftoverTasksPointer leftover_tasks_nest0[1] = {
   &HEARTBEAT_nest0_loop_1_0_leftover
 };
@@ -41,7 +38,6 @@ uint64_t leftover_selector_nest0(uint64_t receivingLevel, uint64_t splittingLeve
 }
 
 bool run_heartbeat = true;
-uint64_t *constLiveIns_nest0;
 
 // Outlined loops
 void HEARTBEAT_nest0_loop0(double *val, uint64_t *row_ptr, uint64_t *col_ind, double* x, double* y, uint64_t n) {
@@ -49,18 +45,32 @@ void HEARTBEAT_nest0_loop0(double *val, uint64_t *row_ptr, uint64_t *col_ind, do
     run_heartbeat = false;
 
     // allocate const live-ins
-    constLiveIns_nest0 = (uint64_t *)alloca(sizeof(uint64_t) * 5);
-    constLiveIns_nest0[0] = (uint64_t)row_ptr;
-    constLiveIns_nest0[1] = (uint64_t)y;
-    constLiveIns_nest0[2] = (uint64_t)val;
-    constLiveIns_nest0[3] = (uint64_t)col_ind;
-    constLiveIns_nest0[4] = (uint64_t)x;
+    uint64_t constLiveIns[5];
+    constLiveIns[0] = (uint64_t)row_ptr;
+    constLiveIns[1] = (uint64_t)y;
+    constLiveIns[2] = (uint64_t)val;
+    constLiveIns[3] = (uint64_t)col_ind;
+    constLiveIns[4] = (uint64_t)x;
 
     // allocate cxts
     uint64_t cxts[NUM_LEVELS_NEST0 * CACHELINE];
 
-    // invoke nest0_loop0 in heartbeat form
-    HEARTBEAT_nest0_loop0_slice((void *)cxts, 0, 0, n);
+    // set start/max iterations for loop0
+    cxts[LEVEL_ZERO * CACHELINE + START_ITER] = (uint64_t)0;
+    cxts[LEVEL_ZERO * CACHELINE + MAX_ITER] = (uint64_t)n;
+
+#if defined(CHUNK_LOOP_ITERATIONS)
+    // set the chunksize per loop level
+    cxts[LEVEL_ZERO * CACHELINE + CHUNKSIZE] = CHUNKSIZE_0;
+    cxts[LEVEL_ONE  * CACHELINE + CHUNKSIZE] = CHUNKSIZE_1;
+#endif
+
+    // allocate the task memory struct and initialize
+    task_memory_t tmem;
+    heartbeat_start(&tmem);
+
+    // invoke loop0 in heartbeat form
+    HEARTBEAT_nest0_loop0_slice(cxts, constLiveIns, 0, &tmem);
 
     run_heartbeat = true;
   } else {
@@ -81,23 +91,33 @@ double HEARTBEAT_nest0_loop1(double *val, uint64_t *row_ptr, uint64_t *col_ind, 
 }
 
 // Transformed loops
-int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t startIter, uint64_t maxIter) {
+int64_t HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t myIndex, task_memory_t *tmem) {
+  // load start/max iterations
+  uint64_t startIter = cxts[LEVEL_ZERO * CACHELINE + START_ITER];
+  uint64_t maxIter = cxts[LEVEL_ZERO * CACHELINE + MAX_ITER];
+
   // load const live-ins
-  uint64_t *row_ptr = (uint64_t *)constLiveIns_nest0[0];
-  double *y = (double *)constLiveIns_nest0[1];
+  uint64_t *row_ptr = (uint64_t *)constLiveIns[0];
+  double *y = (double *)constLiveIns[1];
 
   // allocate reduction array (as live-out environment) for loop1
   double redArrLoop1LiveOut0[1 * CACHELINE];
-  ((uint64_t *)cxts)[LEVEL_ONE * CACHELINE + LIVE_OUT_ENV] = (uint64_t)redArrLoop1LiveOut0;
+  cxts[LEVEL_ONE * CACHELINE + LIVE_OUT_ENV] = (uint64_t)redArrLoop1LiveOut0;
 
   int64_t rc = 0;
-#if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_0 != 1
-  for (; startIter < maxIter; startIter += CHUNKSIZE_0) {
+#if defined(CHUNK_LOOP_ITERATIONS)
+  uint64_t chunksize = cxts[LEVEL_ZERO * CACHELINE + CHUNKSIZE];
+  for (; startIter < maxIter; startIter += chunksize) {
     uint64_t low = startIter;
-    uint64_t high = maxIter < startIter + CHUNKSIZE_0 ? maxIter : startIter + CHUNKSIZE_0;
+    uint64_t high = high = maxIter < startIter + chunksize ? maxIter : startIter + chunksize;
     for (; low < high; low++) {
       double r = 0.0;
-      rc = HEARTBEAT_nest0_loop1_slice(cxts, 0, low, maxIter, row_ptr[low], row_ptr[low + 1]);
+      // store current iteration for loop0
+      cxts[LEVEL_ZERO * CACHELINE + START_ITER] = low;
+      // set start/max iterations for loop1
+      cxts[LEVEL_ONE * CACHELINE + START_ITER] = (uint64_t)row_ptr[low];
+      cxts[LEVEL_ONE * CACHELINE + MAX_ITER] = (uint64_t)row_ptr[low + 1];
+      rc = HEARTBEAT_nest0_loop1_slice(cxts, constLiveIns, 0, tmem);
       if (rc > 0) {
         // update the exit condition here because there might
         // be tail work to finish
@@ -115,28 +135,36 @@ int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t start
     }
 
 #if !defined(ENABLE_ROLLFORWARD)
-    rc = loop_handler_level2(
-      cxts, LEVEL_ZERO,
-      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
-      low - 1, maxIter,
-      0, 0
-    );
+    if (unlikely(heartbeat_polling(tmem))) {
+      cxts[LEVEL_ZERO * CACHELINE + START_ITER] = low - 1;
+      rc = loop_handler(
+        cxts, constLiveIns, LEVEL_ZERO, NUM_LEVELS_NEST0, tmem,
+        slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
+      );
+      if (rc > 0) {
+        break;
+      }
+    }
 #else
-    __rf_handle_level2_wrapper(
-      rc, cxts, LEVEL_ZERO,
-      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
-      low - 1, maxIter,
-      0, 0
+    cxts[LEVEL_ZERO * CACHELINE + START_ITER] = low - 1;
+    __rf_handle_wrapper(
+      rc, cxts, constLiveIns, LEVEL_ZERO, NUM_LEVELS_NEST0, tmem,
+      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
     );
-#endif
     if (rc > 0) {
       break;
     }
+#endif
   }
 #else
   for (; startIter < maxIter; startIter++) {
     double r = 0.0;
-    rc = HEARTBEAT_nest0_loop1_slice(cxts, 0, startIter, maxIter, row_ptr[startIter], row_ptr[startIter + 1]);
+    // store current iteration for loop0
+    cxts[LEVEL_ZERO * CACHELINE + START_ITER] = startIter;
+    // set start/max iterations for loop1
+    cxts[LEVEL_ONE * CACHELINE + START_ITER] = (uint64_t)row_ptr[startIter];
+    cxts[LEVEL_ONE * CACHELINE + MAX_ITER] = (uint64_t)row_ptr[startIter + 1];
+    rc = HEARTBEAT_nest0_loop1_slice(cxts, constLiveIns, 0, tmem);
     if (rc > 0) {
       // update the exit condition here because there might
       // be tail work to finish
@@ -152,48 +180,56 @@ int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t start
     }
 
 #if !defined(ENABLE_ROLLFORWARD)
-    rc = loop_handler_level2(
-      cxts, LEVEL_ZERO,
-      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
-      startIter, maxIter,
-      0, 0
-    );
+    if (unlikely(heartbeat_polling(tmem))) {
+      cxts[LEVEL_ZERO * CACHELINE + START_ITER] = startIter;
+      rc = loop_handler(
+        cxts, constLiveIns, LEVEL_ZERO, NUM_LEVELS_NEST0, tmem,
+        slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
+      );
+      if (rc > 0) {
+        break;
+      }
+    }
 #else
-    __rf_handle_level2_wrapper(
-      rc, cxts, LEVEL_ZERO,
-      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
-      startIter, maxIter,
-      0, 0
+    cxts[LEVEL_ZERO * CACHELINE + START_ITER] = startIter;
+    __rf_handle_wrapper(
+      rc, cxts, constLiveIns, LEVEL_ZERO, NUM_LEVELS_NEST0, tmem,
+      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
     );
-#endif
     if (rc > 0) {
       break;
     }
+#endif
   }
 #endif
 
   return rc - 1;
 }
 
-int64_t HEARTBEAT_nest0_loop1_slice(void *cxts, uint64_t myIndex, uint64_t s0, uint64_t m0, uint64_t startIter, uint64_t maxIter) {
+int64_t HEARTBEAT_nest0_loop1_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t myIndex, task_memory_t *tmem) {
+  // load start/max iterations
+  uint64_t startIter = cxts[LEVEL_ONE * CACHELINE + START_ITER];
+  uint64_t maxIter = cxts[LEVEL_ONE * CACHELINE + MAX_ITER];
+
   // load const live-ins
-  double *val = (double *)constLiveIns_nest0[2];
-  uint64_t *col_ind = (uint64_t *)constLiveIns_nest0[3];
-  double *x = (double *)constLiveIns_nest0[4];
+  double *val = (double *)constLiveIns[2];
+  uint64_t *col_ind = (uint64_t *)constLiveIns[3];
+  double *x = (double *)constLiveIns[4];
 
   // load reduction array for live-outs and create a private copy variable
-  double *redArrLoop1LiveOut0 = (double *)((uint64_t *)cxts)[LEVEL_ONE * CACHELINE + LIVE_OUT_ENV];
+  double *redArrLoop1LiveOut0 = (double *)cxts[LEVEL_ONE * CACHELINE + LIVE_OUT_ENV];
   double live_out_0 = 0.0;
 
   // allocate reduction array (as live-out environment) for kids of loop1
   double redArrLoop1LiveOut0Kids[2 * CACHELINE];
-  ((uint64_t *)cxts)[LEVEL_ONE * CACHELINE + LIVE_OUT_ENV] = (uint64_t)redArrLoop1LiveOut0Kids;
+  cxts[LEVEL_ONE * CACHELINE + LIVE_OUT_ENV] = (uint64_t)redArrLoop1LiveOut0Kids;
 
   int64_t rc = 0;
-#if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_1 != 1
-  for (; startIter < maxIter; startIter += CHUNKSIZE_1) {
+#if defined(CHUNK_LOOP_ITERATIONS)
+  uint64_t chunksize = cxts[LEVEL_ONE * CACHELINE + CHUNKSIZE];
+  for (; startIter < maxIter; startIter += chunksize) {
     uint64_t low = startIter;
-    uint64_t high = maxIter < startIter + CHUNKSIZE_1 ? maxIter : startIter + CHUNKSIZE_1;
+    uint64_t high = maxIter < startIter + chunksize ? maxIter : startIter + chunksize;
     for (; low < high; low++) {
       live_out_0 += val[low] * x[col_ind[low]];
     }
@@ -203,46 +239,52 @@ int64_t HEARTBEAT_nest0_loop1_slice(void *cxts, uint64_t myIndex, uint64_t s0, u
     }
 
 #if !defined(ENABLE_ROLLFORWARD)
-    rc = loop_handler_level2(
-      cxts, LEVEL_ONE,
-      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
-      s0, m0,
-      low - 1, maxIter
-    );
+    if (unlikely(heartbeat_polling(tmem))) {
+      cxts[LEVEL_ONE * CACHELINE + START_ITER] = low - 1;
+      rc = loop_handler(
+        cxts, constLiveIns, LEVEL_ONE, NUM_LEVELS_NEST0, tmem,
+        slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
+      );
+      if (rc > 0) {
+        break;
+      }
+    }
 #else
-    __rf_handle_level2_wrapper(
-      rc, cxts, LEVEL_ONE,
-      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
-      s0, m0,
-      low - 1, maxIter
+    cxts[LEVEL_ONE * CACHELINE + START_ITER] = low - 1;
+    __rf_handle_wrapper(
+      rc, cxts, constLiveIns, LEVEL_ONE, NUM_LEVELS_NEST0, tmem,
+      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
     );
-#endif
     if (rc > 0) {
       break;
     }
+#endif
   }
 #else
   for(; startIter < maxIter; startIter++) {
     live_out_0 += val[startIter] * x[col_ind[startIter]];
 
 #if !defined(ENABLE_ROLLFORWARD)
-    rc = loop_handler_level2(
-      cxts, LEVEL_ONE,
-      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
-      s0, m0,
-      startIter, maxIter
-    );
+    if (unlikely(heartbeat_polling(tmem))) {
+      cxts[LEVEL_ONE * CACHELINE + START_ITER] = startIter;
+      rc = loop_handler(
+        cxts, constLiveIns, LEVEL_ONE, NUM_LEVELS_NEST0, tmem,
+        slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
+      );
+      if (rc > 0) {
+        break;
+      }
+    }
 #else
-    __rf_handle_level2_wrapper(
-      rc, cxts, LEVEL_ONE,
-      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
-      s0, m0,
-      startIter, maxIter
+    cxts[LEVEL_ONE * CACHELINE + START_ITER] = startIter;
+    __rf_handle_wrapper(
+      rc, cxts, constLiveIns, LEVEL_ONE, NUM_LEVELS_NEST0, tmem,
+      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
     );
-#endif
     if (rc > 0) {
       break;
     }
+#endif
   }
 #endif
 
@@ -252,31 +294,28 @@ int64_t HEARTBEAT_nest0_loop1_slice(void *cxts, uint64_t myIndex, uint64_t s0, u
   // reduction
   if (rc == 0) {  // no heartbeat promotion happens
     redArrLoop1LiveOut0[myIndex * CACHELINE] = live_out_0;
+  } else if (rc > 1) {  // splittingLevel < myLevel
+    redArrLoop1LiveOut0[myIndex * CACHELINE] = live_out_0 + redArrLoop1LiveOut0Kids[0 * CACHELINE];
   } else {        // splittingLevel == myLevel
     redArrLoop1LiveOut0[myIndex * CACHELINE] = live_out_0 + redArrLoop1LiveOut0Kids[0 * CACHELINE] + redArrLoop1LiveOut0Kids[1 * CACHELINE];
   }
 
   // reset live-out environment
-  ((uint64_t *)cxts)[LEVEL_ONE * CACHELINE + LIVE_OUT_ENV] = (uint64_t)redArrLoop1LiveOut0;
+  cxts[LEVEL_ONE * CACHELINE + LIVE_OUT_ENV] = (uint64_t)redArrLoop1LiveOut0;
 
   return rc - 1;
 }
 
 // Leftover tasks
-void HEARTBEAT_nest0_loop_1_0_leftover(void *cxts, uint64_t myIndex, void *itersArr) {
-  // load startIter and maxIter
-  uint64_t startIter0 = ((uint64_t *)itersArr)[LEVEL_ZERO * 2 + START_ITER];
-  uint64_t maxIter0   = ((uint64_t *)itersArr)[LEVEL_ZERO * 2 + MAX_ITER];
-  uint64_t startIter1 = ((uint64_t *)itersArr)[LEVEL_ONE * 2 + START_ITER];
-  uint64_t maxIter1   = ((uint64_t *)itersArr)[LEVEL_ONE * 2 + MAX_ITER];
-
+void HEARTBEAT_nest0_loop_1_0_leftover(uint64_t *cxts, uint64_t *constLiveIns, uint64_t myIndex, task_memory_t *tmem) {
   int64_t rc = 0;
-  rc = HEARTBEAT_nest0_loop1_slice(cxts, myIndex, startIter0, maxIter0, startIter1, maxIter1);
+  rc = HEARTBEAT_nest0_loop1_slice(cxts, constLiveIns, myIndex, tmem);
   if (rc > 0) {
     return;
   }
 
-  rc = HEARTBEAT_nest0_loop0_slice(cxts, myIndex, startIter0+1, maxIter0);
+  cxts[LEVEL_ZERO * CACHELINE + START_ITER]++;
+  rc = HEARTBEAT_nest0_loop0_slice(cxts, constLiveIns, myIndex, tmem);
   if (rc > 0) {
     return;
   }
