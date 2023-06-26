@@ -45,6 +45,9 @@ bool Heartbeat::runOnModule (Module &M) {
   if (Enable_Rollforward) {
     createRFHandlerFunction(noelle);
   }
+  createGetChunksizeFunction(noelle);
+  createUpdateRemainingChunksizeFunction(noelle);
+  createHasRemainingChunksizeFunction(noelle);
 
   /*
    * Determine the loop nest and all loops in that nest
@@ -66,10 +69,8 @@ bool Heartbeat::runOnModule (Module &M) {
      */
     if (Chunk_Loop_Iterations) {
       this->chunkLoopIterations = true;
-      uint64_t index = 0;
       for (auto &chunksize : Chunksize) {
-        this->loopToChunksize[this->levelToLoop[index]] = stoi(chunksize);
-        index++;
+        this->chunksize = stoi(chunksize);
       }
     }
 
@@ -110,12 +111,10 @@ bool Heartbeat::runOnModule (Module &M) {
      * Chunksize is supposed to be passed from the command line
      */
     if (this->chunkLoopIterations) {
-      storeChunksizeInRootLoop();
-
       for (auto pair : this->loopToHeartbeatTransformation) {
         auto ldi = pair.first;
         errs() << "found a loop that needs to be executed in chunk, do the chunking transformation\n";
-        this->executeLoopInChunk(ldi, pair.second, this->loopToLevel[ldi] == this->numLevels - 1);
+        this->executeLoopInChunk(noelle, ldi, pair.second, this->loopToLevel[ldi] == this->numLevels - 1);
       }
     }
 
@@ -210,8 +209,6 @@ void Heartbeat::reset() {
 
   this->leftoverTasks.clear();
   this->leftoverTaskIndexSelector = nullptr;
-
-  this->loopToChunksize.clear();
 }
 
 void Heartbeat::replaceWithRollforwardHandler(Noelle &noelle) {

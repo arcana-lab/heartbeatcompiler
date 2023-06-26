@@ -18,10 +18,22 @@ void run_bench(std::function<void()> const &bench_body,
  */
 struct task_memory_t {
   uint64_t startingLevel;
-#if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+#if defined(CHUNK_LOOP_ITERATIONS)
+  uint64_t chunksize;
+  int64_t remaining_chunksize;
+#if !defined(ENABLE_ROLLFORWARD) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
   uint64_t polling_count;
 #endif
+#endif
 };
+
+#if defined(CHUNK_LOOP_ITERATIONS)
+uint64_t get_chunksize(task_memory_t *tmem);
+
+bool has_remaining_chunksize(task_memory_t *tmem);
+
+void update_remaining_chunksize(task_memory_t *tmem, uint64_t iterations);
+#endif
 
 void heartbeat_start(task_memory_t *tmem);
 

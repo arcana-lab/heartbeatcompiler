@@ -109,8 +109,6 @@ class HeartbeatTransformation : public DOALL {
     uint64_t maxIterationIndex =    1;
     uint64_t liveInEnvIndex =       2;
     uint64_t liveOutEnvIndex =      3;
-    uint64_t chunksizeIndex =       4;
-    uint64_t pollingCountIndex =    5;
 
     /*
      * Helpers

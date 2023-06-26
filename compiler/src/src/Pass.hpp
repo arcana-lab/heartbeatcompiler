@@ -51,6 +51,9 @@ class Heartbeat : public ModulePass {
     void createPollingFunction(Noelle &noelle);
     void createLoopHandlerFunction(Noelle &noelle);
     void createRFHandlerFunction(Noelle &noelle);
+    void createGetChunksizeFunction(Noelle &noelle);
+    void createUpdateRemainingChunksizeFunction(Noelle &noelle);
+    void createHasRemainingChunksizeFunction(Noelle &noelle);
 
     /*
      * Step 1: Identify all loops in functions starts with "Heartbeat_"
@@ -184,9 +187,8 @@ class Heartbeat : public ModulePass {
     /*
      * Chunking transformation
      */
-    void storeChunksizeInRootLoop();
-
     void executeLoopInChunk(
+      Noelle &noelle,
       LoopDependenceInfo *,
       HeartbeatTransformation *,
       bool isLeafLoop
@@ -194,8 +196,8 @@ class Heartbeat : public ModulePass {
 
     void replaceAllUsesInsideLoopBody(LoopDependenceInfo *, HeartbeatTransformation *, Value *, Value *);
 
-    std::unordered_map<LoopDependenceInfo *, uint64_t> loopToChunksize;
     bool chunkLoopIterations = false;
+    uint64_t chunksize;
 
     /*
      * Step 7: create slice tasks wrapper

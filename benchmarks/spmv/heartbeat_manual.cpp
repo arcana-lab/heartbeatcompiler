@@ -12,7 +12,6 @@
 #define MAX_ITER 1
 #define LIVE_IN_ENV 2
 #define LIVE_OUT_ENV 3
-#define CHUNKSIZE 4
 
 namespace spmv {
 
@@ -59,12 +58,6 @@ void HEARTBEAT_nest0_loop0(double *val, uint64_t *row_ptr, uint64_t *col_ind, do
     cxts[LEVEL_ZERO * CACHELINE + START_ITER] = (uint64_t)0;
     cxts[LEVEL_ZERO * CACHELINE + MAX_ITER] = (uint64_t)n;
 
-#if defined(CHUNK_LOOP_ITERATIONS)
-    // set the chunksize per loop level
-    cxts[LEVEL_ZERO * CACHELINE + CHUNKSIZE] = CHUNKSIZE_0;
-    cxts[LEVEL_ONE  * CACHELINE + CHUNKSIZE] = CHUNKSIZE_1;
-#endif
-
     // allocate the task memory struct and initialize
     task_memory_t tmem;
     heartbeat_start(&tmem);
@@ -105,58 +98,6 @@ int64_t HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
   cxts[LEVEL_ONE * CACHELINE + LIVE_OUT_ENV] = (uint64_t)redArrLoop1LiveOut0;
 
   int64_t rc = 0;
-#if defined(CHUNK_LOOP_ITERATIONS)
-  uint64_t chunksize = cxts[LEVEL_ZERO * CACHELINE + CHUNKSIZE];
-  for (; startIter < maxIter; startIter += chunksize) {
-    uint64_t low = startIter;
-    uint64_t high = high = maxIter < startIter + chunksize ? maxIter : startIter + chunksize;
-    for (; low < high; low++) {
-      double r = 0.0;
-      // store current iteration for loop0
-      cxts[LEVEL_ZERO * CACHELINE + START_ITER] = low;
-      // set start/max iterations for loop1
-      cxts[LEVEL_ONE * CACHELINE + START_ITER] = (uint64_t)row_ptr[low];
-      cxts[LEVEL_ONE * CACHELINE + MAX_ITER] = (uint64_t)row_ptr[low + 1];
-      rc = HEARTBEAT_nest0_loop1_slice(cxts, constLiveIns, 0, tmem);
-      if (rc > 0) {
-        // update the exit condition here because there might
-        // be tail work to finish
-        high = low + 1;
-      }
-      r += redArrLoop1LiveOut0[0 * CACHELINE];
-      y[low] = r;
-    }
-
-    // exit the chunk execution when either
-    // 1. heartbeat promotion happens at a higher nested level and in the process of returnning
-    // 2. all iterations are finished
-    if (rc > 0 || low == maxIter) {
-      break;
-    }
-
-#if !defined(ENABLE_ROLLFORWARD)
-    if (unlikely(heartbeat_polling(tmem))) {
-      cxts[LEVEL_ZERO * CACHELINE + START_ITER] = low - 1;
-      rc = loop_handler(
-        cxts, constLiveIns, LEVEL_ZERO, NUM_LEVELS_NEST0, tmem,
-        slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
-      );
-      if (rc > 0) {
-        break;
-      }
-    }
-#else
-    cxts[LEVEL_ZERO * CACHELINE + START_ITER] = low - 1;
-    __rf_handle_wrapper(
-      rc, cxts, constLiveIns, LEVEL_ZERO, NUM_LEVELS_NEST0, tmem,
-      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
-    );
-    if (rc > 0) {
-      break;
-    }
-#endif
-  }
-#else
   for (; startIter < maxIter; startIter++) {
     double r = 0.0;
     // store current iteration for loop0
@@ -177,6 +118,11 @@ int64_t HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
     // to call the loop_handler in the process of returnning up
     if (rc > 0) {
       break;
+    }
+
+    // don't poll if we haven't finished at least one chunk
+    if (has_remaining_chunksize(tmem)) {
+      continue;
     }
 
 #if !defined(ENABLE_ROLLFORWARD)
@@ -201,7 +147,6 @@ int64_t HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
     }
 #endif
   }
-#endif
 
   return rc - 1;
 }
@@ -226,7 +171,8 @@ int64_t HEARTBEAT_nest0_loop1_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
 
   int64_t rc = 0;
 #if defined(CHUNK_LOOP_ITERATIONS)
-  uint64_t chunksize = cxts[LEVEL_ONE * CACHELINE + CHUNKSIZE];
+  uint64_t chunksize = get_chunksize(tmem);
+  update_remaining_chunksize(tmem, maxIter - startIter);
   for (; startIter < maxIter; startIter += chunksize) {
     uint64_t low = startIter;
     uint64_t high = maxIter < startIter + chunksize ? maxIter : startIter + chunksize;

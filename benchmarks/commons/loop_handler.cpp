@@ -21,7 +21,6 @@ extern "C" {
 #define MAX_ITER 1
 #define LIVE_IN_ENV 2
 #define LIVE_OUT_ENV 3
-#define CHUNKSIZE 4
 
 #if defined(STATS) || defined(POLLS_STATS)
 static uint64_t polls = 0;
@@ -102,13 +101,13 @@ taskparts::perworker::array<runtime_memory_t> rtmem;
 static uint64_t sliding_window_size = 5;
 static uint64_t target_polling_ratio = 2;
 static double aggressiveness = 1.0;
-#define CHUNKSIZE_MAX 2048
+#define CHUNKSIZE_MAX 1024
 
 void runtime_memory_reset() {
   for (size_t i = 0; i < taskparts::perworker::nb_workers(); i++) {
     rtmem[i].heartbeat_count = 0;
     rtmem[i].minimal_polling_count = INT64_MAX;
-    rtmem[i].chunksize = 1;
+    rtmem[i].chunksize = CHUNKSIZE;
 #if defined(ACC_EVAL)
     rtmem[i].minimal_polling_count_last_window = 0;
     uint64_t success_count = 0;
@@ -143,7 +142,7 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
    */
   if (tmem->polling_count < rtmem.mine().minimal_polling_count) {
     rtmem.mine().minimal_polling_count = tmem->polling_count;
-    rtmem.mine().chunksize = cxts[(numLevels-1) * CACHELINE + CHUNKSIZE];
+    rtmem.mine().chunksize = tmem->chunksize;
   }
 
 #if defined(ACC_DEBUG)
@@ -199,57 +198,35 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
 #endif  // !defined(ENABLE_ROLLFORWARD)
 
 __attribute__((always_inline))
-void chunksize_set(uint64_t *cxts, uint64_t numLevels, uint64_t splittingLevel) {
-#if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
-  if (rtmem.mine().chunksize == CHUNKSIZE_MAX) {  // potential to increase chunksize at a lower nested level
-    // if innermost loop's chunksize isn't the maximum, set it to be the maximum
-    if (cxts[(numLevels - 1) * CACHELINE + CHUNKSIZE] != CHUNKSIZE_MAX) {
-      cxts[(numLevels-1) * CACHELINE + CHUNKSIZE] = CHUNKSIZE_MAX;
-    }
-
-    // iterate starting from the second innermost loop to the splitting loop
-    for (uint64_t level = numLevels - 2; level < numLevels && level >= splittingLevel; level--) {
-      if (cxts[level * CACHELINE + CHUNKSIZE] == CHUNKSIZE_MAX) {
-        // do nothing if the chunksize is already at the maximum
-        continue;
-      } else {
-        // double the chunksize at this level
-        cxts[level * CACHELINE + CHUNKSIZE] = cxts[level * CACHELINE + CHUNKSIZE] * 2 > CHUNKSIZE_MAX ? CHUNKSIZE_MAX : cxts[level * CACHELINE + CHUNKSIZE] * 2;
-        return;
-      }
-    }
-  } else {  // potential to decrease chunksize at a higher nested level
-    // iterate starting from the splitting loop till the second innermost loop
-    for (uint64_t level = splittingLevel; level <= numLevels - 2; level++) {
-      if (cxts[level * CACHELINE + CHUNKSIZE] == 1) {
-        // do nothing if the chunksize is already at the minimum
-        continue;
-      } else {
-        // half the chunksize at this level
-        cxts[level * CACHELINE + CHUNKSIZE] = cxts[level * CACHELINE + CHUNKSIZE] / 2 < 1 ? 1 : cxts[level * CACHELINE + CHUNKSIZE] / 2;
-        return;
-      }
-    }
-
-    // set the chunksize for the inner most loop
-    cxts[(numLevels-1) * CACHELINE + CHUNKSIZE] = rtmem.mine().chunksize;
-  }
-#endif
-}
-
-__attribute__((always_inline))
 void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
   /*
    * Set the starting level
    */
   tmem->startingLevel = startingLevel;
 
+#if defined(CHUNK_LOOP_ITERATIONS) && !defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+  /*
+   * It's possible to use loop chunking with rollforwarding
+   */
+  tmem->chunksize = CHUNKSIZE;
+  tmem->remaining_chunksize = CHUNKSIZE;
+#endif
+
 #if !defined(ENABLE_ROLLFORWARD)
+  /*
+   * To use acc one must disable rollforward and enable loop chunking
+   */
 #if defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
   /*
    * Reset polling count if using adaptive chunksize control
    */
   tmem->polling_count = 0;
+
+  /*
+   * Use the chunksize tracked by the runtime thread
+   */
+  tmem->chunksize = rtmem.mine().chunksize;
+  tmem->remaining_chunksize = tmem->chunksize;
 #endif
   /*
    * Reset heartbeat timer if using software polling
@@ -264,6 +241,20 @@ void heartbeat_start(task_memory_t *tmem) {
 #endif
   task_memory_reset(tmem, 0);
 }
+
+#if defined(CHUNK_LOOP_ITERATIONS)
+uint64_t get_chunksize(task_memory_t *tmem) {
+  return tmem->chunksize;
+}
+
+bool has_remaining_chunksize(task_memory_t *tmem) {
+  return tmem->remaining_chunksize > 0;
+}
+
+void update_remaining_chunksize(task_memory_t *tmem, uint64_t iterations) {
+  tmem->remaining_chunksize -= iterations;
+}
+#endif
 
 int64_t loop_handler(
   uint64_t *cxts,
@@ -328,15 +319,6 @@ int64_t loop_handler(
   cxtsSecond[splittingLevel * CACHELINE + LIVE_IN_ENV]  = cxts[splittingLevel * CACHELINE + LIVE_IN_ENV];
   cxtsSecond[splittingLevel * CACHELINE + LIVE_OUT_ENV] = cxts[splittingLevel * CACHELINE + LIVE_OUT_ENV];
 
-#if defined(CHUNK_LOOP_ITERATIONS)
-  /*
-   * Copy the chunksize settings starting from splittingLevel
-   */
-  for (auto level = splittingLevel; level < numLevels; level++) {
-    cxtsSecond[level * CACHELINE + CHUNKSIZE] = cxts[level * CACHELINE + CHUNKSIZE];
-  }
-#endif
-
   /*
    * Set the maxIteration for the first task
    */
@@ -349,11 +331,9 @@ int64_t loop_handler(
     cxts[receivingLevel * CACHELINE + START_ITER]++;
 
     taskparts::tpalrts_promote_via_nativefj([&] {
-      chunksize_set(cxts, numLevels, receivingLevel);
       task_memory_reset(tmem, receivingLevel);
       slice_tasks[receivingLevel](cxts, constLiveIns, 0, tmem);
     }, [&] {
-      chunksize_set(cxtsSecond, numLevels, receivingLevel);
       task_memory_t hbmemSecond;
       task_memory_reset(&hbmemSecond, receivingLevel);
       slice_tasks[receivingLevel](cxtsSecond, constLiveIns, 1, &hbmemSecond);
@@ -373,11 +353,9 @@ int64_t loop_handler(
      */
     uint64_t leftoverTaskIndex = leftover_selector(receivingLevel, splittingLevel);
     taskparts::tpalrts_promote_via_nativefj([&] {
-      chunksize_set(cxts, numLevels, splittingLevel);
       task_memory_reset(tmem, splittingLevel);
       (*leftover_tasks[leftoverTaskIndex])(cxts, constLiveIns, 0, tmem);
     }, [&] {
-      chunksize_set(cxtsSecond, numLevels, splittingLevel);
       task_memory_t hbmemSecond;
       task_memory_reset(&hbmemSecond, splittingLevel);
       slice_tasks[splittingLevel](cxtsSecond, constLiveIns, 1, &hbmemSecond);
