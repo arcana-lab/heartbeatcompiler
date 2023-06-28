@@ -101,7 +101,6 @@ taskparts::perworker::array<runtime_memory_t> rtmem;
 static uint64_t sliding_window_size = 5;
 static uint64_t target_polling_ratio = 2;
 static double aggressiveness = 1.0;
-#define CHUNKSIZE_MAX 1024
 
 void runtime_memory_reset() {
   for (size_t i = 0; i < taskparts::perworker::nb_workers(); i++) {
@@ -179,7 +178,7 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
      * task run by this thread can inherit the new chunksize setting
      */
 #if !defined(ACC_EVAL)
-    rtmem.mine().chunksize = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize <= CHUNKSIZE_MAX ? (uint64_t)new_chunksize : CHUNKSIZE_MAX : 1;
+    rtmem.mine().chunksize = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize : 1;
 #else
     rtmem.mine().minimal_polling_count_last_window = (uint64_t)((double)rtmem.mine().minimal_polling_count / aggressiveness);
     printf("%.2f\n", (double)rtmem.mine().success_count / (double)rtmem.mine().heartbeat_count * 100);
