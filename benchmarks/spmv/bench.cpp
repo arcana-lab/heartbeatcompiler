@@ -23,7 +23,7 @@ namespace spmv {
   #elif defined(SPMV_POWERLAW)
     uint64_t n_bigcols = 24;
   #elif defined(SPMV_ARROWHEAD)
-    uint64_t n_arrowhead = 400000000;
+    uint64_t n_arrowhead = 150000000;
   #elif defined(SPMV_DENSE)
     uint64_t n_dense = 100000;
   #elif defined(SPMV_DIAGONAL)

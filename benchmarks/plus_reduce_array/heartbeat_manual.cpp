@@ -45,11 +45,6 @@ double HEARTBEAT_loop0(double *a, uint64_t lo, uint64_t hi) {
     cxts[LEVEL_ZERO * CACHELINE + START_ITER] = (uint64_t)lo;
     cxts[LEVEL_ZERO * CACHELINE + MAX_ITER] = (uint64_t)hi;
 
-#if defined(CHUNK_LOOP_ITERATIONS)
-    // set the chunksize per loop level
-    cxts[LEVEL_ZERO * CACHELINE + CHUNKSIZE] = CHUNKSIZE_0;
-#endif
-
     // allocate the task memory struct and initialize
     task_memory_t tmem;
     heartbeat_start(&tmem);
@@ -88,10 +83,10 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
   cxts[LIVE_OUT_ENV] = (uint64_t)redArrLoop0LiveOut0Kids;
 
   int64_t rc = 0;
-#if defined(CHUNK_LOOP_ITERATIONS) && CHUNKSIZE_0 != 1
+#if defined(CHUNK_LOOP_ITERATIONS)
   // here the predict to compare has to be '<' not '!=',
   // otherwise there's an infinite loop bug
-  uint64_t chunksize = cxts[LEVEL_ZERO * CACHELINE + CHUNKSIZE];
+  uint64_t chunksize = get_chunksize(tmem);
   for (; startIter < maxIter; startIter += chunksize) {
     uint64_t low = startIter;
     uint64_t high = maxIter < startIter + chunksize ? maxIter : startIter + chunksize;
@@ -99,7 +94,8 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
       live_out_0 += a[low];
     }
 
-    if (low == maxIter) {
+    chunksize = update_remaining_chunksize(tmem, high - startIter, chunksize);
+    if (has_remaining_chunksize(tmem)) {
       // early exit and don't call the loop_handler,
       // this avoids the overhead if the loop count is small
       break;
@@ -110,7 +106,7 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
       cxts[LEVEL_ZERO * CACHELINE + START_ITER] = low - 1;
       rc = loop_handler(
         cxts, constLiveIns, LEVEL_ZERO, NUM_LEVELS, tmem,
-        slice_tasks, leftover_tasks, &leftover_selector
+        slice_tasks, nullptr, nullptr
       );
       if (rc > 0) {
         break;

@@ -12,14 +12,15 @@ void Heartbeat::executeLoopInChunk(Noelle &noelle, LoopDependenceInfo *ldi, Hear
 
   // How the loop looks like after making the chunking transformation
   // uint64_t chunksize = get_chunksize(tmem);
-  // update_remaining_chunksize(tmem, maxIter - startIter + 1);
   // for (; startIter < maxIter; startIter += chunksize) {
   //   uint64_t low = startIter;
-  //   uint64_t high = std::min(maxIter, startIter + chunksize);
+  //   uint64_t high = maxIter < startIter + chunksize ? maxIter : startIter + chunksize;
   //   for (; low < high; low++) {
   //     r_private += a[i][low];
   //   }
-  //   if (low == maxIter) {
+  //
+  //   chunksize = update_remaining_chunksize(tmem, high - low, chunksize);
+  //   if (has_remaining_chunksize(tmem)) {
   //     break;
   //   }
 
@@ -47,27 +48,22 @@ void Heartbeat::executeLoopInChunk(Noelle &noelle, LoopDependenceInfo *ldi, Hear
     entryBuilder.SetInsertPoint(entryBlock->getTerminator());
     auto getChunksizeFunction = noelle.getProgram()->getFunction("get_chunksize");
     assert(getChunksizeFunction != nullptr);
-    auto chunksize = entryBuilder.CreateCall(
+    auto chunksizeBeginInst = entryBuilder.CreateCall(
       getChunksizeFunction,
       ArrayRef<Value *>({
         hbt->hbTask->getHBMemoryArg()
       }),
+      "chunksize_begin"
+    );
+
+    // Step 0.5: create a chunksize phi node in the loop header
+    auto loopHeaderBlock = entryBlock->getSingleSuccessor();
+    IRBuilder<> loopHeaderBlockBuilder { &*loopHeaderBlock->begin() };
+    PHINode *chunksizePHIInst = loopHeaderBlockBuilder.CreatePHI(
+      loopHeaderBlockBuilder.getInt64Ty(), 2,
       "chunksize"
     );
-    auto updateRemainingChunksizeFunction = noelle.getProgram()->getFunction("update_remaining_chunksize");
-    assert(updateRemainingChunksizeFunction != nullptr);
-    // update remaining_chunksize = maxIter - startIter + 1
-    auto maxSubStartInst = entryBuilder.CreateSub(
-      hbt->maxIteration,
-      hbt->startIteration,
-      "maxSubStart");
-    entryBuilder.CreateCall(
-      updateRemainingChunksizeFunction,
-      ArrayRef<Value *>({
-        hbt->hbTask->getHBMemoryArg(),
-        maxSubStartInst
-      })
-    );
+    chunksizePHIInst->addIncoming(chunksizeBeginInst, entryBlock);
 
     // Step 1: Create blocks for the chunk-executed loop
     auto chunkLoopHeaderBlock = BasicBlock::Create(hbt->hbTask->getTaskBody()->getContext(), "chunk_loop_header", hbt->hbTask->getTaskBody());
@@ -99,7 +95,7 @@ void Heartbeat::executeLoopInChunk(Noelle &noelle, LoopDependenceInfo *ldi, Hear
     auto IV_cloned_update = cast<PHINode>(IV_cloned)->getIncomingValue(1);
     assert(isa<BinaryOperator>(IV_cloned_update));
     errs() << "update of induction variable " << *IV_cloned_update << "\n";
-    cast<Instruction>(IV_cloned_update)->setOperand(1, chunksize);
+    cast<Instruction>(IV_cloned_update)->setOperand(1, chunksizePHIInst);
 
     // Step: ensure the instruction that use to determine whether keep running the loop is icmp slt but not icmp ne
     auto exitCmpInst = IV_attr->getHeaderCompareInstructionToComputeExitCondition();
@@ -140,17 +136,6 @@ void Heartbeat::executeLoopInChunk(Noelle &noelle, LoopDependenceInfo *ldi, Hear
       // Another solution is to modify the first successor from going to the loop_exit_block to chunk_loop_exit_block
       pollingBlockBr->setSuccessor(1, chunkLoopLatchBlock);
     }
-
-    // Step: compare low == maxIter and jump either to the exit block of outer loop or the loop_handler_block
-    auto lowMaxIterCmpInst = chunkLoopExitBlockBuilder.CreateICmpEQ(
-      lowPhiNode,
-      hbt->maxIteration
-    );
-    chunkLoopExitBlockBuilder.CreateCondBr(
-      lowMaxIterCmpInst,
-      loopExitCloned,
-      hbt->getPollingBlock()
-    );
 
     // Step: add incoming value for returnCode from the chunk_loop_exit block
     hbt->returnCodePhiInst->addIncoming(
@@ -195,7 +180,7 @@ void Heartbeat::executeLoopInChunk(Noelle &noelle, LoopDependenceInfo *ldi, Hear
     // Step 5: determine the max value
     auto startIterPlusChunk = chunkLoopHeaderBlockBuilder.CreateAdd(
       IV_cloned,
-      chunksize
+      chunksizePHIInst
     );
     auto highCompareInst = chunkLoopHeaderBlockBuilder.CreateICmpSLT(
       hbt->maxIteration,
@@ -215,6 +200,40 @@ void Heartbeat::executeLoopInChunk(Noelle &noelle, LoopDependenceInfo *ldi, Hear
       loopCompareInst,
       loopBodyBlockCloned,
       chunkLoopExitBlock
+    );
+
+    // step 6: update the chunksize in the chunk_loop_exit block
+    // invoke update_remaining_chunksize to determine the next chunksize
+    auto highSubStartIter = chunkLoopExitBlockBuilder.CreateSub(
+      high, IV_cloned,
+      "highSubStartIter"
+    );
+    auto updateRemainingChunksizeFunction = noelle.getProgram()->getFunction("update_remaining_chunksize");
+    assert(updateRemainingChunksizeFunction != nullptr);
+    auto chunksizeUpdated = chunkLoopExitBlockBuilder.CreateCall(
+      updateRemainingChunksizeFunction,
+      ArrayRef<Value *>({
+        hbt->hbTask->getHBMemoryArg(),
+        highSubStartIter,
+        chunksizePHIInst
+      }),
+      "chunksize_updated"
+    );
+    chunksizePHIInst->addIncoming(chunksizeUpdated, cast<Instruction>(IV_cloned_update)->getParent());
+
+    // Step: call has_remaining_chunksize and jump either to the exit block of outer loop or the software polling block
+    auto hasRemainingChunksizeFunction = noelle.getProgram()->getFunction("has_remaining_chunksize");
+    assert(hasRemainingChunksizeFunction != nullptr);
+    auto hasRemainingChunksizeCall = chunkLoopExitBlockBuilder.CreateCall(
+      hasRemainingChunksizeFunction,
+      ArrayRef<Value *>({
+        hbt->hbTask->getHBMemoryArg()
+      })
+    );
+    chunkLoopExitBlockBuilder.CreateCondBr(
+      hasRemainingChunksizeCall,
+      loopExitCloned,
+      hbt->getPollingBlock()
     );
 
     // replace the store of currentIteration with low - 1

@@ -244,15 +244,21 @@ void heartbeat_start(task_memory_t *tmem) {
 
 #if defined(CHUNK_LOOP_ITERATIONS)
 uint64_t get_chunksize(task_memory_t *tmem) {
-  return tmem->chunksize;
+  return tmem->remaining_chunksize;
 }
 
 bool has_remaining_chunksize(task_memory_t *tmem) {
-  return tmem->remaining_chunksize > 0;
+  return tmem->remaining_chunksize < tmem->chunksize;
 }
 
-void update_remaining_chunksize(task_memory_t *tmem, uint64_t iterations) {
-  tmem->remaining_chunksize -= iterations;
+uint64_t update_remaining_chunksize(task_memory_t *tmem, uint64_t iterations, uint64_t chunksize) {
+  if (iterations == chunksize) {
+    tmem->remaining_chunksize = tmem->chunksize;
+    chunksize = tmem->chunksize;
+  } else {
+    tmem->remaining_chunksize -= iterations;
+  }
+  return chunksize;
 }
 #endif
 
