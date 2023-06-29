@@ -15,7 +15,9 @@ bool run_heartbeat = true;
 int main() {
 
   run_bench([&] {
+#if !defined(ACC_SPMV_STATS)
     for (int i = 0; i < 10; i++) {
+#endif
 #if defined(USE_BASELINE)
       spmv_serial(val, row_ptr, col_ind, x, y, nb_rows);
 #elif defined(USE_OPENCILK)
@@ -29,7 +31,9 @@ int main() {
 #elif defined(USE_HB_COMPILER)
       spmv_hb_compiler(val, row_ptr, col_ind, x, y, nb_rows);
 #endif
+#if !defined(ACC_SPMV_STATS)
     }
+#endif
 
 #if defined(TEST_CORRECTNESS)
     test_correctness();

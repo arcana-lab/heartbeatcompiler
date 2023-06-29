@@ -261,6 +261,7 @@ CHUNK_LOOP_ITERATIONS ?= true
 ACC ?= false
 ACC_DEBUG ?= false
 ACC_EVAL ?= false
+ACC_SPMV_STATS ?= false	# to plot how chunksize changes varying the number of nonzeros
 ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 	MACROS_HEARTBEAT += -DCHUNK_LOOP_ITERATIONS
 	PASS_ARGUMENTS_HEARTBEAT_COMPILER += -chunk_loop_iterations
@@ -273,6 +274,9 @@ ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 			endif
 			ifeq ($(ACC_EVAL), true)
 				MACROS_HEARTBEAT += -DACC_EVAL
+			endif
+			ifeq ($(ACC_SPMV_STATS), true)
+				MACROS_HEARTBEAT += -DACC_SPMV_STATS
 			endif
 		endif
 	endif

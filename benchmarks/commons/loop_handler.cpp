@@ -196,8 +196,11 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
 #endif  // defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
 #endif  // !defined(ENABLE_ROLLFORWARD)
 
+static uint64_t lastIter = 0;
+static uint64_t lastChunk = 1;
+
 __attribute__((always_inline))
-void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
+void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel, uint64_t startIter = 0) {
   /*
    * Set the starting level
    */
@@ -226,6 +229,14 @@ void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
    */
   tmem->chunksize = rtmem.mine().chunksize;
   tmem->remaining_chunksize = tmem->chunksize;
+#if defined(ACC_SPMV_STATS)
+  for (uint64_t i = lastIter + 1; i < startIter; i++) {
+    printf("%lu\t%ld\n", i, lastChunk);
+  }
+  printf("%lu\t%ld\n", startIter, tmem->chunksize);
+  lastIter = startIter;
+  lastChunk = tmem->chunksize;
+#endif
 #endif
   /*
    * Reset heartbeat timer if using software polling
@@ -336,11 +347,11 @@ int64_t loop_handler(
     cxts[receivingLevel * CACHELINE + START_ITER]++;
 
     taskparts::tpalrts_promote_via_nativefj([&] {
-      task_memory_reset(tmem, receivingLevel);
+      task_memory_reset(tmem, receivingLevel, cxts[0]);
       slice_tasks[receivingLevel](cxts, constLiveIns, 0, tmem);
     }, [&] {
       task_memory_t hbmemSecond;
-      task_memory_reset(&hbmemSecond, receivingLevel);
+      task_memory_reset(&hbmemSecond, receivingLevel, cxtsSecond[0]);
       slice_tasks[receivingLevel](cxtsSecond, constLiveIns, 1, &hbmemSecond);
     }, [] { }, taskparts::bench_scheduler());
   
