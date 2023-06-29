@@ -50,12 +50,14 @@ namespace spmv {
   #endif
 #elif defined(INPUT_TESTING)
   #if defined(SPMV_RANDOM)
-    uint64_t n_bigrows = 300000;
+    uint64_t n_bigrows = 10000;
     uint64_t degree_bigrows = 10;
   #elif defined(SPMV_POWERLAW)
-    uint64_t n_bigcols = 22;
+    uint64_t n_bigcols = 13;
+  #elif defined(SPMV_POWERLAW_REVERSE)
+    uint64_t n_bigcols = 13;
   #elif defined(SPMV_ARROWHEAD)
-    uint64_t n_arrowhead = 10000000;
+    uint64_t n_arrowhead = 10000;
   #elif defined(SPMV_DENSE)
     uint64_t n_dense = 10000;
   #elif defined(SPMV_DIAGONAL)
@@ -65,7 +67,7 @@ namespace spmv {
   #elif defined(SPMV_MATRIX_MARKET)
   // nothing to do
   #else
-    #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL, MATRIX_MARKET}"
+    #error "Need to select input class: SPMV_{RANDOM, POWERLAW, POWERLAW_REVERSE, ARROWHEAD, DENSE, DIAGONAL, NORMAL, MATRIX_MARKET}"
   #endif
 #else
   #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TPAL, TESTING}"
@@ -336,6 +338,53 @@ auto bench_pre_bigcols() {
   });
 }
 
+#elif defined(SPMV_POWERLAW_REVERSE)
+
+auto mk_powerlaw_edgelist(size_t lg) {
+  edgelist_type edges;
+  size_t o = nb_rows-1;
+  size_t m = 1 << lg;
+  size_t n = 1;
+  size_t tot = m;
+  for (size_t i = 0; i < lg; i++) {
+    for (size_t j = 0; j < n; j++) {
+      for (size_t k = 0; k < m; k++) {
+        auto d = hash64(o + k) % tot;
+        edges.push_back(std::make_pair(o, d));
+      }
+      o--;
+    }
+    n *= 2;
+    m /= 2;
+  }
+
+  return edges;
+}
+
+auto bench_pre_bigcols() {
+  nb_rows = 1<<n_bigcols;
+  bench_pre_shared([&] {
+#if defined(INPUT_BENCHMARKING)
+    const char* filename = "matrix_powerlaw_reverse_benchmarking.dat";
+#elif defined(INPUT_TPAL)
+    const char* filename = "matrix_powerlaw_reverse_tpal.dat";
+#elif defined(INPUT_TESTING)
+    const char* filename = "matrix_powerlaw_reverse_testing.dat";
+#else
+  #error "Need to select input size, e.g., INPUT_{BENCHMARKING, TPAL, TESTING}"
+#endif
+    if (!access(filename, F_OK)) {
+      printf("read matrix from %s\n", filename);
+      read_matrix_from_file(filename);
+    } else {
+      auto edges = mk_powerlaw_edgelist(n_bigcols);
+      csr_of_edgelist(edges);
+      write_matrix_to_file(filename);
+      printf("write matrix to %s\n", filename);
+    }
+  });
+}
+
 #elif defined(SPMV_ARROWHEAD)
 
 auto mk_arrowhead_edgelist(size_t n) {
@@ -536,7 +585,7 @@ auto bench_pre_matrix_market() -> void {
 
 #else
 
-  #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL, MATRIX_MARKET}"
+  #error "Need to select input class: SPMV_{RANDOM, POWERLAW, POWERLAW_REVERSE, ARROWHEAD, DENSE, DIAGONAL, NORMAL, MATRIX_MARKET}"
 
 #endif
 
@@ -544,6 +593,8 @@ void setup() {
 #if defined(SPMV_RANDOM)
   bench_pre_bigrows();
 #elif defined(SPMV_POWERLAW)
+  bench_pre_bigcols();
+#elif defined(SPMV_POWERLAW_REVERSE)
   bench_pre_bigcols();
 #elif defined(SPMV_ARROWHEAD)
   bench_pre_arrowhead();
@@ -556,7 +607,7 @@ void setup() {
 #elif defined(SPMV_MATRIX_MARKET)
   bench_pre_matrix_market();
 #else
-  #error "Need to select input class: SPMV_{RANDOM, POWERLAW, ARROWHEAD, DENSE, DIAGONAL, NORMAL, MATRIX_MARKET}"
+  #error "Need to select input class: SPMV_{RANDOM, POWERLAW, POWERLAW_REVERSE, ARROWHEAD, DENSE, DIAGONAL, NORMAL, MATRIX_MARKET}"
 #endif
 }
 
