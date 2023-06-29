@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
 #endif
 
   run_bench([&] {
-    for (int i = 0; i < num_runs; i++) {
+    for (int i = 0; i < 30; i++) {
 #if defined(USE_BASELINE)
       srad_serial(rows, cols, size_I, size_R, I, J, q0sqr, dN, dS, dW, dE, c, iN, iS, jE, jW, lambda);
 #elif defined(USE_OPENCILK)

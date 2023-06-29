@@ -34,7 +34,6 @@ float lambda;
 #if defined(TEST_CORRECTNESS)
 float *J_ref;
 #endif
-int num_runs = 30;
 
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 void run_bench(std::function<void()> const &bench_body,
