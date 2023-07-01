@@ -101,6 +101,15 @@ taskparts::perworker::array<runtime_memory_t> rtmem;
 static uint64_t sliding_window_size = 5;
 static uint64_t target_polling_ratio = 2;
 static double aggressiveness = 1.0;
+#if defined(ACC_SPMV_STATS)
+typedef struct {
+  uint64_t startIter;
+  uint64_t chunksize;
+} ass_t;
+ass_t *ass_stats = nullptr;
+uint64_t ass_begin = 1;
+static uint64_t ass_max = 1000;
+#endif
 
 void runtime_memory_reset() {
   for (size_t i = 0; i < taskparts::perworker::nb_workers(); i++) {
@@ -110,6 +119,11 @@ void runtime_memory_reset() {
 #if defined(ACC_EVAL)
     rtmem[i].minimal_polling_count_last_window = 0;
     uint64_t success_count = 0;
+#endif
+#if defined(ACC_SPMV_STATS)
+    ass_stats = (ass_t *)malloc(ass_max * sizeof(ass_t));
+    ass_stats[0].startIter = 0;
+    ass_stats[0].chunksize = CHUNKSIZE;
 #endif
   }
 
@@ -193,6 +207,15 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
   return;
 }
 
+#if defined(ACC_SPMV_STATS)
+void ass_record(uint64_t startIter) {
+  ass_stats[ass_begin].startIter = startIter;
+  ass_stats[ass_begin].chunksize = rtmem.mine().chunksize;
+  ass_begin++;
+  assert(ass_begin < ass_max);
+}
+#endif
+
 #endif  // defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
 #endif  // !defined(ENABLE_ROLLFORWARD)
 
@@ -200,7 +223,7 @@ static uint64_t lastIter = 0;
 static uint64_t lastChunk = 1;
 
 __attribute__((always_inline))
-void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel, uint64_t startIter = 0) {
+void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
   /*
    * Set the starting level
    */
@@ -229,14 +252,6 @@ void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel, uint64_t sta
    */
   tmem->chunksize = rtmem.mine().chunksize;
   tmem->remaining_chunksize = tmem->chunksize;
-#if defined(ACC_SPMV_STATS)
-  for (uint64_t i = lastIter + 1; i < startIter; i++) {
-    printf("%lu\t%ld\n", i, lastChunk);
-  }
-  printf("%lu\t%ld\n", startIter, tmem->chunksize);
-  lastIter = startIter;
-  lastChunk = tmem->chunksize;
-#endif
 #endif
   /*
    * Reset heartbeat timer if using software polling
@@ -347,11 +362,17 @@ int64_t loop_handler(
     cxts[receivingLevel * CACHELINE + START_ITER]++;
 
     taskparts::tpalrts_promote_via_nativefj([&] {
-      task_memory_reset(tmem, receivingLevel, cxts[0]);
+#if defined(ADAPTIVE_CHUNKSIZE_CONTROL) && defined(ACC_SPMV_STATS)
+      ass_record(cxts[0]);
+#endif
+      task_memory_reset(tmem, receivingLevel);
       slice_tasks[receivingLevel](cxts, constLiveIns, 0, tmem);
     }, [&] {
+#if defined(ADAPTIVE_CHUNKSIZE_CONTROL) && defined(ACC_SPMV_STATS)
+      ass_record(cxtsSecond[0]);
+#endif
       task_memory_t hbmemSecond;
-      task_memory_reset(&hbmemSecond, receivingLevel, cxtsSecond[0]);
+      task_memory_reset(&hbmemSecond, receivingLevel);
       slice_tasks[receivingLevel](cxtsSecond, constLiveIns, 1, &hbmemSecond);
     }, [] { }, taskparts::bench_scheduler());
   
