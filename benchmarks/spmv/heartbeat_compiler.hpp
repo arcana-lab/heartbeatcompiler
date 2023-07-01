@@ -2,28 +2,27 @@
 
 #include "loop_handler.hpp"
 #include <cstdint>
-#include <cstdio>
+
+#if defined(ACC_SPMV_STATS)
+typedef struct {
+  uint64_t startIter;
+  uint64_t chunksize;
+} ass_t;
+extern ass_t *ass_stats;
+extern uint64_t ass_begin;
+#endif
 
 namespace spmv {
 
-void HEARTBEAT_nest0_loop0(double *val, uint64_t *row_ptr, uint64_t *col_ind, double* x, double* y, uint64_t n);
 #if !defined(ACC_SPMV_STATS)
+// default parallel annotation for spmv at both outer and inner levels
+
+void HEARTBEAT_nest0_loop0(double *val, uint64_t *row_ptr, uint64_t *col_ind, double* x, double* y, uint64_t n);
 double HEARTBEAT_nest0_loop1(double *val, uint64_t startIter, uint64_t maxIter, uint64_t *col_ind, double* x, double* y);
-#endif
 
 void spmv_hb_compiler(double *val, uint64_t *row_ptr, uint64_t *col_ind, double* x, double* y, uint64_t n) {
   HEARTBEAT_nest0_loop0(val, row_ptr, col_ind, x, y, n);
-#if defined(ACC_SPMV_STATS)
-  // print the nonzeros per row
-  for (uint64_t i = 0; i < n; i++) {
-    printf("%lu\t%ld\n", i, row_ptr[i + 1] - row_ptr[i]);
-  }
-#endif
 }
-
-#if !defined(ACC_SPMV_STATS)
-
-// default parallel annotation for spmv at both outer and inner levels
 
 // Outlined loops
 void HEARTBEAT_nest0_loop0(double *val, uint64_t *row_ptr, uint64_t *col_ind, double* x, double* y, uint64_t n) {
@@ -47,11 +46,33 @@ double HEARTBEAT_nest0_loop1(double *val, uint64_t startIter, uint64_t maxIter, 
 }
 
 #else
-
 // another parallel annotation for spmv for outer loop only,
 // therefore inner loop shows heterogeneous latency
 // the purpose of this annotation is to demonstrate how ACC changes chunkisze
 // in reverse relationship to the number of non-zero elements processed
+
+#include <stdio.h>
+#include <cassert>
+
+void HEARTBEAT_nest0_loop0(double *val, uint64_t *row_ptr, uint64_t *col_ind, double* x, double* y, uint64_t n);
+
+void spmv_hb_compiler(double *val, uint64_t *row_ptr, uint64_t *col_ind, double* x, double* y, uint64_t n) {
+  HEARTBEAT_nest0_loop0(val, row_ptr, col_ind, x, y, n);
+  // print the nonzeros and chunksize per row
+  uint64_t ass_index = 1;
+  for (uint64_t i = 0; i < n; i++) {
+    printf("%lu\t%lu\t", i, row_ptr[i+1] - row_ptr[i]);
+    if (ass_index == ass_begin) {
+      printf("%lu\n", ass_stats[ass_index-1].chunksize);
+    } else if (i < ass_stats[ass_index].startIter) {
+      printf("%lu\n", ass_stats[ass_index-1].chunksize);
+    } else {
+      assert (i == ass_stats[ass_index].startIter);
+      printf("%lu\n", ass_stats[ass_index].chunksize);
+      ass_index++;
+    }
+  }
+}
 
 // Outlined loops
 void HEARTBEAT_nest0_loop0(double *val, uint64_t *row_ptr, uint64_t *col_ind, double* x, double* y, uint64_t n) {
