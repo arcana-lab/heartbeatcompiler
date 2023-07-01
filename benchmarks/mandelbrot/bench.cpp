@@ -164,6 +164,9 @@ unsigned char* mandelbrot_openmp(double x0, double y0, double x1, double y1,
   double xstep = (x1 - x0) / width;
   double ystep = (y1 - y0) / height;
   unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
+#if defined(OMP_NESTED_SCHEDULING)
+  omp_set_max_active_levels(2);
+#endif
 #if defined(OMP_SCHEDULE_STATIC)
   #pragma omp parallel for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)

@@ -134,6 +134,9 @@ void floyd_warshall_cilkplus(int* dist, int vertices) {
 
 void floyd_warshall_openmp(int* dist, int vertices) {
   for(int via = 0; via < vertices; via++) {
+#if defined(OMP_NESTED_SCHEDULING)
+    omp_set_max_active_levels(2);
+#endif
 #if defined(OMP_SCHEDULE_STATIC)
     #pragma omp parallel for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)

@@ -145,6 +145,9 @@ unsigned char* mandelbulb_openmp(double x0, double y0, double z0,
   double xstep = (x1 - x0) / nx;
   double ystep = (y1 - y0) / ny;
   double zstep = (z1 - z0) / nz;
+#if defined(OMP_NESTED_SCHEDULING)
+  omp_set_max_active_levels(3);
+#endif
 #if defined(OMP_SCHEDULE_STATIC)
   #pragma omp parallel for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)

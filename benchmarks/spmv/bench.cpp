@@ -800,6 +800,9 @@ void spmv_openmp(
   double* x,
   double* y,
   uint64_t n) {
+#if defined(OMP_NESTED_SCHEDULING)
+  omp_set_max_active_levels(2);
+#endif
 #if defined(OMP_SCHEDULE_STATIC)
   #pragma omp parallel for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
