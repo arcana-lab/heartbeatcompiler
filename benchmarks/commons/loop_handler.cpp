@@ -33,6 +33,11 @@ static uint64_t prev_polls = 0;
 #endif
 #endif
 
+#if defined(PROMO_STATS)
+static int maxLevel = 3;
+std::unordered_map<int, uint64_t> levelCountMap;
+#endif
+
 void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
                std::function<void()> const &bench_end) {
@@ -53,6 +58,12 @@ void run_bench(std::function<void()> const &bench_body,
   printf("polls: %ld\n", polls);
   printf("heartbeats: %ld\n", heartbeats);
   printf("splits: %ld\n", splits);
+#endif
+
+#if defined(PROMO_STATS)
+  for (auto i = 0; i < maxLevel; i++) {
+    printf("%d\t%lu\n", i, levelCountMap[i]);
+  }
 #endif
 }
 
@@ -219,9 +230,6 @@ void ass_record(uint64_t startIter) {
 #endif  // defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
 #endif  // !defined(ENABLE_ROLLFORWARD)
 
-static uint64_t lastIter = 0;
-static uint64_t lastChunk = 1;
-
 __attribute__((always_inline))
 void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
   /*
@@ -263,6 +271,11 @@ void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
 void heartbeat_start(task_memory_t *tmem) {
 #if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
   runtime_memory_reset();
+#endif
+#if defined(PROMO_STATS)
+  for (auto i = 0; i < maxLevel; i++) {
+    levelCountMap[i] = 0;
+  }
 #endif
   task_memory_reset(tmem, 0);
 }
@@ -326,6 +339,9 @@ int64_t loop_handler(
   }
 #if defined(STATS)
   splits++;
+#endif
+#if defined(PROMO_STATS)
+  levelCountMap[splittingLevel]++;
 #endif
 
 #if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)

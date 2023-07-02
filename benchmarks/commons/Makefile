@@ -244,8 +244,12 @@ endif
 
 # whether to enable heartbeat promotion
 ENABLE_HEARTBEAT_PROMOTION ?= true
+PROMO_STATS ?= false	# collect the stats of levels where parallelism are generated
 ifeq ($(ENABLE_HEARTBEAT_PROMOTION), true)
 	MACROS_HEARTBEAT += -DENABLE_HEARTBEAT_PROMOTION
+	ifeq ($(PROMO_STATS), true)
+		MACROS_HEARTBEAT += -DPROMO_STATS
+	endif
 else
 	MACROS_HEARTBEAT += -DDISABLE_HEARTBEAT_PROMOTION
 endif
