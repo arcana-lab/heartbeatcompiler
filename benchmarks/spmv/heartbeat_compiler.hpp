@@ -67,7 +67,11 @@ void spmv_hb_compiler(double *val, uint64_t *row_ptr, uint64_t *col_ind, double*
     } else if (i < ass_stats[ass_index].startIter) {
       printf("%lu\n", ass_stats[ass_index-1].chunksize);
     } else {
+<<<<<<< HEAD
       assert (i >= ass_stats[ass_index].startIter);
+=======
+      assert (i == ass_stats[ass_index].startIter);
+>>>>>>> e7ab1ee1c2b9a82eb0196b7ccac191764b5df609
       printf("%lu\n", ass_stats[ass_index].chunksize);
       ass_index++;
     }
