@@ -1,0 +1,1 @@
+clang++ -DSMALLEST_GRANULARITY=2 -DTASKPARTS_POSIX -DTASKPARTS_X64 -DTASKPARTS_TPALRTS -DTASKPARTS_STATS -DTASKPARTS_USE_CHASELEV_DEQUE -DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING  --std=c++17 -I../runtime/include polling.c loop_handler.cpp -o polling -lm -lstdc++ -pthread -ldl -L/nfs-scratch/yso0488/jemalloc/build/lib -Wl,-rpath,/nfs-scratch/yso0488/jemalloc/build/lib -ljemalloc

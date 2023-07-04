@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd /nfs-scratch/yso0488/heartbeatcompiler0/manual_transformation/utility ;
+cd /nfs-scratch/yso0488/heartbeatcompiler0/utility ;
 
 source /project/extra/llvm/14.0.6/enable ;
 source /project/extra/burnCPU/enable ;
