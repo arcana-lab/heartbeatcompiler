@@ -13,6 +13,22 @@
 #define MAX_ITER 1
 #define LIVE_IN_ENV 2
 
+#if defined(ENABLE_ROLLFORWARD)
+extern volatile int __rf_signal;
+
+extern "C" {
+
+__attribute__((used))
+__attribute__((always_inline))
+static bool __rf_test (void) {
+  int yes;
+  asm volatile ("movl $__rf_signal, %0" : "=r" (yes) : : );
+  return yes == 1;
+}
+
+}
+#endif
+
 namespace mandelbulb {
 
 void HEARTBEAT_nest0_loop0(double x0, double y0, double z0, int nx, int ny, int nz, int iterations, double power, double xstep, double ystep, double zstep, unsigned char *output);
@@ -138,11 +154,6 @@ int64_t HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
     cxts[LEVEL_ONE * CACHELINE + START_ITER] = (uint64_t)0;
     cxts[LEVEL_ONE * CACHELINE + MAX_ITER] = (uint64_t)ny;
     rc = HEARTBEAT_nest0_loop1_slice(cxts, constLiveIns, 0, tmem);
-    if (rc > 0) {
-      // update the exit condition here because there might
-      // be tail work to finish
-      maxIter = startIter + 1;
-    }
 
     // check the status of rc because, might not need
     // to call the loop_handler in the process of returnning up
@@ -151,7 +162,7 @@ int64_t HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
     }
 
 #if defined(CHUNK_LOOP_ITERATIONS)
-    // don't poll if we haven't finished at least one chunk
+    // don't poll if we haven't finished a chunk
     if (has_remaining_chunksize(tmem)) {
       continue;
     }
@@ -169,13 +180,15 @@ int64_t HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
       }
     }
 #else
-    cxts[LEVEL_ZERO * CACHELINE + START_ITER] = startIter;
-    __rf_handle_wrapper(
-      rc, cxts, constLiveIns, LEVEL_ZERO, NUM_LEVELS_NEST0, tmem,
-      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
-    );
-    if (rc > 0) {
-      break;
+    if(unlikely(__rf_test())) {
+      cxts[LEVEL_ZERO * CACHELINE + START_ITER] = startIter;
+      __rf_handle_wrapper(
+        rc, cxts, constLiveIns, LEVEL_ZERO, NUM_LEVELS_NEST0, tmem,
+        slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
+      );
+      if (rc > 0) {
+        break;
+      }
     }
 #endif
   }
@@ -210,11 +223,6 @@ int64_t HEARTBEAT_nest0_loop1_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
     cxts[LEVEL_TWO * CACHELINE + START_ITER] = (uint64_t)0;
     cxts[LEVEL_TWO * CACHELINE + MAX_ITER] = (uint64_t)nz;
     rc = HEARTBEAT_nest0_loop2_slice(cxts, constLiveIns, 0, tmem);
-    if (rc > 0) {
-      // update the exit condition here because there might
-      // be tail work to finish
-      maxIter = startIter + 1;
-    }
 
     // check the status of rc because, might not need
     // to call the loop_handler in the process of returnning up
@@ -223,7 +231,7 @@ int64_t HEARTBEAT_nest0_loop1_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
     }
 
 #if defined(CHUNK_LOOP_ITERATIONS)
-    // don't poll if we haven't finished at least one chunk
+    // don't poll if we haven't finished a chunk
     if (has_remaining_chunksize(tmem)) {
       continue;
     }
@@ -241,13 +249,15 @@ int64_t HEARTBEAT_nest0_loop1_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
       }
     }
 #else
-    cxts[LEVEL_ONE * CACHELINE + START_ITER] = startIter;
-    __rf_handle_wrapper(
-      rc, cxts, constLiveIns, LEVEL_ONE, NUM_LEVELS_NEST0, tmem,
-      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
-    );
-    if (rc > 0) {
-      break;
+    if(unlikely(__rf_test())) {
+      cxts[LEVEL_ONE * CACHELINE + START_ITER] = startIter;
+      __rf_handle_wrapper(
+        rc, cxts, constLiveIns, LEVEL_ONE, NUM_LEVELS_NEST0, tmem,
+        slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
+      );
+      if (rc > 0) {
+        break;
+      }
     }
 #endif
   }
@@ -320,13 +330,15 @@ int64_t HEARTBEAT_nest0_loop2_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
       }
     }
 #else
-    cxts[LEVEL_TWO * CACHELINE + START_ITER] = low - 1;
-    __rf_handle_wrapper(
-      rc, cxts, constLiveIns, LEVEL_TWO, NUM_LEVELS_NEST0, tmem,
-      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
-    );
-    if (rc > 0) {
-      break;
+    if(unlikely(__rf_test())) {
+      cxts[LEVEL_TWO * CACHELINE + START_ITER] = low - 1;
+      __rf_handle_wrapper(
+        rc, cxts, constLiveIns, LEVEL_TWO, NUM_LEVELS_NEST0, tmem,
+        slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
+      );
+      if (rc > 0) {
+        break;
+      }
     }
 #endif
   }
@@ -361,13 +373,15 @@ int64_t HEARTBEAT_nest0_loop2_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
       }
     }
 #else
-    cxts[LEVEL_TWO * CACHELINE + START_ITER] = startIter;
-    __rf_handle_wrapper(
-      rc, cxts, constLiveIns, LEVEL_TWO, NUM_LEVELS_NEST0, tmem,
-      slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
-    );
-    if (rc > 0) {
-      break;
+    if(unlikely(__rf_test())) {
+      cxts[LEVEL_TWO * CACHELINE + START_ITER] = startIter;
+      __rf_handle_wrapper(
+        rc, cxts, constLiveIns, LEVEL_TWO, NUM_LEVELS_NEST0, tmem,
+        slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
+      );
+      if (rc > 0) {
+        break;
+      }
     }
 #endif
   }

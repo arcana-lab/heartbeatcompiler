@@ -9,7 +9,22 @@
 #define START_ITER 0
 #define MAX_ITER 1
 #define LIVE_OUT_ENV 3
-#define CHUNKSIZE 4
+
+#if defined(ENABLE_ROLLFORWARD)
+extern volatile int __rf_signal;
+
+extern "C" {
+
+__attribute__((used))
+__attribute__((always_inline))
+static bool __rf_test (void) {
+  int yes;
+  asm volatile ("movl $__rf_signal, %0" : "=r" (yes) : : );
+  return yes == 1;
+}
+
+}
+#endif
 
 namespace plus_reduce_array {
 
@@ -113,13 +128,15 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
       }
     }
 #else
-    cxts[LEVEL_ZERO * CACHELINE + START_ITER] = low - 1;
-    __rf_handle_wrapper(
-      rc, cxts, constLiveIns, LEVEL_ZERO, NUM_LEVELS, tmem,
-      slice_tasks, nullptr, nullptr
-    );
-    if (rc > 0) {
-      break;
+    if(unlikely(__rf_test())) {
+      cxts[LEVEL_ZERO * CACHELINE + START_ITER] = low - 1;
+      __rf_handle_wrapper(
+        rc, cxts, constLiveIns, LEVEL_ZERO, NUM_LEVELS, tmem,
+        slice_tasks, nullptr, nullptr
+      );
+      if (rc > 0) {
+        break;
+      }
     }
 #endif
   }
@@ -139,13 +156,15 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
       }
     }
 #else
-    cxts[LEVEL_ZERO * CACHELINE + START_ITER] = startIter;
-    __rf_handle_wrapper(
-      rc, cxts, constLiveIns, LEVEL_ZERO, NUM_LEVELS, tmem,
-      slice_tasks, nullptr, nullptr
-    );
-    if (rc > 0) {
-      break;
+    if(unlikely(__rf_test())) {
+      cxts[LEVEL_ZERO * CACHELINE + START_ITER] = startIter;
+      __rf_handle_wrapper(
+        rc, cxts, constLiveIns, LEVEL_ZERO, NUM_LEVELS, tmem,
+        slice_tasks, nullptr, nullptr
+      );
+      if (rc > 0) {
+        break;
+      }
     }
 #endif
   }

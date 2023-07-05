@@ -67,8 +67,12 @@ heartbeat_manual.rf.s: heartbeat_manual.s
 heartbeat_manual.rf.o: heartbeat_manual.rf.s
 	$(CXX) -I $(ROLLFORWARD_INCLUDE) $< -c -o $@
 
+# resolve the "undefined reference to __rf_signal" error
+heartbeat_manual.rf.ld.o: heartbeat_manual.rf.o
+	ld -r --defsym=__rf_signal=0x42 $< -o $@
+
 rollforward_manual.o: $(ROLLFORWARD_INCLUDE)/rollforward.c
 	$(CXX) $< -c -o $@
 
-heartbeat_manual_rf: heartbeat_manual.rf.o rollforward_manual.o loop_handler.cpp bench.cpp main.cpp
+heartbeat_manual_rf: heartbeat_manual.rf.ld.o rollforward_manual.o loop_handler.cpp bench.cpp main.cpp
 	$(CXX) $(MACROS_HEARTBEAT_MANUAL) $(FLAGS_HEARTBEAT_MANUAL) $(OPTS_HEARTBEAT_MANUAL) $^ -o $@ $(LIBS_HEARTBEAT_MANUAL)
