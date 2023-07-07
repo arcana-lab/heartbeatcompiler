@@ -24,10 +24,10 @@ benchmarks=(mandelbrot spmv)
 ########################################################
 
 function run_and_collect {
-  technique=${1}
-  results_path=${2}
+  local technique=${1}
+  local results_path=${2}
   mkdir -p ${results_path} ;
-  output=${results_path}/output.txt
+  local output=${results_path}/output.txt
 
   if [ ${technique} == "baseline" ] ; then
     for i in `seq 1 ${baseline_num_runs}` ; do

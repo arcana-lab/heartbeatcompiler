@@ -12,18 +12,18 @@ mkdir -p ${ROOT_DIR}/evaluation/results/${experiment} ;
 
 ########################################################
 # experiment sections
-baseline=true
-hbc=true
+baseline=false
+hbc=false
 
 # benchmark targetted
-benchmarks=(mandelbrot mandelbulb cg spmv floyd_warshall plus_reduce_array srad)
+benchmarks=(mandelbrot spmv floyd_warshall plus_reduce_array srad)
 ########################################################
 
 function run_and_collect {
-  technique=${1}
-  results_path=${2}
+  local technique=${1}
+  local results_path=${2}
   mkdir -p ${results_path} ;
-  output=${results_path}/output.txt
+  local output=${results_path}/output.txt
 
   for i in `seq 1 ${baseline_num_runs}` ; do
     WORKERS=1 taskset -c 0 make run_${technique} >> ${output} ;

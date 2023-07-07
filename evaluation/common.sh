@@ -15,9 +15,9 @@ function clean {
 }
 
 function collect {
-  results_path=${1}
-  input=${2}
-  output=${results_path}/${keyword}.txt
+  local results_path=${1}
+  local input=${2}
+  local output=${results_path}/${keyword}.txt
 
   cat ${input} | grep -w ${keyword} | awk '{ print $2 }' | tr -d '},' >> ${output} ;
 }
