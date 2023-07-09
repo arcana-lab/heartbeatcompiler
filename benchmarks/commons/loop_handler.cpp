@@ -12,10 +12,6 @@
 
 extern "C" {
 
-#if !defined(SMALLEST_GRANULARITY)
-  #error "Macro SMALLEST_GRANULARITY no defined"
-#endif
-
 #define CACHELINE 8
 #define START_ITER 0
 #define MAX_ITER 1
@@ -74,7 +70,7 @@ void printGIS(uint64_t *cxts, uint64_t startLevel, uint64_t maxLevel, std::strin
   }
 }
 
-#if !defined(ENABLE_ROLLFORWARD)
+#if defined(ENABLE_SOFTWARE_POLLING)
 
 bool heartbeat_polling(task_memory_t *tmem) {
 #if defined(STATS) || defined(POLLS_STATS)
@@ -228,7 +224,7 @@ void ass_record(uint64_t startIter) {
 #endif
 
 #endif  // defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
-#endif  // !defined(ENABLE_ROLLFORWARD)
+#endif  // defined(ENABLE_SOFTWARE_POLLING)
 
 __attribute__((always_inline))
 void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
@@ -237,17 +233,9 @@ void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
    */
   tmem->startingLevel = startingLevel;
 
-#if defined(CHUNK_LOOP_ITERATIONS) && !defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+#if defined(ENABLE_SOFTWARE_POLLING)
   /*
-   * It's possible to use loop chunking with rollforwarding
-   */
-  tmem->chunksize = CHUNKSIZE;
-  tmem->remaining_chunksize = CHUNKSIZE;
-#endif
-
-#if !defined(ENABLE_ROLLFORWARD)
-  /*
-   * To use acc one must disable rollforward and enable loop chunking
+   * To use acc one must use software polling and enable loop chunking
    */
 #if defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
   /*
@@ -260,16 +248,30 @@ void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
    */
   tmem->chunksize = rtmem.mine().chunksize;
   tmem->remaining_chunksize = tmem->chunksize;
+#elif defined(CHUNK_LOOP_ITERATIONS) && !defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+  /*
+   * Use static chunksize
+   */
+  tmem->chunksize = CHUNKSIZE;
+  tmem->remaining_chunksize = CHUNKSIZE;
 #endif
   /*
    * Reset heartbeat timer if using software polling
    */
   taskparts::prev.mine() = taskparts::cycles::now();
+#else // ENABLE_ROLLFORWARD
+#if defined(CHUNK_LOOP_ITERATIONS)
+  /*
+   * Use static chunksize
+   */
+  tmem->chunksize = CHUNKSIZE;
+  tmem->remaining_chunksize = CHUNKSIZE;
+#endif
 #endif
 }
 
 void heartbeat_start(task_memory_t *tmem) {
-#if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+#if defined(ENABLE_SOFTWARE_POLLING) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
   runtime_memory_reset();
 #endif
 #if defined(PROMO_STATS)
@@ -317,7 +319,7 @@ int64_t loop_handler(
   printf("%ld\n", polls-prev_polls);
   prev_polls = polls;
 #endif
-#if defined(DISABLE_HEARTBEAT_PROMOTION)
+#if defined(DISABLE_PROMOTION)
   return 0;
 #endif
 
@@ -326,7 +328,7 @@ int64_t loop_handler(
    */
   uint64_t splittingLevel = receivingLevel + 1;
   for (uint64_t level = tmem->startingLevel; level <= receivingLevel; level++) {
-    if (cxts[level * CACHELINE + MAX_ITER] - cxts[level * CACHELINE + START_ITER] >= SMALLEST_GRANULARITY) {
+    if (cxts[level * CACHELINE + MAX_ITER] - cxts[level * CACHELINE + START_ITER] >= 2) {
       splittingLevel = level;
       break;
     }
@@ -344,7 +346,7 @@ int64_t loop_handler(
   levelCountMap[splittingLevel]++;
 #endif
 
-#if !defined(ENABLE_ROLLFORWARD) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+#if defined(ENABLE_SOFTWARE_POLLING) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
   runtime_memory_update(tmem, cxts, numLevels);
 #endif
 
@@ -378,13 +380,13 @@ int64_t loop_handler(
     cxts[receivingLevel * CACHELINE + START_ITER]++;
 
     taskparts::tpalrts_promote_via_nativefj([&] {
-#if defined(ADAPTIVE_CHUNKSIZE_CONTROL) && defined(ACC_SPMV_STATS)
+#if defined(ENABLE_SOFTWARE_POLLING) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL) && defined(ACC_SPMV_STATS)
       ass_record(cxts[0]);
 #endif
       task_memory_reset(tmem, receivingLevel);
       slice_tasks[receivingLevel](cxts, constLiveIns, 0, tmem);
     }, [&] {
-#if defined(ADAPTIVE_CHUNKSIZE_CONTROL) && defined(ACC_SPMV_STATS)
+#if defined(ENABLE_SOFTWARE_POLLING) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL) && defined(ACC_SPMV_STATS)
       ass_record(cxtsSecond[0]);
 #endif
       task_memory_t hbmemSecond;

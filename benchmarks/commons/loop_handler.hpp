@@ -21,7 +21,7 @@ struct task_memory_t {
 #if defined(CHUNK_LOOP_ITERATIONS)
   uint64_t chunksize;
   uint64_t remaining_chunksize;
-#if !defined(ENABLE_ROLLFORWARD) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+#if defined(ENABLE_SOFTWARE_POLLING) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
   uint64_t polling_count;
 #endif
 #endif
@@ -37,7 +37,7 @@ uint64_t update_remaining_chunksize(task_memory_t *tmem, uint64_t iterations, ui
 
 void heartbeat_start(task_memory_t *tmem);
 
-#if !defined(ENABLE_ROLLFORWARD)
+#if defined(ENABLE_SOFTWARE_POLLING)
 bool heartbeat_polling(task_memory_t *tmem);
 #endif
 

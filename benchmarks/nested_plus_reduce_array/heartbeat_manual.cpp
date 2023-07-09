@@ -130,7 +130,7 @@ int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t start
       break;
     }
 
-#if !defined(ENABLE_ROLLFORWARD)
+#if defined(ENABLE_SOFTWARE_POLLING)
     rc = loop_handler_level2(
       cxts, LEVEL_ZERO,
       slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
@@ -168,7 +168,7 @@ int64_t HEARTBEAT_nest0_loop0_slice(void *cxts, uint64_t myIndex, uint64_t start
       break;
     }
 
-#if !defined(ENABLE_ROLLFORWARD)
+#if defined(ENABLE_SOFTWARE_POLLING)
     rc = loop_handler_level2(
       cxts, LEVEL_ZERO,
       slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
@@ -232,7 +232,7 @@ int64_t HEARTBEAT_nest0_loop1_slice(void *cxts, uint64_t myIndex, uint64_t s0, u
       break;
     }
 
-#if !defined(ENABLE_ROLLFORWARD)
+#if defined(ENABLE_SOFTWARE_POLLING)
     rc = loop_handler_level2(
       cxts, LEVEL_ONE,
       slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,
@@ -255,7 +255,7 @@ int64_t HEARTBEAT_nest0_loop1_slice(void *cxts, uint64_t myIndex, uint64_t s0, u
   for(; startIter < maxIter; startIter++) {
     live_out_0 += a[i][startIter];
 
-#if !defined(ENABLE_ROLLFORWARD)
+#if defined(ENABLE_SOFTWARE_POLLING)
     rc = loop_handler_level2(
       cxts, LEVEL_ONE,
       slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0,

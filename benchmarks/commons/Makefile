@@ -233,43 +233,50 @@ ROLLFORWARD_COMPILER = $(ROLLFORWARD_COMPILER_PATH)/rollforward++
 
 MACROS_HEARTBEAT += $(MACROS)
 
-# whether to enable the rollforward compilation
-# and whether to use the heartbeat linux module
-ENABLE_ROLLFORWARD ?= false
-USE_HB_KMOD ?= false
-ifeq ($(ENABLE_ROLLFORWARD), true)
-	MACROS_HEARTBEAT += -DENABLE_ROLLFORWARD
-	PASS_ARGUMENTS_HEARTBEAT_COMPILER += -enable_rollforward
+# whether to enable heartbeat transformation
+# thie macro is used to measure the overhead of
+# preparing loop environment and parallel context
+# this macro applies to heartbeat_manual only
+# and therefore can only be measured using heartbeat_manual
+ENABLE_HEARTBEAT ?= true
+ifeq ($(ENABLE_HEARTBEAT), true)
+	MACROS_HEARTBEAT += -DENABLE_HEARTBEAT
+else
+	MACROS_HEARTBEAT += -DDISABLE_HEARTBEAT
 endif
 
-# whether to enable heartbeat promotion
-ENABLE_HEARTBEAT_PROMOTION ?= true
-PROMO_STATS ?= false	# collect the stats of levels where parallelism are generated
-ifeq ($(ENABLE_HEARTBEAT_PROMOTION), true)
-	MACROS_HEARTBEAT += -DENABLE_HEARTBEAT_PROMOTION
+# whether to enable promotion
+ENABLE_PROMOTION ?= true
+PROMO_STATS ?= false	# collect the level of where parallelism is generated
+ifeq ($(ENABLE_PROMOTION), true)
+	MACROS_HEARTBEAT += -DENABLE_PROMOTION
 	ifeq ($(PROMO_STATS), true)
 		MACROS_HEARTBEAT += -DPROMO_STATS
 	endif
 else
-	MACROS_HEARTBEAT += -DDISABLE_HEARTBEAT_PROMOTION
+	MACROS_HEARTBEAT += -DDISABLE_PROMOTION
 endif
 
-# minimum remaining iteration size for heartbeat promotion
-# options: unsigned integer >= 2
-SMALLEST_GRANULARITY ?= 2
-MACROS_HEARTBEAT += -DSMALLEST_GRANULARITY=$(SMALLEST_GRANULARITY)
+# whether to enable the rollforward compilation
+ENABLE_ROLLFORWARD ?= false
+USE_HB_KMOD ?= false	# whether to use the heartbeat linux module
+ifeq ($(ENABLE_ROLLFORWARD), true)
+	MACROS_HEARTBEAT += -DENABLE_ROLLFORWARD
+	PASS_ARGUMENTS_HEARTBEAT_COMPILER += -enable_rollforward
+else
+	MACROS_HEARTBEAT += -DENABLE_SOFTWARE_POLLING
+endif
 
 # whether to chunk loop iterations before calling loop_handler
-# whether to enable adpative chunksize control to decrease polling overhead
 CHUNK_LOOP_ITERATIONS ?= true
-ACC ?= false
-ACC_DEBUG ?= false
-ACC_EVAL ?= false
-ACC_SPMV_STATS ?= false	# to plot how chunksize changes varying the number of nonzeros
+ACC ?= false						# enable adaptive chunksize control
+ACC_DEBUG ?= false			# print how chunksize changes over polling count
+ACC_EVAL ?= false				# evaluate the accuracy of acc
+ACC_SPMV_STATS ?= false	# plot how chunksize changes varying the number of nonzeros
 ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 	MACROS_HEARTBEAT += -DCHUNK_LOOP_ITERATIONS
 	PASS_ARGUMENTS_HEARTBEAT_COMPILER += -chunk_loop_iterations
-	ifeq ($(ENABLE_ROLLFORWARD), false)	# ACC can only be enabled when not using ROLLFORWARDING
+	ifeq ($(ENABLE_ROLLFORWARD), false)	# ACC can only be enabled when not using rollforwarding
 		ifeq ($(ACC), true)
 			MACROS_HEARTBEAT += -DADAPTIVE_CHUNKSIZE_CONTROL
 			PASS_ARGUMENTS_HEARTBEAT_COMPILER += -adaptive_chunksize_control

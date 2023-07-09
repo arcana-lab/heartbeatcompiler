@@ -109,6 +109,7 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
       live_out_0 += a[low];
     }
 
+#if defined(ENABLE_HEARTBEAT)
     chunksize = update_remaining_chunksize(tmem, high - startIter, chunksize);
     if (has_remaining_chunksize(tmem)) {
       // early exit and don't call the loop_handler,
@@ -116,7 +117,7 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
       break;
     }
 
-#if !defined(ENABLE_ROLLFORWARD)
+#if defined(ENABLE_SOFTWARE_POLLING)
     if (unlikely(heartbeat_polling(tmem))) {
       cxts[LEVEL_ZERO * CACHELINE + START_ITER] = low - 1;
       rc = loop_handler(
@@ -139,12 +140,14 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
       }
     }
 #endif
+#endif
   }
 #else
   for (; startIter != maxIter; startIter++) {
     live_out_0 += a[startIter];
 
-#if !defined(ENABLE_ROLLFORWARD)
+#if defined(ENABLE_HEARTBEAT)
+#if defined(ENABLE_SOFTWARE_POLLING)
     if (unlikely(heartbeat_polling(tmem))) {
       cxts[LEVEL_ZERO * CACHELINE + START_ITER] = startIter;
       rc = loop_handler(
@@ -166,6 +169,7 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
         break;
       }
     }
+#endif
 #endif
   }
 #endif

@@ -124,6 +124,7 @@ int64_t HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
       break;
     }
 
+#if defined(ENABLE_HEARTBEAT)
 #if defined(CHUNK_LOOP_ITERATIONS)
     // don't poll if we haven't finished a chunk
     if (has_remaining_chunksize(tmem)) {
@@ -131,7 +132,7 @@ int64_t HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
     }
 #endif
 
-#if !defined(ENABLE_ROLLFORWARD)
+#if defined(ENABLE_SOFTWARE_POLLING)
     if (unlikely(heartbeat_polling(tmem))) {
       cxts[LEVEL_ZERO * CACHELINE + START_ITER] = startIter;
       rc = loop_handler(
@@ -153,6 +154,7 @@ int64_t HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
         break;
       }
     }
+#endif
 #endif
   }
 
@@ -186,12 +188,13 @@ int64_t HEARTBEAT_nest0_loop1_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
       }
     }
 
+#if defined(ENABLE_HEARTBEAT)
     chunksize = update_remaining_chunksize(tmem, high - startIter, chunksize);
     if (has_remaining_chunksize(tmem)) {
       break;
     }
 
-#if !defined(ENABLE_ROLLFORWARD)
+#if defined(ENABLE_SOFTWARE_POLLING)
     if (unlikely(heartbeat_polling(tmem))) {
       cxts[LEVEL_ONE * CACHELINE + START_ITER] = low - 1;
       rc = loop_handler(
@@ -214,6 +217,7 @@ int64_t HEARTBEAT_nest0_loop1_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
       }
     }
 #endif
+#endif
   }
 #else
   for(; startIter < maxIter; startIter++) {
@@ -223,7 +227,8 @@ int64_t HEARTBEAT_nest0_loop1_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
                   SUB(dist, vertices, from, via) + SUB(dist, vertices, via, startIter));
     }
 
-#if !defined(ENABLE_ROLLFORWARD)
+#if defined(ENABLE_HEARTBEAT)
+#if defined(ENABLE_SOFTWARE_POLLING)
     if (unlikely(heartbeat_polling(tmem))) {
       cxts[LEVEL_ONE * CACHELINE + START_ITER] = startIter;
       rc = loop_handler(
@@ -245,6 +250,7 @@ int64_t HEARTBEAT_nest0_loop1_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
         break;
       }
     }
+#endif
 #endif
   }
 #endif
