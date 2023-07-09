@@ -243,6 +243,7 @@ ifeq ($(ENABLE_HEARTBEAT), true)
 	MACROS_HEARTBEAT += -DENABLE_HEARTBEAT
 else
 	MACROS_HEARTBEAT += -DDISABLE_HEARTBEAT
+	PASS_ARGUMENTS_HEARTBEAT_COMPILER += -disable_heartbeat
 endif
 
 # whether to enable promotion

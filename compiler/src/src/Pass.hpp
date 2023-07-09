@@ -227,4 +227,9 @@ class Heartbeat : public ModulePass {
     void replaceWithRollforwardHandler(Noelle &noelle);
     void eraseHBResetCall();
 
+    /*
+     * Disable heartbeat transformation
+     */
+    void replaceBrToPollingBlockToLatchBlock(HeartbeatTransformation *hbt);
+
 };

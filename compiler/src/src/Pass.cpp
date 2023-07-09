@@ -3,6 +3,7 @@
 using namespace llvm;
 using namespace llvm::noelle;
 
+static cl::opt<bool> Disable_Heartbeat("disable_heartbeat", cl::desc("Disable heartbeat instrumentation"));
 static cl::opt<bool> Chunk_Loop_Iterations("chunk_loop_iterations", cl::desc("Execute loop iterations in chunk"));
 static cl::opt<bool> Adaptive_Chunksize_Control("adaptive_chunksize_control", cl::desc("Enable adaptive chunksize control for performance"));
 static cl::list<std::string> Chunksize("chunksize", cl::desc("Specify the chunksize for each level of nested loop"), cl::OneOrMore);
@@ -106,32 +107,64 @@ bool Heartbeat::runOnModule (Module &M) {
       errs() << "cloned loop of level " << level << "\n" << *(hbt->getHeartbeatTask()->getTaskBody()) << "\n";
     }
 
-    /*
-     * Chunking transformation
-     * Chunksize is supposed to be passed from the command line
-     */
-    if (this->chunkLoopIterations) {
-      for (auto pair : this->loopToHeartbeatTransformation) {
-        auto ldi = pair.first;
-        errs() << "found a loop that needs to be executed in chunk, do the chunking transformation\n";
-        this->executeLoopInChunk(noelle, ldi, pair.second, this->loopToLevel[ldi] == this->numLevels - 1);
+    if (!Disable_Heartbeat) {
+      /*
+      * Chunking transformation
+      * Chunksize is supposed to be passed from the command line
+      */
+      if (this->chunkLoopIterations) {
+        for (auto pair : this->loopToHeartbeatTransformation) {
+          auto ldi = pair.first;
+          errs() << "found a loop that needs to be executed in chunk, do the chunking transformation\n";
+          this->executeLoopInChunk(noelle, ldi, pair.second, this->loopToLevel[ldi] == this->numLevels - 1);
+        }
       }
-    }
 
-    if (this->numLevels > 1) {
-      // all Heartbeat loops are generated,
-      // create slice tasks global
-      createSliceTasks(noelle, nestID);
+      if (this->numLevels > 1) {
+        // all Heartbeat loops are generated,
+        // create slice tasks global
+        createSliceTasks(noelle, nestID);
 
-      // now we've created all the Heartbeat loops, it's time to create the leftover tasks per gap between Heartbeat loops
-      createLeftoverTasks(noelle, nestID, pair.second);
+        // now we've created all the Heartbeat loops, it's time to create the leftover tasks per gap between Heartbeat loops
+        createLeftoverTasks(noelle, nestID, pair.second);
 
-      // all leftover tasks have been created
-      // 1. need to fix the call to loop_handler to use the leftoverTasks global
-      // 2. need to fix the call to loop_handler to use the leftoverTaskIndexSelector
-      for (auto pair : this->loopToHeartbeatTransformation) {
-        auto callInst = cast<CallInst>(pair.second->getCallToLoopHandler());
+        // all leftover tasks have been created
+        // 1. need to fix the call to loop_handler to use the leftoverTasks global
+        // 2. need to fix the call to loop_handler to use the leftoverTaskIndexSelector
+        for (auto pair : this->loopToHeartbeatTransformation) {
+          auto callInst = cast<CallInst>(pair.second->getCallToLoopHandler());
 
+          IRBuilder<> builder{ callInst };
+          auto sliceTasksGlobal = noelle.getProgram()->getNamedGlobal(std::string("sliceTasks_nest").append(std::to_string(nestID)));
+          auto sliceTasksGEP = builder.CreateInBoundsGEP(
+            sliceTasksGlobal->getType()->getPointerElementType(),
+            sliceTasksGlobal,
+            ArrayRef<Value *>({
+              builder.getInt64(0),
+              builder.getInt64(0),
+            })
+          );
+          auto leftoverTasksGlobal = noelle.getProgram()->getNamedGlobal(std::string("leftoverTasks_nest").append(std::to_string(nestID)));
+          auto leftoverTasksGEP = builder.CreateInBoundsGEP(
+            leftoverTasksGlobal->getType()->getPointerElementType(),
+            leftoverTasksGlobal,
+            ArrayRef<Value *>({
+              builder.getInt64(0),
+              builder.getInt64(0)
+            })
+          );
+
+          callInst->setArgOperand(5, sliceTasksGEP);
+          callInst->setArgOperand(6, leftoverTasksGEP);
+          callInst->setArgOperand(7, this->leftoverTaskIndexSelector);
+          errs() << "updated loop_handler function in loop level " << this->loopToLevel[pair.first] << "\n" << *callInst << "\n";
+        }
+      } else {
+        // only need to replace the sliceTasks pointer in the loop_handler call
+        assert(this->numLevels == 1);
+        createSliceTasks(noelle, nestID);
+
+        auto callInst = loopToHeartbeatTransformation[this->rootLoop]->getCallToLoopHandler();
         IRBuilder<> builder{ callInst };
         auto sliceTasksGlobal = noelle.getProgram()->getNamedGlobal(std::string("sliceTasks_nest").append(std::to_string(nestID)));
         auto sliceTasksGEP = builder.CreateInBoundsGEP(
@@ -142,44 +175,19 @@ bool Heartbeat::runOnModule (Module &M) {
             builder.getInt64(0),
           })
         );
-        auto leftoverTasksGlobal = noelle.getProgram()->getNamedGlobal(std::string("leftoverTasks_nest").append(std::to_string(nestID)));
-        auto leftoverTasksGEP = builder.CreateInBoundsGEP(
-          leftoverTasksGlobal->getType()->getPointerElementType(),
-          leftoverTasksGlobal,
-          ArrayRef<Value *>({
-            builder.getInt64(0),
-            builder.getInt64(0)
-          })
-        );
-
         callInst->setArgOperand(5, sliceTasksGEP);
-        callInst->setArgOperand(6, leftoverTasksGEP);
-        callInst->setArgOperand(7, this->leftoverTaskIndexSelector);
-        errs() << "updated loop_handler function in loop level " << this->loopToLevel[pair.first] << "\n" << *callInst << "\n";
+
+        errs() << "updated loop_handler function in root loop\n" << *callInst << "\n";
       }
-    } else {
-      // only need to replace the sliceTasks pointer in the loop_handler call
-      assert(this->numLevels == 1);
-      createSliceTasks(noelle, nestID);
 
-      auto callInst = loopToHeartbeatTransformation[this->rootLoop]->getCallToLoopHandler();
-      IRBuilder<> builder{ callInst };
-      auto sliceTasksGlobal = noelle.getProgram()->getNamedGlobal(std::string("sliceTasks_nest").append(std::to_string(nestID)));
-      auto sliceTasksGEP = builder.CreateInBoundsGEP(
-        sliceTasksGlobal->getType()->getPointerElementType(),
-        sliceTasksGlobal,
-        ArrayRef<Value *>({
-          builder.getInt64(0),
-          builder.getInt64(0),
-        })
-      );
-      callInst->setArgOperand(5, sliceTasksGEP);
-
-      errs() << "updated loop_handler function in root loop\n" << *callInst << "\n";
-    }
-
-    if (Enable_Rollforward) {
-      replaceWithRollforwardHandler(noelle);
+      if (Enable_Rollforward) {
+        replaceWithRollforwardHandler(noelle);
+      }
+    } else {  // disable heartbeat transformation
+      // replace all branch to polling block with to the latch block of loop
+      for (auto pair : this->loopToHeartbeatTransformation) {
+        replaceBrToPollingBlockToLatchBlock(pair.second);
+      }
     }
   }
 
@@ -273,6 +281,18 @@ void Heartbeat::replaceWithRollforwardHandler(Noelle &noelle) {
     errs() << "replace original loop_handler call with rollforward handler call " << *rfCallInst << "\n";
     errs() << "heartbeat task after using rollforward handler " << *(pair.second->getHeartbeatTask()->getTaskBody()) << "\n";
   }
+}
+
+void Heartbeat::replaceBrToPollingBlockToLatchBlock(HeartbeatTransformation *hbt) {
+  auto pollingBlock = hbt->getPollingBlock();
+  BranchInst *pollingBlockTerminator = dyn_cast<BranchInst>(pollingBlock->getTerminator());
+  auto latchBlock = pollingBlockTerminator->getSuccessor(1);
+
+  auto lastBodyBlock = pollingBlock->getSinglePredecessor();
+  BranchInst *lastBodyBlockTerminator = dyn_cast<BranchInst>(lastBodyBlock->getTerminator());
+  lastBodyBlockTerminator->replaceSuccessorWith(pollingBlock, latchBlock);
+
+  errs() << "heartbeat task after replace Br to polling block to latch block\n" << *(hbt->getHeartbeatTask()->getTaskBody()) << "\n";
 }
 
 void Heartbeat::getAnalysisUsage(AnalysisUsage &AU) const {
