@@ -41,7 +41,7 @@ function run_input_and_collect {
       taskset -c 0 make run_baseline >> ${output} ;
     done
   else
-    for i in `seq 1 ${num_runs}` ; do
+    for i in `seq 1 ${baseline_num_runs}` ; do
       WORKERS=${num_workers} \
       CPU_FREQUENCY_KHZ=${cpu_frequency_khz} \
       KAPPA_USECS=${heartbeat_interval} \
