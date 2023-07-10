@@ -233,6 +233,11 @@ ROLLFORWARD_COMPILER = $(ROLLFORWARD_COMPILER_PATH)/rollforward++
 
 MACROS_HEARTBEAT += $(MACROS)
 
+RUN_HEARTBEAT ?= true
+ifeq ($(RUN_HEARTBEAT), true)
+	MACROS_HEARTBEAT += -DRUN_HEARTBEAT
+endif
+
 # whether to enable heartbeat transformation
 # thie macro is used to measure the overhead of
 # preparing loop environment and parallel context

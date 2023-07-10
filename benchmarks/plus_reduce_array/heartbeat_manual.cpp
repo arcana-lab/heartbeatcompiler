@@ -36,7 +36,11 @@ sliceTasksPointer slice_tasks[1] = {
   &HEARTBEAT_loop0_slice
 };
 
-bool run_heartbeat = true;
+#if defined(RUN_HEARTBEAT)
+  bool run_heartbeat = true;
+#else
+  bool run_heartbeat = false;
+#endif
 
 // Outlined loops
 double HEARTBEAT_loop0(double *a, uint64_t lo, uint64_t hi) {

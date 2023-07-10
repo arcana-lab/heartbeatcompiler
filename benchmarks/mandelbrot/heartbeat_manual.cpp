@@ -50,7 +50,11 @@ uint64_t leftover_selector_nest0(uint64_t receivingLevel, uint64_t splittingLeve
   return 0;
 }
 
-bool run_heartbeat = true;
+#if defined(RUN_HEARTBEAT)
+  bool run_heartbeat = true;
+#else
+  bool run_heartbeat = false;
+#endif
 
 // Outlined loops
 void HEARTBEAT_nest0_loop0(double x0, double y0, int height, int width, int max_depth, double xstep, double ystep, unsigned char *output) {
