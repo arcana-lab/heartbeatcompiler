@@ -1,9 +1,4 @@
 MACROS_HEARTBEAT_MANUAL += -DUSE_HB_MANUAL $(MACROS_HEARTBEAT)
-FRONTEND_FLAGS_HEARTBEAT_MANUAL = \
-	-O1 -emit-llvm \
-	-Xclang -disable-llvm-passes \
-	-Xclang -no-opaque-pointers \
-	-Xclang -ffp-contract=off
 FLAGS_HEARTBEAT_MANUAL += $(FLAGS_HEARTBEAT)
 OPTS_HEARTBEAT_MANUAL += $(OPTS_HEARTBEAT)
 LIBS_HEARTBEAT_MANUAL += $(LIBS_HEARTBEAT)
@@ -11,27 +6,22 @@ LIBS_HEARTBEAT_MANUAL += $(LIBS_HEARTBEAT)
 # ============================================
 # Heartbeat Manual
 # ============================================
-main_manual.bc: main.cpp
-	$(CXX) $(MACROS_HEARTBEAT_MANUAL) $(FRONTEND_FLAGS_HEARTBEAT_MANUAL) $(FLAGS_HEARTBEAT_MANUAL) -c $^ -o $@
+%_hbm.bc: %.cpp
+	$(CXX) $(MACROS_HEARTBEAT_MANUAL) $(FLAGS_HEARTBEAT_MANUAL) -c $< -o $@
 
-heartbeat_manual.bc: heartbeat_manual.cpp
-	$(CXX) $(MACROS_HEARTBEAT_MANUAL) $(FRONTEND_FLAGS_HEARTBEAT_MANUAL) $(FLAGS_HEARTBEAT_MANUAL) -c $^ -o $@
-
-heartbeat_manual_linked.bc: main_manual.bc heartbeat_manual.bc
+heartbeat_manual_normalized.bc: main_hbm.bc heartbeat_manual_hbm.bc
 	llvm-link $^ -o $@
-
-heartbeat_manual_normalized.bc: heartbeat_manual_linked.bc
-	noelle-norm $^ -o $@
+	noelle-norm $@ -o $@
 
 hbm: heartbeat_manual
 hb_manual: heartbeat_manual
-heartbeat_manual: heartbeat_manual_normalized.bc bench.cpp loop_handler.cpp
-	make preprocess
+heartbeat_manual: heartbeat_manual_normalized.bc bench_hbm.bc loop_handler_hbm.bc
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	make heartbeat_manual_rf
 	cp heartbeat_manual_rf $@
 else
-	$(CXX) $(MACROS_HEARTBEAT_MANUAL) $(FLAGS_HEARTBEAT_MANUAL) $(OPTS_HEARTBEAT_MANUAL) $^ -o $@ $(LIBS_HEARTBEAT_MANUAL)
+	llvm-link $^ -o $@.bc
+	$(CXX) $(OPTS_HEARTBEAT_MANUAL) $@.bc -o $@ $(LIBS_HEARTBEAT_MANUAL)
 endif
 	make postprocess
 
@@ -58,8 +48,8 @@ endif
 # ============================================
 # Heartbeat Manual (Rollforward)
 # ============================================
-heartbeat_manual.s: heartbeat_manual.cpp
-	$(CXX) $(MACROS_HEARTBEAT_MANUAL) $(FLAGS_HEARTBEAT_MANUAL) $(OPTS_HEARTBEAT_MANUAL) $< -S -o $@
+heartbeat_manual.s: heartbeat_manual_normalized.bc
+	$(CXX) $(OPTS_HEARTBEAT_MANUAL) $< -S -o $@
 
 heartbeat_manual.rf.s: heartbeat_manual.s
 	ROLLFORWARD_PATH=$(ROLLFORWARD_PATH) $(ROLLFORWARD_COMPILER) $< $@
@@ -74,5 +64,5 @@ heartbeat_manual.rf.ld.o: heartbeat_manual.rf.o
 rollforward_manual.o: $(ROLLFORWARD_INCLUDE)/rollforward.c
 	$(CXX) $< -c -o $@
 
-heartbeat_manual_rf: heartbeat_manual.rf.ld.o rollforward_manual.o loop_handler.cpp bench.cpp main.cpp
-	$(CXX) $(MACROS_HEARTBEAT_MANUAL) $(FLAGS_HEARTBEAT_MANUAL) $(OPTS_HEARTBEAT_MANUAL) $^ -o $@ $(LIBS_HEARTBEAT_MANUAL)
+heartbeat_manual_rf: heartbeat_manual.rf.ld.o rollforward_manual.o bench_hbm.bc loop_handler_hbm.bc
+	$(CXX) $(OPTS_HEARTBEAT_MANUAL) $^ -o $@ $(LIBS_HEARTBEAT_MANUAL)

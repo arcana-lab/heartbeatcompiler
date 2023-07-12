@@ -53,9 +53,20 @@ MACROS += $(TASKPARTS_PLATFORM)
 # ============================================
 # Global FLAGS used by all implementations
 # ============================================
+FRONTEND_OPTIONS += \
+	-O1 -emit-llvm \
+	-Xclang -disable-llvm-passes \
+	-Xclang -no-opaque-pointers \
+	-Xclang -ffp-contract=off
+
 FLAGS += \
+	-I$(TASKPARTS_INCLUDE) \
 	--std=c++17 \
-	-I$(TASKPARTS_INCLUDE)
+	-fno-stack-protector \
+	-fno-asynchronous-unwind-tables \
+	-fno-verbose-asm -fno-rtti -fno-pic -fpie \
+	-fno-vectorize -fno-slp-vectorize \
+	$(FRONTEND_OPTIONS)
 
 # ============================================
 # Global OPTS used by all implementations
@@ -65,12 +76,6 @@ ifeq ($(DEBUG), false)
 else
 	OPTS += -O0 -g
 endif
-
-OPTS += \
-	-fno-stack-protector \
-	-fno-asynchronous-unwind-tables \
-	-fno-verbose-asm -fno-rtti -fno-pic -fpie \
-	-fno-vectorize -fno-slp-vectorize
 
 # ============================================
 # Global LIBS used by all implementations
@@ -111,9 +116,12 @@ FLAGS_BASELINE += $(FLAGS)
 OPTS_BASELINE += $(OPTS)
 LIBS_BASELINE += $(LIBS)
 
-baseline: main.cpp bench.cpp
-	make preprocess
-	$(CXX) $(MACROS_BASELINE) $(FLAGS_BASELINE) $(OPTS_BASELINE) $^ -o $@ $(LIBS_BASELINE)
+%_baseline.bc: %.cpp
+	$(CXX) $(MACROS_BASELINE) $(FLAGS_BASELINE) -c $< -o $@
+
+baseline: main_baseline.bc bench_baseline.bc
+	llvm-link $^ -o $@.bc
+	$(CXX) $(OPTS_BASELINE) $@.bc -o $@ $(LIBS_BASELINE)
 	make postprocess
 
 run_baseline: baseline
@@ -202,9 +210,12 @@ ifeq ($(OMP_NESTED_SCHEDULING), true)
 	FLAGS_OPENMP += -DOMP_NESTED_SCHEDULING
 endif
 
-openmp: main.cpp bench.cpp
-	make preprocess
-	$(CXX) $(MACROS_OPENMP) $(FLAGS_OPENMP) $(OPTS_OPENMP) $^ -o $@ $(LIBS_OPENMP)
+%_openmp.bc: %.cpp
+	$(CXX) $(MACROS_OPENMP) $(FLAGS_OPENMP) -c $< -o $@
+
+openmp: main_openmp.bc bench_openmp.bc
+	llvm-link $^ -o $@.bc
+	$(CXX) $(OPTS_OPENMP) $@.bc -o $@ $(LIBS_OPENMP)
 	make postprocess
 
 run_openmp: openmp

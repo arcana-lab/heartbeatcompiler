@@ -1,9 +1,4 @@
 MACROS_HEARTBEAT_COMPILER += -DUSE_HB_COMPILER $(MACROS_HEARTBEAT)
-FRONTEND_FLAGS_HEARTBEAT_COMPILER = \
-	-O1 -emit-llvm \
-	-Xclang -disable-llvm-passes \
-	-Xclang -no-opaque-pointers \
-	-Xclang -ffp-contract=off
 FLAGS_HEARTBEAT_COMPILER += $(FLAGS_HEARTBEAT)
 OPTS_HEARTBEAT_COMPILER += $(OPTS_HEARTBEAT)
 LIBS_HEARTBEAT_COMPILER += $(LIBS_HEARTBEAT)
@@ -11,13 +6,13 @@ LIBS_HEARTBEAT_COMPILER += $(LIBS_HEARTBEAT)
 # ============================================
 # Heartbeat Compiler
 # ============================================
-main.bc: main.cpp
-	$(CXX) $(MACROS_HEARTBEAT_COMPILER) $(FRONTEND_FLAGS_HEARTBEAT_COMPILER) $(FLAGS_HEARTBEAT_COMPILER) -c $^ -o $@
+%_hbc.bc: %.cpp
+	$(CXX) $(MACROS_HEARTBEAT_COMPILER) $(FLAGS_HEARTBEAT_COMPILER) -c $< -o $@
 
-main_normalized.bc: main.bc
+heartbeat_compiler_normalized.bc: main_hbc.bc
 	noelle-norm $^ -o $@
 
-heartbeat_compiler.bc: main_normalized.bc
+heartbeat_compiler.bc: heartbeat_compiler_normalized.bc
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	make rf_test.bc
 	llvm-link rf_test.bc $< -o $<
@@ -26,13 +21,13 @@ endif
 
 hbc: heartbeat_compiler
 hb_compiler: heartbeat_compiler
-heartbeat_compiler: heartbeat_compiler.bc bench.cpp loop_handler.cpp
-	make preprocess
+heartbeat_compiler: heartbeat_compiler.bc bench_hbc.bc loop_handler_hbc.bc
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	make heartbeat_compiler_rf
 	cp heartbeat_compiler_rf $@
 else
-	$(CXX) $(MACROS_HEARTBEAT_COMPILER) $(FLAGS_HEARTBEAT_COMPILER) $(OPTS_HEARTBEAT_COMPILER) $^ -o $@ $(LIBS_HEARTBEAT_COMPILER)
+	llvm-link $^ -o $@.bc
+	$(CXX) $(OPTS_HEARTBEAT_COMPILER) $@.bc -o $@ $(LIBS_HEARTBEAT_COMPILER)
 endif
 	make postprocess
 
@@ -63,7 +58,7 @@ rf_test.bc: rf_test.cpp
 	$(CXX) -O3 -emit-llvm -Xclang -no-opaque-pointers -c $< -o $@
 
 heartbeat_compiler.s: heartbeat_compiler.bc
-	$(CXX) $(MACROS_HEARTBEAT_COMPILER) $(FLAGS_HEARTBEAT_COMPILER) $(OPTS_HEARTBEAT_COMPILER) $< -S -o $@
+	$(CXX) $(OPTS_HEARTBEAT_COMPILER) $< -S -o $@
 
 heartbeat_compiler.rf.s: heartbeat_compiler.s
 	ROLLFORWARD_PATH=$(ROLLFORWARD_PATH) $(ROLLFORWARD_COMPILER) $< $@
@@ -78,5 +73,5 @@ heartbeat_compiler.rf.ld.o: heartbeat_compiler.rf.o
 rollforward_compiler.o: $(ROLLFORWARD_INCLUDE)/rollforward.c
 	$(CXX) $< -c -o $@
 
-heartbeat_compiler_rf: heartbeat_compiler.rf.ld.o rollforward_compiler.o loop_handler.cpp bench.cpp
-	$(CXX) $(MACROS_HEARTBEAT_COMPILER) $(FLAGS_HEARTBEAT_COMPILER) $(OPTS_HEARTBEAT_COMPILER) $^ -o $@ $(LIBS_HEARTBEAT_COMPILER)
+heartbeat_compiler_rf: heartbeat_compiler.rf.ld.o rollforward_compiler.o bench_hbm.bc loop_handler_hbm.bc
+	$(CXX) $(OPTS_HEARTBEAT_COMPILER) $^ -o $@ $(LIBS_HEARTBEAT_COMPILER)
