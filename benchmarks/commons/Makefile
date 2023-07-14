@@ -74,7 +74,8 @@ FLAGS += \
 ifeq ($(DEBUG), false)
 	OPTS += -O3 -march=native
 else
-	OPTS += -O0 -g
+	FLAGS += -g
+	OPTS += -O0
 endif
 
 # ============================================
