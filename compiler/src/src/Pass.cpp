@@ -179,16 +179,17 @@ bool Heartbeat::runOnModule (Module &M) {
 
         errs() << "updated loop_handler function in root loop\n" << *callInst << "\n";
       }
-
-      if (Enable_Rollforward) {
-        replaceWithRollforwardHandler(noelle);
-      }
     } else {  // disable heartbeat transformation
       // replace all branch to polling block with to the latch block of loop
       for (auto pair : this->loopToHeartbeatTransformation) {
         replaceBrToPollingBlockToLatchBlock(pair.second);
       }
     }
+
+    if (Enable_Rollforward) {
+      replaceWithRollforwardHandler(noelle);
+    }
+
   }
 
   errs() << this->outputPrefix << "Exit\n";
