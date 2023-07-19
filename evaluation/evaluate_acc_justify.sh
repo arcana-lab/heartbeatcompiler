@@ -90,23 +90,25 @@ fi
 # composed
 mkdir -p ${results}/composed ;
 
-if [ ${composed_baseline} = true ] ; then
-  clean ; make baseline ACC_JUSTIFY_COMPOSED=true &> /dev/null ;
-  run_input_and_collect baseline ${results}/composed/baseline composed ;
-fi
+if [ ${composed} = true ] ; then
+  if [ ${composed_baseline} = true ] ; then
+    clean ; make baseline ACC_JUSTIFY_COMPOSED=true &> /dev/null ;
+    run_input_and_collect baseline ${results}/composed/baseline composed ;
+  fi
 
-if [ ${composed_hbc} = true ] ; then
-  for chunksize in ${chunksizes[@]} ; do
-    clean ; make hbc ACC_JUSTIFY_COMPOSED=true CHUNKSIZE=${chunksize} &> /dev/null ;
-    run_input_and_collect hbc ${results}/composed/hbc/${chunksize} composed ;
-  done
-fi
+  if [ ${composed_hbc} = true ] ; then
+    for chunksize in ${chunksizes[@]} ; do
+      clean ; make hbc ACC_JUSTIFY_COMPOSED=true CHUNKSIZE=${chunksize} &> /dev/null ;
+      run_input_and_collect hbc ${results}/composed/hbc/${chunksize} composed ;
+    done
+  fi
 
-if [ ${composed_hbc_acc} = true ] ; then
-  for chunksize in ${chunksizes[@]} ; do
-    clean ; make hbc ACC_JUSTIFY_COMPOSED=true ACC=true CHUNKSIZE=${chunksize} &> /dev/null ;
-    run_input_and_collect hbc_acc ${results}/composed/hbc_acc/${chunksize} composed ;
-  done
+  if [ ${composed_hbc_acc} = true ] ; then
+    for chunksize in ${chunksizes[@]} ; do
+      clean ; make hbc ACC_JUSTIFY_COMPOSED=true ACC=true CHUNKSIZE=${chunksize} &> /dev/null ;
+      run_input_and_collect hbc_acc ${results}/composed/hbc_acc/${chunksize} composed ;
+    done
+  fi
 fi
 
 clean ;
