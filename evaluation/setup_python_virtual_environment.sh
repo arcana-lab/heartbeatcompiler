@@ -17,6 +17,9 @@ if ! test -d ${virtualEnvDir} ; then
 
     pip install matplotlib ;
     pip install numpy ;
+    pip install pandas ;
+    pip install plotly==5.15.0 ;
+    pip install -U kaleido ;
 
 else
   source ${virtualEnvDir}/bin/activate ;
