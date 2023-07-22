@@ -38,12 +38,14 @@ Instruction * HeartbeatLoopEnvironmentUser::createSingleEnvironmentVariablePoint
 }
 
 void HeartbeatLoopEnvironmentUser::createReducableEnvPtr(IRBuilder<> &builder, uint32_t envID, Type *type, uint32_t reducerCount, Value *reducerIndV) {
-  if (!this->reducibleEnvArray) {
+  if (this->reducibleEnvIDToIndex.size() > 1 && !this->reducibleEnvArray) {
     errs() << "A reference to the environment array has not been set for this user!\n";
     abort();
   }
 
-  errs() << "reducible environment array (array that stores the reduction array for all live-outs): " << *reducibleEnvArray << "\n";
+  if (this->reducibleEnvIDToIndex.size() > 1) {
+    errs() << "reducible environment array (array that stores the reduction array for all live-outs): " << *reducibleEnvArray << "\n";
+  }
 
   assert(this->reducibleEnvIDToIndex.find(envID) != this->reducibleEnvIDToIndex.end() && "The reducible environment variable is not included in the user\n");
   auto envIndex = this->reducibleEnvIDToIndex[envID];
@@ -53,23 +55,38 @@ void HeartbeatLoopEnvironmentUser::createReducableEnvPtr(IRBuilder<> &builder, u
   auto int64 = IntegerType::get(builder.getContext(), 64);
   auto zeroV = cast<Value>(ConstantInt::get(int64, 0));
   auto envIndV = cast<Value>(ConstantInt::get(int64, envIndex * valuesInCacheLine));
-  auto envReduceGEP = builder.CreateInBoundsGEP(
-    this->reducibleEnvArray->getType()->getPointerElementType(),
-    this->reducibleEnvArray,
-    ArrayRef<Value *>({ zeroV, envIndV }),
-    std::string("reductionArrayLiveOut_").append(std::to_string(envIndex)).append("_addr")
-  );
+  Value *envReduceGEP;
+  if (this->reducibleEnvIDToIndex.size() > 1) {
+    // we have at least 2 live-outs, loaded from the reducible env array
+    envReduceGEP = builder.CreateInBoundsGEP(
+      this->reducibleEnvArray->getType()->getPointerElementType(),
+      this->reducibleEnvArray,
+      ArrayRef<Value *>({ zeroV, envIndV }),
+      std::string("reductionArrayLiveOut_").append(std::to_string(envIndex)).append("_addr")
+    );
+  } else {
+    // load from the context array directly
+    envReduceGEP = this->getLiveOutEnvBitcastInst();
+  }
 
   auto envReducePtr = builder.CreateBitCast(
     envReduceGEP,
     PointerType::getUnqual(PointerType::getUnqual(ArrayType::get(type, reducerCount * valuesInCacheLine))),
     std::string("reductionArrayLiveOut_").append(std::to_string(envIndex)).append("_addr_correctly_casted")
   );
+  if (this->reducibleEnvIDToIndex.size() == 1) {
+    // 1 live-out, cache this location so reduction array for next live-out can store to this location directly
+    this->locationToStoreReductionArray = envReducePtr;
+  }
   auto reducibleArrayPtr = builder.CreateLoad(
     envReducePtr->getType()->getPointerElementType(),
     envReducePtr,
     std::string("reductionArrayLiveOut_").append(std::to_string(envIndex))
   );
+  if (this->reducibleEnvIDToIndex.size() == 1) {
+    // 1 live-out, cache this reduction array so we can restore it directly
+    this->reductionArrayForSingleLiveOut = reducibleArrayPtr;
+  }
 
   auto reduceIndAlignedV = builder.CreateMul(
     reducerIndV,

@@ -578,7 +578,7 @@ bool HeartbeatTransformation::apply (
         envUser->getEnvPtr(liveOutEnvID)
       );
     }
-    errs() << "task after doing reduction: " << *(hbTask->getTaskBody()) << "\n";
+    errs() << "task after doing reduction\n" << *(hbTask->getTaskBody()) << "\n";
   }
 
   // Fix the return code to use rc - 1
@@ -703,20 +703,26 @@ void HeartbeatTransformation::initializeLoopEnvironmentUsers() {
         }),
         "liveOutEnv_addr"
       );
-      auto liveOutEnvBitcastInst = entryBuilder.CreateBitCast(
-        cast<Value>(liveOutEnvPtrGEPInst),
-        PointerType::getUnqual(PointerType::getUnqual(envBuilder->getReducibleEnvironmentArrayType())),
-        "liveOutEnv_addr_correctly_casted"
-      );
-      // save this liveOutEnvBitcastInst as it will be used later by the envBuilder to
-      // set the liveOutEnv for kids
-      envUser->setLiveOutEnvBitcastInst(liveOutEnvBitcastInst);
-      auto liveOutEnvLoadInst = entryBuilder.CreateLoad(
-        PointerType::getUnqual(envBuilder->getReducibleEnvironmentArrayType()),
-        (Value *)liveOutEnvBitcastInst,
-        "liveOutEnv"
-      );
-      envUser->setReducibleEnvironmentArray(liveOutEnvLoadInst);
+      if (envBuilder->getReducibleEnvironmentSize() == 1) {
+        // the address to the live-out environment in the context array will be used
+        // to store the reduction array
+        envUser->setLiveOutEnvAddress(liveOutEnvPtrGEPInst);
+      } else {
+        auto liveOutEnvBitcastInst = entryBuilder.CreateBitCast(
+          cast<Value>(liveOutEnvPtrGEPInst),
+          PointerType::getUnqual(PointerType::getUnqual(envBuilder->getReducibleEnvironmentArrayType())),
+          "liveOutEnv_addr_correctly_casted"
+        );
+        // save this liveOutEnvBitcastInst as it will be used later by the envBuilder to
+        // set the liveOutEnv for kids
+        envUser->setLiveOutEnvAddress(liveOutEnvBitcastInst);
+        auto liveOutEnvLoadInst = entryBuilder.CreateLoad(
+          PointerType::getUnqual(envBuilder->getReducibleEnvironmentArrayType()),
+          (Value *)liveOutEnvBitcastInst,
+          "liveOutEnv"
+        );
+        envUser->setReducibleEnvironmentArray(liveOutEnvLoadInst);
+      }
     }
 
     // // Don't load from the environment pointer if the size is
@@ -1185,7 +1191,12 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   if (((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentSize() > 0) {
     errs() << "we have live-out environments" << "\n";
     // auto liveOutEnvCasted = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArrayPointer();
-    auto liveOutEnv = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArray();
+    Value *liveOutEnv;
+    if (((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentSize() > 1) {
+      liveOutEnv = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArray();
+    } else {
+      liveOutEnv = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getOnlyReductionArray();
+    }
     auto gepInst = builder.CreateInBoundsGEP(
       this->contextArrayAlloca->getType()->getPointerElementType(),
       this->contextArrayAlloca,
@@ -1518,7 +1529,12 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
   if (((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentSize() > 0) {
     errs() << "we have live-out environments" << "\n";
     // auto liveOutEnvCasted = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArrayPointer();
-    auto liveOutEnv = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArray();
+    Value *liveOutEnv;
+    if (((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentSize() > 1) {
+      liveOutEnv = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getReducibleEnvironmentArray();
+    } else {
+      liveOutEnv = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getOnlyReductionArray();
+    }
     auto gepInst = builder.CreateInBoundsGEP(
       this->loopToHeartbeatTransformation[callerLoop]->getContextBitCastInst()->getType()->getPointerElementType(),
       this->loopToHeartbeatTransformation[callerLoop]->getContextBitCastInst(),
