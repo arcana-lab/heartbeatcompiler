@@ -123,7 +123,17 @@ bool HeartbeatTransformation::apply (
   auto shouldThisVariableBeSkipped = [&](uint32_t variableID, bool isLiveOut) -> bool {
     // if a variable is a skipped live-in, then skip it here
     if (this->loopToSkippedLiveIns[this->ldi].find(loopEnvironment->getProducer(variableID)) != this->loopToSkippedLiveIns[this->ldi].end()) {
-      errs() << "skip " << *(loopEnvironment->getProducer(variableID)) << " of id " << variableID << "\n";
+      errs() << "skip " << *(loopEnvironment->getProducer(variableID)) << " of id " << variableID << " because of the skipped liveIns\n";
+      return true;
+    }
+    // if a variable is passed as a parameter to a callee and used only as initial/exit condition of the loop, then skip it here
+    auto producer = loopEnvironment->getProducer(variableID);
+    auto GIV_attr = loop->getLoopGoverningIVAttribution();
+    auto& GIV = GIV_attr->getInductionVariable();
+    auto startValue = GIV.getStartValue();
+    auto exitValue = GIV_attr->getExitConditionValue();
+    if (producer->getNumUses() == 1 && (producer == startValue || producer == exitValue)) {
+      errs() << "skip " << *(loopEnvironment->getProducer(variableID)) << " of id " << variableID << " because of initial/exit condition of the callee loop\n";
       return true;
     }
     return false;
