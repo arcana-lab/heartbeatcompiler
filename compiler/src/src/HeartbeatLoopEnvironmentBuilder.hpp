@@ -103,6 +103,10 @@ public:
     return this->envIndexToVar[this->getIndexOLiveIn(id)];
   }
 
+  inline Value *getOnlyReductionArray() {
+    return this->onlyReductionArray;
+  }
+
 private:
   void initializeBuilder(const std::vector<Type *> &varTypes,
                          const std::set<uint32_t> &singleVarIDs,
@@ -132,4 +136,7 @@ private:
   uint64_t valuesInCacheLine;
   ArrayType *contextArrayType;
   std::set<uint32_t> constantVars;
+
+  // These two fields are used only when there's 1 live-out variable
+  Value *onlyReductionArray;
 };

@@ -165,7 +165,8 @@ bool HeartbeatLoopEnvironmentBuilder::hasVariableBeenReduced(uint32_t id) const 
 }
 
 void HeartbeatLoopEnvironmentBuilder::allocateNextLevelReducibleEnvironmentArray(IRBuilder<> &builder) {
-  if (this->getReducibleEnvironmentSize() > 0) {
+  // only allocate the live-out environment for next level only if we have at least 2 live-outs
+  if (this->getReducibleEnvironmentSize() > 1) {
     auto int8 = IntegerType::get(builder.getContext(), 8);
     auto int8_ptr = PointerType::getUnqual(int8);
     this->reducibleEnvArrayNextLevel = builder.CreateAlloca(
@@ -180,7 +181,6 @@ void HeartbeatLoopEnvironmentBuilder::allocateNextLevelReducibleEnvironmentArray
       this->reducibleEnvArrayNextLevel,
       envUser->getLiveOutEnvBitcastInst()
     );
-    // this->reducibleEnvArrayInt8PtrNextLevel = cast<Value>(builder.CreateBitCast(this->reducibleEnvArrayNextLevel, int8_ptr));
   }
   
   return;
@@ -191,7 +191,7 @@ void HeartbeatLoopEnvironmentBuilder::generateNextLevelReducibleEnvironmentVaria
     return;
   }
 
-  if (!this->reducibleEnvArrayNextLevel) {
+  if (this->getReducibleEnvironmentSize() > 1 && !this->reducibleEnvArrayNextLevel) {
     errs() << "The next level environment array for task has not been generated\n";
     abort();
   }
@@ -226,7 +226,14 @@ void HeartbeatLoopEnvironmentBuilder::generateNextLevelReducibleEnvironmentVaria
     this->envIndexToVectorOfReducableVarNextLevel[envIndex] = reduceArrAlloca;
 
     auto reduceArrPtrType = PointerType::getUnqual(reduceArrAlloca->getType());
-    auto envPtr = fetchCastedEnvPtr(this->reducibleEnvArrayNextLevel, envIndex, reduceArrPtrType);
+    Value *envPtr;
+    if (this->getReducibleEnvironmentSize() > 1) {
+      // >= 2 live-outs, store in the new live-out environment array
+      envPtr = fetchCastedEnvPtr(this->reducibleEnvArrayNextLevel, envIndex, reduceArrPtrType);
+    } else {
+      // 1 live-out, store in the context array
+      envPtr = ((HeartbeatLoopEnvironmentUser *)this->getUser(0))->getLocationToStoreReductionArray();
+    }
     builder.CreateStore(reduceArrAlloca, envPtr);
   }
 
@@ -372,7 +379,8 @@ void HeartbeatLoopEnvironmentBuilder::allocateSingleEnvironmentArray(IRBuilder<>
 }
 
 void HeartbeatLoopEnvironmentBuilder::allocateReducibleEnvironmentArray(IRBuilder<> &builder) {
-  if (this->getReducibleEnvironmentSize() > 0) {
+  // only allocate if we have at least 2 live-outs
+  if (this->getReducibleEnvironmentSize() > 1) {
     auto int8 = IntegerType::get(builder.getContext(), 8);
     auto ptrTy_int8 = PointerType::getUnqual(int8);
     this->reducibleEnvArray = builder.CreateAlloca(this->reducibleEnvArrayType, nullptr, "liveOutEnv");
@@ -433,7 +441,7 @@ void HeartbeatLoopEnvironmentBuilder::generateEnvVariables(IRBuilder<> &builder,
     this->envIndexToVar[envIndex] = fetchCastedEnvPtr(this->singleEnvArray, envIndex, ptrType);
   }
 
-  if (this->getReducibleEnvironmentSize() > 0 && !this->reducibleEnvArray) {
+  if (this->getReducibleEnvironmentSize() > 1 && !this->reducibleEnvArray) {
     errs() << "Reducible environment array has not been generated\n";
     abort();
   }
@@ -475,14 +483,21 @@ void HeartbeatLoopEnvironmentBuilder::generateEnvVariables(IRBuilder<> &builder,
                              std::string("reductionArrayLiveOut_").append(std::to_string(envIndex)));
     cast<AllocaInst>(reduceArrAlloca)->setAlignment(Align(64));
     this->envIndexToVectorOfReducableVar[envIndex] = reduceArrAlloca;
+    if (reducableIndices.size() == 1) {
+      // cache the reduction array type if we only have 1 live-out
+      this->onlyReductionArray = reduceArrAlloca;
+    }
 
-    /*
-     * Store the pointer of the vector of the reducable variable inside the
-     * environment.
-     */
-    auto reduceArrPtrType = PointerType::getUnqual(reduceArrAlloca->getType());
-    auto envPtr = fetchCastedEnvPtr(this->reducibleEnvArray, envIndex, reduceArrPtrType);
-    builder.CreateStore(reduceArrAlloca, envPtr);
+    // only store to live-out env if we have at least 2 live-outs
+    if (reducableIndices.size() > 1) {
+      /*
+      * Store the pointer of the vector of the reducable variable inside the
+      * environment.
+      */
+      auto reduceArrPtrType = PointerType::getUnqual(reduceArrAlloca->getType());
+      auto envPtr = fetchCastedEnvPtr(this->reducibleEnvArray, envIndex, reduceArrPtrType);
+      builder.CreateStore(reduceArrAlloca, envPtr);
+    }
 
     /*
      * Compute and cache the pointer of each element of the vectorized variable.
