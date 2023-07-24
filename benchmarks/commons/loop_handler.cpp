@@ -74,6 +74,8 @@ void printGIS(uint64_t *cxts, uint64_t startLevel, uint64_t maxLevel, std::strin
 
 #if defined(ENABLE_SOFTWARE_POLLING)
 
+thread_local uint64_t timestamp = 0;
+
 bool heartbeat_polling(task_memory_t *tmem) {
 #if defined(STATS) || defined(POLLS_STATS) || defined(NUM_POLLS_STATS)
   polls++;
@@ -85,7 +87,7 @@ bool heartbeat_polling(task_memory_t *tmem) {
    */
   tmem->polling_count++;
 #endif
-  if ((taskparts::prev.mine() + taskparts::kappa_cycles) > taskparts::cycles::now()) {
+  if ((timestamp + taskparts::kappa_cycles) > taskparts::cycles::now()) {
     return false;
   }
   return true;
@@ -96,20 +98,17 @@ bool heartbeat_polling(task_memory_t *tmem) {
  * Memorization information tracked by the runtime worker thread and
  * accessed and analyzed by the runtime functions
  */
-struct runtime_memory_t {
-  uint64_t heartbeat_count;
-  uint64_t minimal_polling_count;
-  uint64_t chunksize;
+thread_local uint64_t heartbeat_count = 0;
+thread_local uint64_t minimal_polling_count = INT64_MAX;
+thread_local uint64_t chunksize = CHUNKSIZE;
 #if defined(ACC_EVAL)
-  uint64_t minimal_polling_count_last_window;
-  uint64_t success_count;
+thread_local uint64_t minimal_polling_count_last_window = 0;
+thread_local uint64_t success_count = 0;
 #endif
-};
 
-taskparts::perworker::array<runtime_memory_t> rtmem;
-static uint64_t sliding_window_size = 5;
-static uint64_t target_polling_ratio = 2;
-static double aggressiveness = 1.0;
+thread_local uint64_t sliding_window_size = 5;
+thread_local uint64_t target_polling_ratio = 2;
+thread_local double aggressiveness = 1.0;
 #if defined(ACC_SPMV_STATS)
 typedef struct {
   uint64_t startIter;
@@ -121,20 +120,11 @@ static uint64_t ass_max = 1000;
 #endif
 
 void runtime_memory_reset() {
-  for (size_t i = 0; i < taskparts::perworker::nb_workers(); i++) {
-    rtmem[i].heartbeat_count = 0;
-    rtmem[i].minimal_polling_count = INT64_MAX;
-    rtmem[i].chunksize = CHUNKSIZE;
-#if defined(ACC_EVAL)
-    rtmem[i].minimal_polling_count_last_window = 0;
-    uint64_t success_count = 0;
-#endif
 #if defined(ACC_SPMV_STATS)
-    ass_stats = (ass_t *)malloc(ass_max * sizeof(ass_t));
-    ass_stats[0].startIter = 0;
-    ass_stats[0].chunksize = CHUNKSIZE;
+  ass_stats = (ass_t *)malloc(ass_max * sizeof(ass_t));
+  ass_stats[0].startIter = 0;
+  ass_stats[0].chunksize = CHUNKSIZE;
 #endif
-  }
 
   if (const char *s = std::getenv("SLIDING_WINDOW_SIZE")) {
     sliding_window_size = std::atoll(s);
@@ -156,42 +146,42 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
   /*
    * Increase the heartbeat count for this thread
    */
-  rtmem.mine().heartbeat_count++;
+  heartbeat_count++;
 
   /*
    * Update the minimal polling count for this window,
    */
-  if (tmem->polling_count < rtmem.mine().minimal_polling_count) {
-    rtmem.mine().minimal_polling_count = tmem->polling_count;
+  if (tmem->polling_count < minimal_polling_count) {
+    minimal_polling_count = tmem->polling_count;
   }
 
 #if defined(ACC_DEBUG)
   printf("runtime_memory_update: ");
-  printf("heartbeat_count = %ld, ", rtmem.mine().heartbeat_count);
+  printf("heartbeat_count = %ld, ", heartbeat_count);
   printf("polling_count = %ld, ", tmem->polling_count);
-  printf("minimal_polling_count = %ld, ", rtmem.mine().minimal_polling_count);
-  printf("chunksize = %ld\n", rtmem.mine().chunksize);
+  printf("minimal_polling_count = %ld, ", minimal_polling_count);
+  printf("chunksize = %ld\n", chunksize);
 #endif
 
 #if defined(ACC_EVAL)
-  if (rtmem.mine().minimal_polling_count_last_window <= rtmem.mine().minimal_polling_count) {
-    rtmem.mine().success_count++;
+  if (minimal_polling_count_last_window <= minimal_polling_count) {
+    success_count++;
   }
 #endif
 
   /*
    * Do adaptive chunksize control once finishes a window
    */
-  if (rtmem.mine().heartbeat_count % sliding_window_size == 0) {
+  if (heartbeat_count % sliding_window_size == 0) {
     /*
      * Adaptive chunksize control algorithm
      */
-    double u_t = (double)rtmem.mine().minimal_polling_count / (double)target_polling_ratio * aggressiveness;
-    double new_chunksize = u_t * rtmem.mine().chunksize;
+    double u_t = (double)minimal_polling_count / (double)target_polling_ratio * aggressiveness;
+    double new_chunksize = u_t * chunksize;
 #if defined(ACC_DEBUG)
     printf("\tapplying adpative chunksize control:\n");
     printf("\t\tu = %.2f\n", u_t);
-    printf("\t\told chunksize = %ld\n", (uint64_t)rtmem.mine().chunksize);
+    printf("\t\told chunksize = %ld\n", (uint64_t)chunksize);
     printf("\t\tnew chunksize = %ld\n", (uint64_t)new_chunksize);
 #endif
     /*
@@ -199,16 +189,16 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
      * task run by this thread can inherit the new chunksize setting
      */
 #if !defined(ACC_EVAL)
-    rtmem.mine().chunksize = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize : 1;
+    chunksize = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize : 1;
 #else
-    rtmem.mine().minimal_polling_count_last_window = (uint64_t)((double)rtmem.mine().minimal_polling_count / aggressiveness);
-    printf("%.2f\n", (double)rtmem.mine().success_count / (double)rtmem.mine().heartbeat_count * 100);
+    minimal_polling_count_last_window = (uint64_t)((double)minimal_polling_count / aggressiveness);
+    printf("%.2f\n", (double)success_count / (double)heartbeat_count * 100);
 #endif
 
     /*
      * Reset minimal polling count
      */
-    rtmem.mine().minimal_polling_count = INT64_MAX;
+    minimal_polling_count = INT64_MAX;
   }
 
   return;
@@ -217,7 +207,7 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
 #if defined(ACC_SPMV_STATS)
 void ass_record(uint64_t startIter) {
   ass_stats[ass_begin].startIter = startIter;
-  ass_stats[ass_begin].chunksize = rtmem.mine().chunksize;
+  ass_stats[ass_begin].chunksize = chunksize;
   ass_begin++;
   assert(ass_begin < ass_max);
 }
@@ -246,7 +236,7 @@ void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
   /*
    * Use the chunksize tracked by the runtime thread
    */
-  tmem->chunksize = rtmem.mine().chunksize;
+  tmem->chunksize = chunksize;
   tmem->remaining_chunksize = tmem->chunksize;
 #elif defined(CHUNK_LOOP_ITERATIONS) && !defined(ADAPTIVE_CHUNKSIZE_CONTROL)
   /*
@@ -258,7 +248,7 @@ void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
   /*
    * Reset heartbeat timer if using software polling
    */
-  taskparts::prev.mine() = taskparts::cycles::now();
+  timestamp = taskparts::cycles::now();
 #else // ENABLE_ROLLFORWARD
 #if defined(CHUNK_LOOP_ITERATIONS)
   /*
