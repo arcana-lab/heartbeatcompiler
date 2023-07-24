@@ -18,7 +18,7 @@ extern "C" {
 #define LIVE_IN_ENV 2
 #define LIVE_OUT_ENV 3
 
-#if defined(STATS) || defined(POLLS_STATS)
+#if defined(STATS) || defined(POLLS_STATS) || defined(NUM_POLLS_STATS)
 static uint64_t polls = 0;
 #if defined(STATS)
 static uint64_t heartbeats = 0;
@@ -55,7 +55,9 @@ void run_bench(std::function<void()> const &bench_body,
   printf("heartbeats: %ld\n", heartbeats);
   printf("splits: %ld\n", splits);
 #endif
-
+#if defined(NUM_POLLS_STATS)
+  printf("polls: %ld\n", polls);
+#endif
 #if defined(PROMO_STATS)
   for (auto i = 0; i < maxLevel; i++) {
     printf("%d\t%lu\n", i, levelCountMap[i]);
@@ -73,7 +75,7 @@ void printGIS(uint64_t *cxts, uint64_t startLevel, uint64_t maxLevel, std::strin
 #if defined(ENABLE_SOFTWARE_POLLING)
 
 bool heartbeat_polling(task_memory_t *tmem) {
-#if defined(STATS) || defined(POLLS_STATS)
+#if defined(STATS) || defined(POLLS_STATS) || defined(NUM_POLLS_STATS)
   polls++;
 #endif
 
@@ -158,11 +160,9 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
 
   /*
    * Update the minimal polling count for this window,
-   * as well as the chunksize used for this new polling count
    */
   if (tmem->polling_count < rtmem.mine().minimal_polling_count) {
     rtmem.mine().minimal_polling_count = tmem->polling_count;
-    rtmem.mine().chunksize = tmem->chunksize;
   }
 
 #if defined(ACC_DEBUG)
@@ -318,6 +318,12 @@ int64_t loop_handler(
 #if defined(POLLS_STATS)
   printf("%ld\n", polls-prev_polls);
   prev_polls = polls;
+#endif
+#if defined(OVERHEAD_ANALYSIS)
+#if defined(ENABLE_SOFTWARE_POLLING) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+  runtime_memory_update(tmem, cxts, numLevels);
+#endif
+  task_memory_reset(tmem, 0);
 #endif
 #if defined(DISABLE_PROMOTION)
   return 0;

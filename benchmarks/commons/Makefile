@@ -311,12 +311,20 @@ ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 	endif
 endif
 
-# whether to print polling stats
-POLLS_STATS ?= false
+POLLS_STATS ?= false			# whether to print polling stats between beats
+NUM_POLLS_STATS ?= false 	# whether to print total polling stats
 ifeq ($(ENABLE_ROLLFORWARD), false)
 	ifeq ($(POLLS_STATS), true)
 		MACROS += -DPOLLS_STATS
 	endif
+	ifeq ($(NUM_POLLS_STATS), true)
+		MACROS += -DNUM_POLLS_STATS
+	endif
+endif
+
+OVERHEAD_ANALYSIS ?= false
+ifeq ($(OVERHEAD_ANALYSIS), true)
+	MACROS += -DOVERHEAD_ANALYSIS
 endif
 
 # include benchmark heartbeat specific settings
