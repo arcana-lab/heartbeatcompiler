@@ -18,7 +18,8 @@ sp_baseline=true          # overhead of outlining using software polling
 sp_environment=true       # overhead of preparing environment using software polling
 sp_no_chunking=true       # overhead of polling without loop chunking
 sp_static_chunking=true   # overhead of polling with loop chunking
-sp_scheduling=true        # overhead of scheduling with loop chunking
+sp_aca=true               # overhead of polling with adaptive chunksize adjustment
+sp_scheduling=true        # overhead of scheduling based upon adaptive chunksize adjustment
 
 rf_baseline=true          # overhead of outlining using rollforwarding
 rf_environment=true       # overhead of preparing environment using rollforwarding
@@ -93,19 +94,25 @@ for benchmark in ${benchmarks[@]} ; do
 
     # sp_no_chunking
     if [ ${sp_no_chunking} = true ] ; then
-      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=true ENABLE_HEARTBEAT=true ENABLE_PROMOTION=false CHUNK_LOOP_ITERATIONS=false &> /dev/null ;
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=true ENABLE_HEARTBEAT=true ENABLE_PROMOTION=false CHUNK_LOOP_ITERATIONS=false OVERHEAD_ANALYSIS=true &> /dev/null ;
       run_and_collect hbc ${results}/sp_no_chunking ;
     fi
 
     # sp_static_chunking
     if [ ${sp_static_chunking} = true ] ; then
-      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=true ENABLE_HEARTBEAT=true ENABLE_PROMOTION=false CHUNK_LOOP_ITERATIONS=true &> /dev/null ;
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=true ENABLE_HEARTBEAT=true ENABLE_PROMOTION=false CHUNK_LOOP_ITERATIONS=true OVERHEAD_ANALYSIS=true &> /dev/null ;
       run_and_collect hbc ${results}/sp_static_chunking ;
+    fi
+
+    # sp_aca
+    if [ ${sp_aca} = true ] ; then
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=true ENABLE_HEARTBEAT=true ENABLE_PROMOTION=false CHUNK_LOOP_ITERATIONS=true OVERHEAD_ANALYSIS=true ACC=true CHUNKSIZE=1 &> /dev/null ;
+      run_and_collect hbc ${results}/sp_aca ;
     fi
 
     # sp_scheduling
     if [ ${sp_scheduling} = true ] ; then
-      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=true ENABLE_HEARTBEAT=true ENABLE_PROMOTION=true CHUNK_LOOP_ITERATIONS=true &> /dev/null ;
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=true ENABLE_HEARTBEAT=true ENABLE_PROMOTION=true CHUNK_LOOP_ITERATIONS=true ACC=true CHUNKSIZE=1 &> /dev/null ;
       run_and_collect hbc ${results}/sp_scheduling ;
     fi
 
