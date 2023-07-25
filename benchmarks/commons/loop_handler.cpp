@@ -261,6 +261,7 @@ void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
 }
 
 void heartbeat_start(task_memory_t *tmem) {
+#if defined(ENABLE_HEARTBEAT)
 #if defined(ENABLE_SOFTWARE_POLLING) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
   runtime_memory_reset();
 #endif
@@ -270,6 +271,7 @@ void heartbeat_start(task_memory_t *tmem) {
   }
 #endif
   task_memory_reset(tmem, 0);
+#endif
 }
 
 #if defined(CHUNK_LOOP_ITERATIONS)
@@ -281,14 +283,14 @@ bool has_remaining_chunksize(task_memory_t *tmem) {
   return tmem->remaining_chunksize < tmem->chunksize;
 }
 
-uint64_t update_remaining_chunksize(task_memory_t *tmem, uint64_t iterations, uint64_t chunksize) {
-  if (iterations == chunksize) {
+void update_remaining_chunksize(task_memory_t *tmem, uint64_t iterations) {
+  if (iterations == tmem->remaining_chunksize) {
     tmem->remaining_chunksize = tmem->chunksize;
-    chunksize = tmem->chunksize;
+    tmem->has_remaining_chunksize = false;
   } else {
     tmem->remaining_chunksize -= iterations;
+    tmem->has_remaining_chunksize = true;
   }
-  return chunksize;
 }
 #endif
 

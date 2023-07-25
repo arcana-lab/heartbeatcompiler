@@ -298,8 +298,9 @@ int64_t HEARTBEAT_nest0_loop2_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
 
   int64_t rc = 0;
 #if defined(CHUNK_LOOP_ITERATIONS)
-  uint64_t chunksize = get_chunksize(tmem);
+  uint64_t chunksize;
   for (; startIter < maxIter; startIter += chunksize) {
+    chunksize = get_chunksize(tmem);
     uint64_t low = startIter;
     uint64_t high = maxIter < startIter + chunksize ? maxIter : startIter + chunksize;
     for (; low < high; low++) {
@@ -322,7 +323,7 @@ int64_t HEARTBEAT_nest0_loop2_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
     }
 
 #if defined(ENABLE_HEARTBEAT)
-    chunksize = update_remaining_chunksize(tmem, high - startIter, chunksize);
+    update_remaining_chunksize(tmem, high - startIter);
     if (has_remaining_chunksize(tmem)) {
       break;
     }
