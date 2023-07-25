@@ -13,15 +13,25 @@ mkdir -p ${ROOT_DIR}/evaluation/results/${experiment} ;
 ########################################################
 # experiment sections
 baseline=true
-hbc=true                    # overhead of context setup
-hbc_sp_no_chunking=true     # overhead of software polling without chunking
-hbc_sp_static_chunking=true # overhead of software polling using static chunksize
-hbc_rf=true                 # overhead of rollforward with interrupt ping thread
-hbc_rf_kmod=true            # overhead of rollforward with kernel module
-hbc_sp_scheduling=true      # overhead of scheduling overhead, using default static chunking
+
+sp_baseline=true          # overhead of outlining using software polling
+sp_environment=true       # overhead of preparing environment using software polling
+sp_no_chunking=true       # overhead of polling without loop chunking
+sp_static_chunking=true   # overhead of polling with loop chunking
+sp_scheduling=true        # overhead of scheduling with loop chunking
+
+rf_baseline=true          # overhead of outlining using rollforwarding
+rf_environment=true       # overhead of preparing environment using rollforwarding
+rf_cost=true              # overhead of rollforwarding
+rf_scheduling=true        # overhead of shceduling using rollforwarding
+
+rf_kmod_baseline=true     # overhead of outlining using rollforwarding via kernel module
+rf_kmod_environment=true  # overhead of preparing environment using rollforwarding via kernel module
+rf_kmod_cost=true         # overhead of rollforwarding via kernel module
+rf_kmod_scheduling=true   # overhead of scheduling using rollforwarding via kernel module
 
 # benchmark targetted
-benchmarks=(mandelbrot spmv floyd_warshall plus_reduce_array srad)
+benchmarks=(plus_reduce_array mandelbrot spmv floyd_warshall srad)
 ########################################################
 
 function run_and_collect {
@@ -69,40 +79,82 @@ for benchmark in ${benchmarks[@]} ; do
       run_and_collect baseline ${results}/baseline ;
     fi
 
-    # hbc
-    if [ ${hbc} = true ] ; then
-      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ENABLE_HEARTBEAT=false &> /dev/null ;
-      run_and_collect hbc ${results}/hbc ;
+    # sp_baseline
+    if [ ${sp_baseline} = true ] ; then
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=false &> /dev/null ;
+      run_and_collect hbc ${results}/sp_baseline ;
     fi
 
-    # hbc_sp_no_chunking
-    if [ ${hbc_sp_no_chunking} = true ] ; then
-      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ENABLE_PROMOTION=false CHUNK_LOOP_ITERATIONS=false &> /dev/null ;
-      run_and_collect hbc ${results}/hbc_sp_no_chunking ;
+    # sp_environment
+    if [ ${sp_environment} = true ] ; then
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=true ENABLE_HEARTBEAT=false CHUNK_LOOP_ITERATIONS=false &> /dev/null ;
+      run_and_collect hbc ${results}/sp_environment ;
     fi
 
-    # hbc_sp_static_chunking
-    if [ ${hbc_sp_static_chunking} = true ] ; then
-      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ENABLE_PROMOTION=false &> /dev/null ;
-      run_and_collect hbc ${results}/hbc_sp_static_chunking ;
+    # sp_no_chunking
+    if [ ${sp_no_chunking} = true ] ; then
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=true ENABLE_HEARTBEAT=true ENABLE_PROMOTION=false CHUNK_LOOP_ITERATIONS=false &> /dev/null ;
+      run_and_collect hbc ${results}/sp_no_chunking ;
     fi
 
-    # hbc_rf
-    if [ ${hbc_rf} = true ] ; then
-      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ENABLE_PROMOTION=false ENABLE_ROLLFORWARD=true &> /dev/null ;
-      run_and_collect hbc ${results}/hbc_rf ;
+    # sp_static_chunking
+    if [ ${sp_static_chunking} = true ] ; then
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=true ENABLE_HEARTBEAT=true ENABLE_PROMOTION=false CHUNK_LOOP_ITERATIONS=true &> /dev/null ;
+      run_and_collect hbc ${results}/sp_static_chunking ;
     fi
 
-    # hbc_rf_kmod
-    if [ ${hbc_rf_kmod} = true ] ; then
-      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ENABLE_PROMOTION=false ENABLE_ROLLFORWARD=true USE_HB_KMOD=true &> /dev/null ;
-      run_and_collect hbc ${results}/hbc_rf_kmod ;
+    # sp_scheduling
+    if [ ${sp_scheduling} = true ] ; then
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=true ENABLE_HEARTBEAT=true ENABLE_PROMOTION=true CHUNK_LOOP_ITERATIONS=true &> /dev/null ;
+      run_and_collect hbc ${results}/sp_scheduling ;
     fi
 
-    # hbc_sp_scheduling
-    if [ ${hbc_sp_scheduling} = true ] ; then
-      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} &> /dev/null ;
-      run_and_collect hbc ${results}/hbc_sp_scheduling ;
+    # rf_baseline
+    if [ ${rf_baseline} = true ] ; then
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=false ENABLE_ROLLFORWARD=true &> /dev/null ;
+      run_and_collect hbc ${results}/rf_baseline ;
+    fi
+
+    # rf_environment
+    if [ ${rf_environment} = true ] ; then
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=true ENABLE_HEARTBEAT=false ENABLE_ROLLFORWARD=true CHUNK_LOOP_ITERATIONS=false &> /dev/null ;
+      run_and_collect hbc ${results}/rf_environment ;
+    fi
+
+    # rf_cost
+    if [ ${rf_cost} = true ] ; then
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=true ENABLE_HEARTBEAT=true ENABLE_PROMOTION=false ENABLE_ROLLFORWARD=true CHUNK_LOOP_ITERATIONS=false &> /dev/null ;
+      run_and_collect hbc ${results}/rf_cost ;
+    fi
+
+    # rf_scheduling
+    if [ ${rf_scheduling} = true ] ; then
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=true ENABLE_HEARTBEAT=true ENABLE_PROMOTION=true ENABLE_ROLLFORWARD=true CHUNK_LOOP_ITERATIONS=false &> /dev/null ;
+      run_and_collect hbc ${results}/rf_scheduling ;
+    fi
+
+    # rf_kmod_baseline
+    if [ ${rf_kmod_baseline} = true ] ; then
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=false ENABLE_ROLLFORWARD=true USE_HB_KMOD=true &> /dev/null ;
+      run_and_collect hbc ${results}/rf_kmod_baseline ;
+    fi
+
+    # rf_kmod_environment
+    if [ ${rf_kmod_environment} = true ] ; then
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=true ENABLE_HEARTBEAT=false ENABLE_ROLLFORWARD=true USE_HB_KMOD=true CHUNK_LOOP_ITERATIONS=false &> /dev/null ;
+      run_and_collect hbc ${results}/rf_kmod_environment ;
+    fi
+
+    # rf_kmod_cost
+    if [ ${rf_kmod_cost} = true ] ; then
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=true ENABLE_HEARTBEAT=true ENABLE_PROMOTION=false ENABLE_ROLLFORWARD=true USE_HB_KMOD=true CHUNK_LOOP_ITERATIONS=false &> /dev/null ;
+      run_and_collect hbc ${results}/rf_kmod_cost ;
+    fi
+
+    # rf_kmod_scheduling
+    if [ ${rf_kmod_scheduling} = true ] ; then
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} RUN_HEARTBEAT=true ENABLE_HEARTBEAT=true ENABLE_PROMOTION=true ENABLE_ROLLFORWARD=true USE_HB_KMOD=true CHUNK_LOOP_ITERATIONS=false &> /dev/null ;
+      run_and_collect hbc ${results}/rf_kmod_scheduling ;
     fi
 
     clean ;

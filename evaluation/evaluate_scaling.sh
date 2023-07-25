@@ -12,15 +12,15 @@ mkdir -p ${ROOT_DIR}/evaluation/results/${experiment};
 
 ########################################################
 # experiment sections
-baseline=false
-hbc_acc=false     # software polling + acc
-hbc_static=false  # software polling + static chunksize
-hbc_rf=false      # rollforward + interrupt ping thread
-hbc_rf_kmod=false # rollforward + kernel module
-openmp=false
+baseline=true
+hbc_acc=true     # software polling + acc
+hbc_static=true  # software polling + static chunksize
+hbc_rf=true      # rollforward + interrupt ping thread
+hbc_rf_kmod=true # rollforward + kernel module
+openmp=true
 
 # benchmark targetted
-benchmarks=(mandelbrot spmv)
+benchmarks=(mandelbrot spmv floyd_warshall plus_reduce_array srad mandelbulb cg)
 ########################################################
 
 function run_and_collect {
@@ -35,7 +35,7 @@ function run_and_collect {
     done
 
   elif [ ${technique} == "openmp" ] ; then
-    for i in `seq 1 ${num_rums}` ; do
+    for i in `seq 1 ${num_runs}` ; do
       WORKERS=${num_workers} \
       timeout ${timeout} make run_openmp >> ${output} ;
     done
@@ -63,7 +63,7 @@ make link &> /dev/null ;
 # run experiment per benchmark
 for benchmark in ${benchmarks[@]} ; do
   if [ ${benchmark} == spmv ] ; then
-    input_classes=(ARROWHEAD POWERLAW RANDOM)
+    input_classes=(ARROWHEAD POWERLAW RANDOM MATRIX_MARKET)
   else
     input_classes=(PLACE_HODLER_SO_OTHER_BENCHMARKS_CAN_RUN)
   fi
@@ -93,19 +93,19 @@ for benchmark in ${benchmarks[@]} ; do
 
     # hbc_static
     if [ ${hbc_static} = true ] ; then
-      clean ; make hbc INPUT_SIZE=${input_size} &> /dev/null ;
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} &> /dev/null ;
       run_and_collect hbc_static ${results}/hbc_static ;
     fi
 
     # hbc_rf
     if [ ${hbc_rf} = true ] ; then
-      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ENABLE_ROLLFORWARD=true &> /dev/null ;
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ENABLE_ROLLFORWARD=true CHUNK_LOOP_ITERATIONS=false &> /dev/null ;
       run_and_collect hbc_rf ${results}/hbc_rf ;
     fi
 
     # hbc_rf_kmod
     if [ ${hbc_rf_kmod} = true ] ; then
-      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ENABLE_ROLLFORWARD=true USE_HB_KMOD=true &> /dev/null ;
+      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ENABLE_ROLLFORWARD=true USE_HB_KMOD=true CHUNK_LOOP_ITERATIONS=false &> /dev/null ;
       run_and_collect hbc_rf_kmod ${results}/hbc_rf_kmod ;
     fi
 

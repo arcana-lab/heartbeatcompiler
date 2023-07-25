@@ -334,7 +334,7 @@ ifeq ($(ENABLE_ROLLFORWARD), true)
 			-DTASKPARTS_TPALRTS_HBTIMER_KMOD # required by the linux kernel module
 	endif
 else
-	MACROS_HEARTBEAT += -DTASKPARTS_TPALRTS_HARDWARE_ALARM_POLLING # to enable software polling
+	MACROS_HEARTBEAT += -DTASKPARTS_TPALRTS_MINIMAL
 endif
 
 FLAGS_HEARTBEAT += $(FLAGS)
