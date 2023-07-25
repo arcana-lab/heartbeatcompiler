@@ -11,6 +11,7 @@ void Heartbeat::createHBMemoryStructType(Noelle &noelle, bool Enable_Rollforward
   if (Chunk_Loop_Iterations) {
     task_memory_type_fields.push_back(tm->getIntegerType(64));  // chunksize
     task_memory_type_fields.push_back(tm->getIntegerType(64));  // remaining_chunksize
+    task_memory_type_fields.push_back(tm->getIntegerType(1));   // has_remaining_chunksize
   }
 
   if (!Enable_Rollforward) {

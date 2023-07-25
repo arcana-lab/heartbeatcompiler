@@ -65,11 +65,10 @@ void Heartbeat::createUpdateRemainingChunksizeFunction(Noelle &noelle) {
 
   std::vector<Type *> args{
     PointerType::getUnqual(this->task_memory_t), // tmem
-    tm->getIntegerType(64), // iterations
-    tm->getIntegerType(64) // chunksize
+    tm->getIntegerType(64) // iterations
   };
 
-  FunctionType *funcType = FunctionType::get(tm->getIntegerType(64), args, false);
+  FunctionType *funcType = FunctionType::get(tm->getVoidType(), args, false);
   Function::Create(
     funcType,
     GlobalValue::ExternalLinkage,
