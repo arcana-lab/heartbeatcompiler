@@ -114,4 +114,4 @@ fig.update_xaxes(dtick=10, showgrid=True, gridwidth=1, gridcolor='grey')
 fig.update_xaxes(showline=True, mirror=True, linewidth=1, linecolor='black')
 fig.update_yaxes(showline=True, mirror=True, linewidth=1, linecolor='black')
 fig['layout']['yaxis']['autorange'] = "reversed"
-fig.write_image('plot_hbc_versions.pdf', format='pdf')
+fig.write_image('plots/plot_hbc_versions.pdf', format='pdf')
