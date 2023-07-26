@@ -1,6 +1,7 @@
 import plotly.graph_objects as go
 import plotly.io as pio
 import pandas as pd
+import math
 
 pio.kaleido.scope.mathjax = None
 
@@ -9,32 +10,61 @@ print(df)
 
 benchmarks=list(df.loc[:,'benchmarks'])
 tpal_speedups=list(df.loc[:,'tpal (speedup)'])
-print(tpal_speedups)
 hbc_speedups=list(df.loc[:,'hbc (speedup)'])
-print(hbc_speedups)
-tpal_stdev=[i for i in df.loc[:,'tpal (stdev)'] if i == i]
-print(tpal_stdev)
-hbc_stdev=[i for i in df.loc[:,'hbc (stdev)'] if i == i]
-print(hbc_stdev)
+tpal_stdev=list(df.loc[:,'tpal (stdev)'])
+hbc_stdev=list(df.loc[:,'hbc (stdev)'])
 
+# Manually offset the number annotations spacing
+tpal_text = []
+for i, s in enumerate(tpal_speedups):
+    if math.isnan(tpal_stdev[i]):
+        tpal_text.append(tpal_speedups[i])
+        continue
+    spaces = round(tpal_stdev[i] / 0.4) * ' '
+    tpal_text.append(spaces + str(tpal_speedups[i]))
+print(tpal_text)
+
+hbc_text = []
+for i, s in enumerate(hbc_speedups):
+    if math.isnan(hbc_stdev[i]):
+        hbc_text.append(hbc_speedups[i])
+        continue
+    spaces = round(hbc_stdev[i] / 0.4) * ' '
+    hbc_text.append(spaces + str(hbc_speedups[i]))
+print(hbc_text)
+
+del tpal_stdev[-1]
+del hbc_stdev[-1]
+
+# Some colourblind-aware colour palette that I found online
+colors = ['#377eb8', '#ff7f00', '#4daf4a',
+           '#f781bf', '#a65628', '#984ea3',
+           '#999999', '#e41a1c', '#dede00']
+
+# Create the bar chart
 fig = go.Figure(data=[
-    go.Bar(name='tpal', x=benchmarks, y=tpal_speedups, error_y=dict(type='data', array=tpal_stdev), text=tpal_speedups),
-    go.Bar(name='hbc', x=benchmarks, y=hbc_speedups, error_y=dict(type='data', array=hbc_stdev), text=hbc_speedups)
-])
-fig.update_traces(textposition='outside', textfont_size=9)
-# i=0
-# text_height = 5
-# for x_val in benchmarks:
-#     fig.data[0].add_annotation(
-#         x=x_val,
-#         y=text_height, 
-#         text=str(tpal_speedups[i]),
-#         showarrow=False,
-#         font=(dict(color='white'))
-#     )
-#     i = i+1
-fig.update_xaxes(tickangle=270)
-fig.add_vline(x=6.5)
+        go.Bar(name='TPAL', y=benchmarks, x=tpal_speedups, error_x=dict(type='data', array=tpal_stdev), marker_color=colors[0], text=tpal_text, textposition="outside", textfont_size=9, orientation='h'),
+        go.Bar(name='Heartbeat Compiler', y=benchmarks, x=hbc_speedups, error_x=dict(type='data', array=hbc_stdev), marker_color=colors[1], text=hbc_text, textposition="outside", textfont_size=9, orientation='h')
+    ])
 
+# Move legend
+fig.update_layout(
+    legend=dict(
+        yanchor="bottom",
+        y=0.01,
+        xanchor="auto",
+        x=0.99),
+    xaxis_title="Program Speedup"
+)
+
+# Add lines
+fig.add_hline(y=6.5)
+fig.add_vline(x=1, line_dash="5", annotation_text="baseline", annotation_font_size=10, annotation_textangle=315, annotation_x=0, annotation_y=0.99, annotation_yanchor="bottom")
+fig.add_vline(x=64, line_dash="5", line_color="red", annotation_text="cores", annotation_font_color="red", annotation_font_size=10, annotation_textangle=315, annotation_x=63, annotation_y=0.99, annotation_yanchor="bottom")
+
+fig['layout']['yaxis']['autorange'] = "reversed"
 fig.update_layout(barmode='group')
+fig.update_xaxes(dtick=10, showgrid=True, gridwidth=1, gridcolor='grey')
+fig.update_xaxes(showline=True, mirror=True, linewidth=1, linecolor='black')
+fig.update_yaxes(showline=True, mirror=True, linewidth=1, linecolor='black')
 fig.write_image('plot_tpal_vs_hbc.pdf', format='pdf')
