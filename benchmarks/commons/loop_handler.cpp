@@ -99,16 +99,19 @@ bool heartbeat_polling(task_memory_t *tmem) {
  * accessed and analyzed by the runtime functions
  */
 thread_local uint64_t heartbeat_count = 0;
-thread_local uint64_t minimal_polling_count = INT64_MAX;
+#if defined(ACC_MINIMAL)
+thread_local uint64_t polling_count = INT64_MAX;
+#elif defined(ACC_MAXIMAL)
+thread_local uint64_t polling_count = 0;
+#endif
 thread_local uint64_t chunksize = CHUNKSIZE;
 #if defined(ACC_EVAL)
-thread_local uint64_t minimal_polling_count_last_window = 0;
+thread_local uint64_t polling_count_last_window = 0;
 thread_local uint64_t success_count = 0;
 #endif
 
 thread_local uint64_t sliding_window_size = 5;
 thread_local uint64_t target_polling_ratio = 2;
-thread_local double aggressiveness = 1.0;
 #if defined(ACC_SPMV_STATS)
 typedef struct {
   uint64_t startIter;
@@ -132,9 +135,6 @@ void runtime_memory_reset() {
   if (const char *s = std::getenv("TARGET_POLLING_RATIO")) {
     target_polling_ratio = std::atoll(s);
   }
-  if (const char *s = std::getenv("AGGRESSIVENESS")) {
-    aggressiveness = std::atof(s);
-  }
 }
 
 /*
@@ -149,22 +149,29 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
   heartbeat_count++;
 
   /*
-   * Update the minimal polling count for this window,
+   * Update the polling count for this window,
    */
-  if (tmem->polling_count < minimal_polling_count) {
-    minimal_polling_count = tmem->polling_count;
+#if defined(ACC_MINIMAL)
+  if (tmem->polling_count < polling_count) {
+    polling_count = tmem->polling_count;
   }
+#elif defined(ACC_MAXIMAL)
+  if (tmem->polling_count > polling_count) {
+    polling_count = tmem->polling_count;
+  }
+#endif
 
 #if defined(ACC_DEBUG)
   printf("runtime_memory_update: ");
   printf("heartbeat_count = %ld, ", heartbeat_count);
   printf("polling_count = %ld, ", tmem->polling_count);
-  printf("minimal_polling_count = %ld, ", minimal_polling_count);
+  printf("polling_count = %ld, ", polling_count);
   printf("chunksize = %ld\n", chunksize);
 #endif
 
 #if defined(ACC_EVAL)
-  if (minimal_polling_count_last_window <= minimal_polling_count) {
+  // When evaluating ACC, we do it conservatively to stay faithful to heartbeat scheduling
+  if (polling_count_last_window <= polling_count) {
     success_count++;
   }
 #endif
@@ -176,7 +183,7 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
     /*
      * Adaptive chunksize control algorithm
      */
-    double u_t = (double)minimal_polling_count / (double)target_polling_ratio * aggressiveness;
+    double u_t = (double)polling_count / (double)target_polling_ratio;
     double new_chunksize = u_t * chunksize;
 #if defined(ACC_DEBUG)
     printf("\tapplying adpative chunksize control:\n");
@@ -191,14 +198,18 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
 #if !defined(ACC_EVAL)
     chunksize = (uint64_t)new_chunksize > 0 ? (uint64_t)new_chunksize : 1;
 #else
-    minimal_polling_count_last_window = (uint64_t)((double)minimal_polling_count / aggressiveness);
+    polling_count_last_window = (uint64_t)((double)polling_count / aggressiveness);
     printf("%.2f\n", (double)success_count / (double)heartbeat_count * 100);
 #endif
 
     /*
-     * Reset minimal polling count
+     * Reset polling count
      */
-    minimal_polling_count = INT64_MAX;
+#if defined(ACC_MINIMAL)
+    polling_count = INT64_MAX;
+#elif defined(ACC_MAXIMAL)
+    polling_count = 0;
+#endif
   }
 
   return;

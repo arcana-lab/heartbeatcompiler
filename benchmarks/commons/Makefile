@@ -288,6 +288,7 @@ endif
 # whether to chunk loop iterations before calling loop_handler
 CHUNK_LOOP_ITERATIONS ?= true
 ACC ?= false						# enable adaptive chunksize control
+ACC_MINIMAL ?= true			# enable acc conservatively to stay faithful to heartbeat scheduling
 ACC_DEBUG ?= false			# print how chunksize changes over polling count
 ACC_EVAL ?= false				# evaluate the accuracy of acc
 ACC_SPMV_STATS ?= false	# plot how chunksize changes varying the number of nonzeros
@@ -298,6 +299,11 @@ ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 		ifeq ($(ACC), true)
 			MACROS_HEARTBEAT += -DADAPTIVE_CHUNKSIZE_CONTROL
 			PASS_ARGUMENTS_HEARTBEAT_COMPILER += -adaptive_chunksize_control
+			ifeq ($(ACC_MINIMAL), true)
+				MACROS_HEARTBEAT += -DACC_MINIMAL
+			else
+				MACROS_HEARTBEAT += -DACC_MAXIMAL
+			endif
 			ifeq ($(ACC_DEBUG), true)
 				MACROS_HEARTBEAT += -DACC_DEBUG
 			endif
