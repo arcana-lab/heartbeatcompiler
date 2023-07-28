@@ -18,10 +18,10 @@ extern "C" {
 #define LIVE_IN_ENV 2
 #define LIVE_OUT_ENV 3
 
-#if defined(STATS) || defined(POLLS_STATS) || defined(NUM_POLLS_STATS)
+#if defined(STATS) || defined(POLLS_STATS) || defined(NUM_POLLS_STATS) || defined(BEATS_STATS)
 static uint64_t polls = 0;
-#if defined(STATS)
 static uint64_t heartbeats = 0;
+#if defined(STATS)
 static uint64_t splits = 0;
 #endif
 #if defined(POLLS_STATS)
@@ -58,6 +58,9 @@ void run_bench(std::function<void()> const &bench_body,
 #if defined(NUM_POLLS_STATS)
   printf("polls: %ld\n", polls);
 #endif
+#if defined(BEATS_STATS)
+  printf("heartbeats: %ld\n", heartbeats);
+#endif
 #if defined(PROMO_STATS)
   for (auto i = 0; i < maxLevel; i++) {
     printf("%d\t%lu\n", i, levelCountMap[i]);
@@ -77,7 +80,7 @@ void printGIS(uint64_t *cxts, uint64_t startLevel, uint64_t maxLevel, std::strin
 thread_local uint64_t timestamp = 0;
 
 bool heartbeat_polling(task_memory_t *tmem) {
-#if defined(STATS) || defined(POLLS_STATS) || defined(NUM_POLLS_STATS)
+#if defined(STATS) || defined(POLLS_STATS) || defined(NUM_POLLS_STATS) || defined(BEATS_STATS)
   polls++;
 #endif
 
@@ -227,6 +230,10 @@ void ass_record(uint64_t startIter) {
 #endif  // defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
 #endif  // defined(ENABLE_SOFTWARE_POLLING)
 
+#if defined(CHUNK_LOOP_ITERATIONS) && !defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+  static uint64_t chunksize = CHUNKSIZE;
+#endif
+
 __attribute__((always_inline))
 void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
   /*
@@ -253,8 +260,8 @@ void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
   /*
    * Use static chunksize
    */
-  tmem->chunksize = CHUNKSIZE;
-  tmem->remaining_chunksize = CHUNKSIZE;
+  tmem->chunksize = chunksize;
+  tmem->remaining_chunksize = chunksize;
 #endif
   /*
    * Reset heartbeat timer if using software polling
@@ -265,23 +272,9 @@ void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
   /*
    * Use static chunksize
    */
-  tmem->chunksize = CHUNKSIZE;
-  tmem->remaining_chunksize = CHUNKSIZE;
+  tmem->chunksize = chunksize;
+  tmem->remaining_chunksize = chunksize;
 #endif
-#endif
-}
-
-void heartbeat_start(task_memory_t *tmem) {
-#if defined(ENABLE_HEARTBEAT)
-#if defined(ENABLE_SOFTWARE_POLLING) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
-  runtime_memory_reset();
-#endif
-#if defined(PROMO_STATS)
-  for (auto i = 0; i < maxLevel; i++) {
-    levelCountMap[i] = 0;
-  }
-#endif
-  task_memory_reset(tmem, 0);
 #endif
 }
 
@@ -305,6 +298,25 @@ void update_remaining_chunksize(task_memory_t *tmem, uint64_t iterations) {
 }
 #endif
 
+void heartbeat_start(task_memory_t *tmem) {
+#if defined(ENABLE_HEARTBEAT)
+#if defined(ENABLE_SOFTWARE_POLLING) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+  runtime_memory_reset();
+#endif
+#if defined(CHUNK_LOOP_ITERATIONS) && !defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+  if (const char *s = std::getenv("CHUNKSIZE")) {
+    chunksize = std::atoll(s);
+  }
+#endif
+#if defined(PROMO_STATS)
+  for (auto i = 0; i < maxLevel; i++) {
+    levelCountMap[i] = 0;
+  }
+#endif
+  task_memory_reset(tmem, 0);
+#endif
+}
+
 int64_t loop_handler(
   uint64_t *cxts,
   uint64_t *constLiveIns,
@@ -315,8 +327,12 @@ int64_t loop_handler(
   void (*leftover_tasks[])(uint64_t *, uint64_t *, uint64_t, task_memory_t *),
   uint64_t (*leftover_selector)(uint64_t, uint64_t)
 ) {
-#if defined(STATS)
+#if defined(STATS) || defined(BEATS_STATS)
   heartbeats++;
+#if !defined(ADAPTIVE_CHUNKSIZE_CONTROL)
+  assert(polls >= 2);
+#endif
+  polls = 0;
 #endif
 #if defined(POLLS_STATS)
   printf("%ld\n", polls-prev_polls);

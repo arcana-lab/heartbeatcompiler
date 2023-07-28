@@ -299,10 +299,10 @@ ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 		ifeq ($(ACC), true)
 			MACROS_HEARTBEAT += -DADAPTIVE_CHUNKSIZE_CONTROL
 			PASS_ARGUMENTS_HEARTBEAT_COMPILER += -adaptive_chunksize_control
-			ifeq ($(ACC_MINIMAL), true)
-				MACROS_HEARTBEAT += -DACC_MINIMAL
-			else
+			ifeq ($(ACC_MINIMAL), false)
 				MACROS_HEARTBEAT += -DACC_MAXIMAL
+			else
+				MACROS_HEARTBEAT += -DACC_MINIMAL
 			endif
 			ifeq ($(ACC_DEBUG), true)
 				MACROS_HEARTBEAT += -DACC_DEBUG
@@ -319,12 +319,16 @@ endif
 
 POLLS_STATS ?= false			# whether to print polling stats between beats
 NUM_POLLS_STATS ?= false 	# whether to print total polling stats
+BEATS_STATS ?= false			# print the total number of beats (estimated to be the oracle)
 ifeq ($(ENABLE_ROLLFORWARD), false)
 	ifeq ($(POLLS_STATS), true)
 		MACROS += -DPOLLS_STATS
 	endif
 	ifeq ($(NUM_POLLS_STATS), true)
 		MACROS += -DNUM_POLLS_STATS
+	endif
+	ifeq ($(BEATS_STATS), true)
+		MACROS += -DBEATS_STATS
 	endif
 endif
 
