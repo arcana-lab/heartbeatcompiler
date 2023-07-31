@@ -115,10 +115,9 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
     }
 
 #if defined(ENABLE_HEARTBEAT)
-    update_remaining_chunksize(tmem, high - startIter);
-    if (has_remaining_chunksize(tmem)) {
-      // early exit and don't call the loop_handler,
-      // this avoids the overhead if the loop count is small
+    // early exit and don't call the loop_handler,
+    // this avoids the overhead if the loop count is small
+    if (update_and_has_remaining_chunksize(tmem, high - startIter, chunksize)) {
       break;
     }
 

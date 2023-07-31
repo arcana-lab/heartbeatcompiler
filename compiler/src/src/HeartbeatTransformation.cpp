@@ -301,27 +301,6 @@ bool HeartbeatTransformation::apply (
 
   errs() << "task after using start/max iterations set by the parent\n" << *(hbTask->getTaskBody()) << "\n";
 
-
-  /*
-   * Fetch the heartbeat polling and loop handler function
-   */
-  auto pollingFunction = program->getFunction("heartbeat_polling");
-  assert(pollingFunction != nullptr);
-  errs() << "polling function\n" << *pollingFunction << "\n";
-  auto loopHandlerFunction = program->getFunction("loop_handler");
-  assert(loopHandlerFunction != nullptr);
-  errs() << "loop_handler function\n" << *loopHandlerFunction << "\n";
-
-  /*
-   * Create a new bb to invoke the polling after the body
-   */
-  this->pollingBlock = BasicBlock::Create(hbTask->getTaskBody()->getContext(), "polling_block", hbTask->getTaskBody());
-
-  /*
-   * Create a new bb to invoke the loop handler after the polling block
-   */
-  this->loopHandlerBlock = BasicBlock::Create(hbTask->getTaskBody()->getContext(), "loop_handler_block", hbTask->getTaskBody());
-
   auto bbs = ls->getLatches();
   assert(bbs.size() == 1 && "assumption: only has one latch of the loop\n");
   auto latchBB = *(bbs.begin());
@@ -334,102 +313,125 @@ bool HeartbeatTransformation::apply (
   auto loopExitBB = *(loopExitBBs.begin());
   auto loopExitBBClone = hbTask->getCloneOfOriginalBasicBlock(loopExitBB);
 
-  // modify the bodyBB to jump to the polling block
-  IRBuilder<> bodyBuilder{ bodyBBClone };
-  auto bodyTerminator = bodyBBClone->getTerminator();
-  bodyBuilder.SetInsertPoint(bodyTerminator);
-  bodyBuilder.CreateBr(
-    pollingBlock
-  );
-  bodyTerminator->eraseFromParent();
+  // 07/30 By Yian: only insert the loop_handler call for leaf loops
+  if (this->loopToLevel[ldi] == this->numLevels - 1) {
+    /*
+     * Fetch the heartbeat polling and loop handler function
+     */
+    auto pollingFunction = program->getFunction("heartbeat_polling");
+    assert(pollingFunction != nullptr);
+    errs() << "polling function\n" << *pollingFunction << "\n";
+    auto loopHandlerFunction = program->getFunction("loop_handler");
+    assert(loopHandlerFunction != nullptr);
+    errs() << "loop_handler function\n" << *loopHandlerFunction << "\n";
 
-  // invoking the polling function to either jump to the loop_handler_block or latch block
-  IRBuilder<> pollingBlockBuilder{ pollingBlock };
-  this->callToPollingFunction = pollingBlockBuilder.CreateCall(
-    pollingFunction,
-    ArrayRef<Value *>({
-      hbTask->getHBMemoryArg()
-    })
-  );
-  // invoke llvm.expect.i1 function
-  auto llvmExpectFunction = Intrinsic::getDeclaration(program, Intrinsic::expect, ArrayRef<Type *>({ pollingBlockBuilder.getInt1Ty() }));
-  assert(llvmExpectFunction != nullptr);
-  errs() << "llvm.expect function\n" << *llvmExpectFunction << "\n";
-  auto llvmExpectCall = pollingBlockBuilder.CreateCall(
-    llvmExpectFunction,
-    ArrayRef<Value *>({
-      callToPollingFunction,
-      pollingBlockBuilder.getInt1(0)
-    })
-  );
-  pollingBlockBuilder.CreateCondBr(
-    llvmExpectCall,
-    loopHandlerBlock,
-    latchBBClone
-  );
+    /*
+     * Create a new bb to invoke the polling after the body
+     */
+    this->pollingBlock = BasicBlock::Create(hbTask->getTaskBody()->getContext(), "polling_block", hbTask->getTaskBody());
 
-  /*
-   * Call the loop_hander in the loop_handler block and compare the return code
-   * to decide whether to exit the loop directly
-   */
-  IRBuilder<> loopHandlerBuilder{ loopHandlerBlock };
-  // first store the current iteration into startIterationAddress
-  this->storeCurrentIterationAtBeginningOfHandlerBlock = loopHandlerBuilder.CreateStore(
-    IVClone,
-    this->startIterationAddress
-  );
-  // create the vector to represent arguments
-  std::vector<Value *> loopHandlerParameters{ 
-    hbTask->getContextArg(),
-    hbTask->getConstLiveInsArg(),
-    loopHandlerBuilder.getInt64(this->loopToLevel[loop]),
-    loopHandlerBuilder.getInt64(this->numLevels),
-    hbTask->getHBMemoryArg(),
-    Constant::getNullValue(loopHandlerFunction->getArg(5)->getType()),  // pointer to slice tasks, change this value later
-    Constant::getNullValue(loopHandlerFunction->getArg(6)->getType()),  // pointer to leftover tasks, change this value later
-    Constant::getNullValue(loopHandlerFunction->getArg(7)->getType())   // pointer to leftover task selector, change this value later
-  };
+    /*
+     * Create a new bb to invoke the loop handler after the polling block
+     */
+    this->loopHandlerBlock = BasicBlock::Create(hbTask->getTaskBody()->getContext(), "loop_handler_block", hbTask->getTaskBody());
 
-  this->callToLoopHandler = loopHandlerBuilder.CreateCall(
-    loopHandlerFunction,
-    ArrayRef<Value *>({
-      loopHandlerParameters
-    }),
-    "loop_handler_return_code"
-  );
-
-  // if (rc > 0) {
-  //   break;
-  // } else {
-  //   goto latch
-  // }
-  auto cmpInst = loopHandlerBuilder.CreateICmpSGT(
-    this->callToLoopHandler,
-    ConstantInt::get(loopHandlerBuilder.getInt64Ty(), 0)
-  );
-  auto condBr = loopHandlerBuilder.CreateCondBr(
-    cmpInst,
-    loopExitBBClone,
-    latchBBClone
-  );
-
-  // since now loop_handler block may jump to loop exit directly
-  // need to populate the intermediate value of live-out variable
-  // through the loop_handler block
-  for (auto pair : this->liveOutVariableToAccumulatedPrivateCopy) {
-    PHINode *liveOutPhiAtLoopExitBlock = cast<PHINode>(pair.second);
-    assert(liveOutPhiAtLoopExitBlock->getNumIncomingValues() == 1 && "liveOutPhiAtLoopExitBlock should be untouched at the moment\n");
-
-    PHINode *liveOutPhiInsideLoopPreHeader = cast<PHINode>(liveOutPhiAtLoopExitBlock->getIncomingValue(0));
-    assert(liveOutPhiInsideLoopPreHeader->getNumIncomingValues() == 2 && "liveOutPhiInsideLoopPreHeader should have two incoming values\n");
-
-    liveOutPhiAtLoopExitBlock->addIncoming(
-      liveOutPhiInsideLoopPreHeader->getIncomingValue(1),
-      loopHandlerBlock
+    // modify the bodyBB to jump to the polling block
+    IRBuilder<> bodyBuilder{ bodyBBClone };
+    auto bodyTerminator = bodyBBClone->getTerminator();
+    bodyBuilder.SetInsertPoint(bodyTerminator);
+    bodyBuilder.CreateBr(
+      pollingBlock
     );
-  }
+    bodyTerminator->eraseFromParent();
 
-  errs() << "task after invoking polling, loop_handler function and checking return code\n" << *(hbTask->getTaskBody()) << "\n";
+    // invoking the polling function to either jump to the loop_handler_block or latch block
+    IRBuilder<> pollingBlockBuilder{ pollingBlock };
+    this->callToPollingFunction = pollingBlockBuilder.CreateCall(
+      pollingFunction,
+      ArrayRef<Value *>({
+        hbTask->getHBMemoryArg()
+      })
+    );
+    // invoke llvm.expect.i1 function
+    auto llvmExpectFunction = Intrinsic::getDeclaration(program, Intrinsic::expect, ArrayRef<Type *>({ pollingBlockBuilder.getInt1Ty() }));
+    assert(llvmExpectFunction != nullptr);
+    errs() << "llvm.expect function\n" << *llvmExpectFunction << "\n";
+    auto llvmExpectCall = pollingBlockBuilder.CreateCall(
+      llvmExpectFunction,
+      ArrayRef<Value *>({
+        callToPollingFunction,
+        pollingBlockBuilder.getInt1(0)
+      })
+    );
+    pollingBlockBuilder.CreateCondBr(
+      llvmExpectCall,
+      loopHandlerBlock,
+      latchBBClone
+    );
+
+    /*
+     * Call the loop_hander in the loop_handler block and compare the return code
+     * to decide whether to exit the loop directly
+     */
+    IRBuilder<> loopHandlerBuilder{ loopHandlerBlock };
+    // first store the current iteration into startIterationAddress
+    this->storeCurrentIterationAtBeginningOfHandlerBlock = loopHandlerBuilder.CreateStore(
+      IVClone,
+      this->startIterationAddress
+    );
+    // create the vector to represent arguments
+    std::vector<Value *> loopHandlerParameters{ 
+      hbTask->getContextArg(),
+      hbTask->getConstLiveInsArg(),
+      loopHandlerBuilder.getInt64(this->loopToLevel[loop]),
+      loopHandlerBuilder.getInt64(this->numLevels),
+      hbTask->getHBMemoryArg(),
+      Constant::getNullValue(loopHandlerFunction->getArg(5)->getType()),  // pointer to slice tasks, change this value later
+      Constant::getNullValue(loopHandlerFunction->getArg(6)->getType()),  // pointer to leftover tasks, change this value later
+      Constant::getNullValue(loopHandlerFunction->getArg(7)->getType())   // pointer to leftover task selector, change this value later
+    };
+
+    this->callToLoopHandler = loopHandlerBuilder.CreateCall(
+      loopHandlerFunction,
+      ArrayRef<Value *>({
+        loopHandlerParameters
+      }),
+      "loop_handler_return_code"
+    );
+
+    // if (rc > 0) {
+    //   break;
+    // } else {
+    //   goto latch
+    // }
+    auto cmpInst = loopHandlerBuilder.CreateICmpSGT(
+      this->callToLoopHandler,
+      ConstantInt::get(loopHandlerBuilder.getInt64Ty(), 0)
+    );
+    auto condBr = loopHandlerBuilder.CreateCondBr(
+      cmpInst,
+      loopExitBBClone,
+      latchBBClone
+    );
+
+    // since now loop_handler block may jump to loop exit directly
+    // need to populate the intermediate value of live-out variable
+    // through the loop_handler block
+    for (auto pair : this->liveOutVariableToAccumulatedPrivateCopy) {
+      PHINode *liveOutPhiAtLoopExitBlock = cast<PHINode>(pair.second);
+      assert(liveOutPhiAtLoopExitBlock->getNumIncomingValues() == 1 && "liveOutPhiAtLoopExitBlock should be untouched at the moment\n");
+
+      PHINode *liveOutPhiInsideLoopPreHeader = cast<PHINode>(liveOutPhiAtLoopExitBlock->getIncomingValue(0));
+      assert(liveOutPhiInsideLoopPreHeader->getNumIncomingValues() == 2 && "liveOutPhiInsideLoopPreHeader should have two incoming values\n");
+
+      liveOutPhiAtLoopExitBlock->addIncoming(
+        liveOutPhiInsideLoopPreHeader->getIncomingValue(1),
+        loopHandlerBlock
+      );
+    }
+
+    errs() << "task after invoking polling, loop_handler function and checking return code\n" << *(hbTask->getTaskBody()) << "\n";
+  }
 
   // create a phi node to determine the return code of the loop
   // this return code needs to be created in the exit block of the loop
@@ -447,10 +449,12 @@ bool HeartbeatTransformation::apply (
     ConstantInt::get(loopExitBBBuilder.getInt64Ty(), 0),
     hbTask->getCloneOfOriginalBasicBlock(ls->getHeader())
   );
-  this->returnCodePhiInst->addIncoming(
-    this->callToLoopHandler,
-    loopHandlerBlock
-  );
+  if (this->loopToLevel[ldi] == this->numLevels - 1) {
+    this->returnCodePhiInst->addIncoming(
+      this->callToLoopHandler,
+      loopHandlerBlock
+    );
+  }
 
   /*
    * Do the reduction for using the value from the reduction array for kids
@@ -1747,22 +1751,42 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
     liveInEnvBuilder.getInt64(0)
   );
 
-  // find the predecessor to the polling block, in this case it is the last loop body block
-  auto pollingBlock = this->loopToHeartbeatTransformation[callerLoop]->getPollingBlock();
-  auto lastLoopBodyBlock = pollingBlock->getSinglePredecessor();
-  auto pollingBrInst = lastLoopBodyBlock->getTerminator();
+  // 07/30 by Yian
+  // since we don't do the insertion for any middle loops, therefore
+  // there's no need to update the branch to the polling block
+  // // find the predecessor to the polling block, in this case it is the last loop body block
+  // auto pollingBlock = this->loopToHeartbeatTransformation[callerLoop]->getPollingBlock();
+  // auto lastLoopBodyBlock = pollingBlock->getSinglePredecessor();
+  // auto pollingBrInst = lastLoopBodyBlock->getTerminator();
   // get the exit block of the caller task
   // this can be fetched through the returnCode instruction
+  // auto returnCodePhiInst = this->loopToHeartbeatTransformation[callerLoop]->getReturnCodePhiInst();
+  // auto loopExitBlock = returnCodePhiInst->getParent();
+  // liveInEnvBuilder.SetInsertPoint(pollingBrInst);
+  // liveInEnvBuilder.CreateCondBr(
+  //   cmpInst,
+  //   loopExitBlock,
+  //   pollingBlock
+  // );
+  // cast<PHINode>(returnCodePhiInst)->addIncoming(calleeHBTaskCallInst, lastLoopBodyBlock);
+  // pollingBrInst->eraseFromParent();
+
+  // fetch original terminator of the last body of the loop
+  auto lastLoopBodyBlock = calleeHBTaskCallInst->getParent();
+  auto bodyTerminator = lastLoopBodyBlock->getTerminator();
+  auto latchBlock = dyn_cast<BranchInst>(bodyTerminator)->getSuccessor(0);
+
+  // get the exit block of the caller task
   auto returnCodePhiInst = this->loopToHeartbeatTransformation[callerLoop]->getReturnCodePhiInst();
   auto loopExitBlock = returnCodePhiInst->getParent();
-  liveInEnvBuilder.SetInsertPoint(pollingBrInst);
+  liveInEnvBuilder.SetInsertPoint(bodyTerminator);
   liveInEnvBuilder.CreateCondBr(
     cmpInst,
     loopExitBlock,
-    pollingBlock
+    latchBlock
   );
   cast<PHINode>(returnCodePhiInst)->addIncoming(calleeHBTaskCallInst, lastLoopBodyBlock);
-  pollingBrInst->eraseFromParent();
+  bodyTerminator->eraseFromParent();
 
   // now need to update all phi node at the exit block that deals with live-out variable
   // the incoming value is the same from the loop_handler block
