@@ -114,7 +114,7 @@ thread_local uint64_t success_count = 0;
 #endif
 
 thread_local uint64_t sliding_window_size = 5;
-thread_local uint64_t target_polling_ratio = 2;
+thread_local uint64_t target_polling_ratio = 8;
 #if defined(ACC_SPMV_STATS)
 typedef struct {
   uint64_t startIter;
@@ -168,7 +168,7 @@ void runtime_memory_update(task_memory_t *tmem, uint64_t *cxts, uint64_t numLeve
   printf("runtime_memory_update: ");
   printf("heartbeat_count = %ld, ", heartbeat_count);
   printf("polling_count = %ld, ", tmem->polling_count);
-  printf("polling_count = %ld, ", polling_count);
+  printf("target_polling_count = %ld, ", polling_count);
   printf("chunksize = %ld\n", chunksize);
 #endif
 
