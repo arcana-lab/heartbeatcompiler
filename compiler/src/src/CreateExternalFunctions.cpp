@@ -58,40 +58,22 @@ void Heartbeat::createGetChunksizeFunction(Noelle &noelle) {
 }
 
 /*
- * update_remaining_chunksize
+ * update_and_has_remaining_chunksize
  */
-void Heartbeat::createUpdateRemainingChunksizeFunction(Noelle &noelle) {
+void Heartbeat::createUpdateAndHasRemainingChunksizeFunction(Noelle &noelle) {
   auto tm = noelle.getTypesManager();
 
   std::vector<Type *> args{
     PointerType::getUnqual(this->task_memory_t), // tmem
-    tm->getIntegerType(64) // iterations
-  };
-
-  FunctionType *funcType = FunctionType::get(tm->getVoidType(), args, false);
-  Function::Create(
-    funcType,
-    GlobalValue::ExternalLinkage,
-    "update_remaining_chunksize",
-    *noelle.getProgram()
-  );
-}
-
-/*
- * has_remaining_chunksize
- */
-void Heartbeat::createHasRemainingChunksizeFunction(Noelle &noelle) {
-  auto tm = noelle.getTypesManager();
-
-  std::vector<Type *> args{
-    PointerType::getUnqual(this->task_memory_t) // tmem
+    tm->getIntegerType(64), // iterations
+    tm->getIntegerType(64) // chunksize
   };
 
   FunctionType *funcType = FunctionType::get(tm->getIntegerType(1), args, false);
   Function::Create(
     funcType,
     GlobalValue::ExternalLinkage,
-    "has_remaining_chunksize",
+    "update_and_has_remaining_chunksize",
     *noelle.getProgram()
   );
 }

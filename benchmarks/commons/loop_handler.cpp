@@ -283,17 +283,13 @@ uint64_t get_chunksize(task_memory_t *tmem) {
   return tmem->remaining_chunksize;
 }
 
-bool has_remaining_chunksize(task_memory_t *tmem) {
-  return tmem->remaining_chunksize < tmem->chunksize;
-}
-
-void update_remaining_chunksize(task_memory_t *tmem, uint64_t iterations) {
-  if (iterations == tmem->remaining_chunksize) {
+bool update_and_has_remaining_chunksize(task_memory_t *tmem, uint64_t iterations, uint64_t chunksize) {
+  if (iterations == chunksize) {
     tmem->remaining_chunksize = tmem->chunksize;
-    tmem->has_remaining_chunksize = false;
+    return false;
   } else {
     tmem->remaining_chunksize -= iterations;
-    tmem->has_remaining_chunksize = true;
+    return true;
   }
 }
 #endif

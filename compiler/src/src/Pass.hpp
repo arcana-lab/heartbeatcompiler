@@ -52,7 +52,7 @@ class Heartbeat : public ModulePass {
     void createLoopHandlerFunction(Noelle &noelle);
     void createRFHandlerFunction(Noelle &noelle);
     void createGetChunksizeFunction(Noelle &noelle);
-    void createUpdateRemainingChunksizeFunction(Noelle &noelle);
+    void createUpdateAndHasRemainingChunksizeFunction(Noelle &noelle);
     void createHasRemainingChunksizeFunction(Noelle &noelle);
 
     /*
