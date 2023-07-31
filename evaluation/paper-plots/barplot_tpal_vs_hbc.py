@@ -37,14 +37,14 @@ del tpal_stdev[-1]
 del hbc_stdev[-1]
 
 # Some colourblind-aware colour palette that I found online
-colors = ['#377eb8', '#ff7f00', '#4daf4a',
+colors = ['#56B4E9', '#D55E00', '#4daf4a',
            '#f781bf', '#a65628', '#984ea3',
            '#999999', '#e41a1c', '#dede00']
 
 # Create the bar chart
 fig = go.Figure(data=[
-        go.Bar(name='TPAL', y=benchmarks, x=tpal_speedups, error_x=dict(type='data', array=tpal_stdev), marker_color=colors[0], text=tpal_text, textposition="outside", textfont_size=9, orientation='h'),
-        go.Bar(name='Heartbeat Compiler', y=benchmarks, x=hbc_speedups, error_x=dict(type='data', array=hbc_stdev), marker_color=colors[1], text=hbc_text, textposition="outside", textfont_size=9, orientation='h')
+        go.Bar(name='TPAL', y=benchmarks, x=tpal_speedups, error_x=dict(type='data', array=tpal_stdev), marker_color=colors[0], text=tpal_text, textposition="outside", textfont_size=15, orientation='h'),
+        go.Bar(name='HBC', y=benchmarks, x=hbc_speedups, error_x=dict(type='data', array=hbc_stdev), marker_color=colors[1], text=hbc_text, textposition="outside", textfont_size=15, orientation='h')
     ])
 
 # Move legend
@@ -59,8 +59,8 @@ fig.update_layout(
 
 # Add lines
 fig.add_hline(y=6.5)
-fig.add_vline(x=1, line_dash="5", annotation_text="baseline", annotation_font_size=10, annotation_textangle=315, annotation_x=0, annotation_y=0.99, annotation_yanchor="bottom")
-fig.add_vline(x=64, line_dash="5", line_color="red", annotation_text="cores", annotation_font_color="red", annotation_font_size=10, annotation_textangle=315, annotation_x=63, annotation_y=0.99, annotation_yanchor="bottom")
+fig.add_vline(x=1, line_dash="5", annotation_text="baseline", annotation_font_size=15, annotation_textangle=315, annotation_x=0, annotation_y=0.99, annotation_yanchor="bottom")
+fig.add_vline(x=64, line_dash="5", line_color="red", annotation_text="cores", annotation_font_color="red", annotation_font_size=15, annotation_textangle=315, annotation_x=63, annotation_y=0.99, annotation_yanchor="bottom")
 
 fig['layout']['yaxis']['autorange'] = "reversed"
 fig.update_layout(barmode='group')
