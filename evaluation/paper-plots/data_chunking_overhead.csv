@@ -1,0 +1,9 @@
+benchmarks,environment_overhead,no_chunking_overhead,static_chunking_overhead,aca_overhead,rf_overhead,rf_kmod_overhead
+mandelbrot,#NUM!,5,0.44,0.18,4.175,1.39
+spmv-arrowhead,#NUM!,576.12,1.54,0.73,31.97,12.3
+spmv-powerlaw,#NUM!,407.74,4.7,4.02,18.138,8.76
+spmv-random,#NUM!,392.29,3.08,0.69,17.47,8.3
+floyd-warshall,#NUM!,754.64,6.32,0.12,4.77,1.79
+plus-reduce-array,#NUM!,530.61,2.09,0.46,10.649,2.9
+srad,#NUM!,143.31,2.42,0.58,17.021,11.5
+geomean,#NUM!,221.84,2.27,0.53,12.03,4.96
