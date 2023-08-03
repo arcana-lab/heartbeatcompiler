@@ -15,10 +15,8 @@ aca_overheads=list(df.loc[:,'aca_overhead'])
 # rf_overheads=list(df.loc[:,'rf_overhead'])
 # rf_kmod_overheads=list(df.loc[:,'rf_kmod_overhead'])
 
-# Some colourblind-aware colour palette that I found online
-colors = ['#377eb8', '#ff7f00', '#4daf4a',
-           '#f781bf', '#a65628', '#984ea3',
-           '#999999', '#e41a1c', '#dede00']
+# https://colorbrewer2.org/#type=diverging&scheme=RdYlBu&n=6
+colors = ['#fee090','#fc8d59','#d73027','#e0f3f8','#91bfdb','#4575b4']
 
 # Create the bar chart
 fig = go.Figure(data=[
@@ -35,8 +33,12 @@ fig.update_layout(
         yanchor="top",
         y=0.99,
         xanchor="right",
-        x=0.99),
-    yaxis_title="Overhead (%)"
+        x=0.99,
+        bgcolor="#e8e8e8",
+        bordercolor="Black",
+        borderwidth=1),
+    yaxis_title="Overhead (%)",
+    plot_bgcolor="white"
 )
 
 # Add cut-off annotations

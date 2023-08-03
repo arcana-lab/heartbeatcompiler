@@ -60,10 +60,8 @@ del hbc_rf_kmod_stdev[-1]
 del hbc_static_stdev[-1]
 del hbc_stdev[-1]
 
-# Some colourblind-aware colour palette that I found online
-colors = ['#377eb8', '#ff7f00', '#4daf4a',
-           '#f781bf', '#a65628', '#984ea3',
-           '#999999', '#e41a1c', '#dede00']
+# https://colorbrewer2.org/#type=diverging&scheme=RdYlBu&n=6
+colors = ['#fee090','#fc8d59','#d73027','#e0f3f8','#91bfdb','#4575b4']
 
 # fig = go.Figure(data=[
 #     go.Bar(name='hbc + RF Interrupt Ping Thread', x=benchmarks, y=hbc_rf_speedups, error_y=dict(type='data', array=hbc_rf_stdev), marker_color=colors[0], text=hbc_rf_speedups),
@@ -81,10 +79,10 @@ colors = ['#377eb8', '#ff7f00', '#4daf4a',
 # )
 
 fig = go.Figure(data=[
-    go.Bar(name='hbc + RF Interrupt Ping Thread', y=benchmarks, x=hbc_rf_speedups, error_x=dict(type='data', array=hbc_rf_stdev, thickness=1, width=1.5), marker_color=colors[0], text=hbc_rf_text, orientation='h'),
-    go.Bar(name='hbc + RF Kernel Module', y=benchmarks, x=hbc_rf_kmod_speedups, error_x=dict(type='data', array=hbc_rf_kmod_stdev, thickness=1, width=1.5), marker_color=colors[1], text=hbc_rf_kmod_text, orientation='h'),
-    go.Bar(name='hbc + Static Chunking', y=benchmarks, x=hbc_static_speedups, error_x=dict(type='data', array=hbc_static_stdev, thickness=1, width=1.5), marker_color=colors[2], text=hbc_static_text, orientation='h'),
-    go.Bar(name='hbc + ACC', y=benchmarks, x=hbc_speedups, error_x=dict(type='data', array=hbc_stdev, thickness=1, width=1.5), marker_color=colors[3], text=hbc_text, orientation='h')
+    go.Bar(name='hbc + RF Interrupt Ping Thread', y=benchmarks, x=hbc_rf_speedups, error_x=dict(type='data', array=hbc_rf_stdev, thickness=1, width=1.5), marker_color=colors[4], text=hbc_rf_text, orientation='h'),
+    go.Bar(name='hbc + RF Kernel Module', y=benchmarks, x=hbc_rf_kmod_speedups, error_x=dict(type='data', array=hbc_rf_kmod_stdev, thickness=1, width=1.5), marker_color=colors[5], text=hbc_rf_kmod_text, orientation='h'),
+    go.Bar(name='hbc + Static Chunking', y=benchmarks, x=hbc_static_speedups, error_x=dict(type='data', array=hbc_static_stdev, thickness=1, width=1.5), marker_color=colors[1], text=hbc_static_text, orientation='h'),
+    go.Bar(name='hbc + ACC', y=benchmarks, x=hbc_speedups, error_x=dict(type='data', array=hbc_stdev, thickness=1, width=1.5), marker_color=colors[2], text=hbc_text, orientation='h')
 ])
 fig.update_traces(textposition='outside', textfont_size=9)
 
@@ -95,8 +93,12 @@ fig.update_layout(
         yanchor="middle",
         y=0.5,
         xanchor="right",
-        x=0.99),
-    xaxis_title="Program Speedup"
+        x=0.99,
+        bgcolor="#e8e8e8",
+        bordercolor="Black",
+        borderwidth=1),
+    xaxis_title="Program Speedup",
+    plot_bgcolor="white"
 )
 
 # fig['layout']['yaxis']['autorange'] = "reversed"

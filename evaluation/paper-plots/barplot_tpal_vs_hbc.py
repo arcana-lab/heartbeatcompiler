@@ -36,15 +36,13 @@ print(hbc_text)
 del tpal_stdev[-1]
 del hbc_stdev[-1]
 
-# Some colourblind-aware colour palette that I found online
-colors = ['#377eb8', '#ff7f00', '#4daf4a',
-           '#f781bf', '#a65628', '#984ea3',
-           '#999999', '#e41a1c', '#dede00']
+# https://colorbrewer2.org/#type=diverging&scheme=RdYlBu&n=6
+colors = ['#fee090','#fc8d59','#d73027','#e0f3f8','#91bfdb','#4575b4']
 
 # Create the bar chart
 fig = go.Figure(data=[
-        go.Bar(name='TPAL', y=benchmarks, x=tpal_speedups, error_x=dict(type='data', array=tpal_stdev), marker_color=colors[0], text=tpal_text, textposition="outside", textfont_size=9, orientation='h'),
-        go.Bar(name='Heartbeat Compiler', y=benchmarks, x=hbc_speedups, error_x=dict(type='data', array=hbc_stdev), marker_color=colors[1], text=hbc_text, textposition="outside", textfont_size=9, orientation='h')
+        go.Bar(name='TPAL', y=benchmarks, x=tpal_speedups, error_x=dict(type='data', array=tpal_stdev), marker_color=colors[5], text=tpal_text, textposition="outside", textfont_size=9, orientation='h'),
+        go.Bar(name='Heartbeat Compiler', y=benchmarks, x=hbc_speedups, error_x=dict(type='data', array=hbc_stdev), marker_color=colors[2], text=hbc_text, textposition="outside", textfont_size=9, orientation='h')
     ])
 
 # Move legend
@@ -53,8 +51,12 @@ fig.update_layout(
         yanchor="bottom",
         y=0.01,
         xanchor="auto",
-        x=0.99),
-    xaxis_title="Program Speedup"
+        x=0.99,
+        bgcolor="#e8e8e8",
+        bordercolor="Black",
+        borderwidth=1),
+    xaxis_title="Program Speedup",
+    plot_bgcolor="white"
 )
 
 # Add lines

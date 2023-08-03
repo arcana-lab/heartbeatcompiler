@@ -16,10 +16,8 @@ print(chunksizes)
 print(low_latency_times)
 print(high_latency_times)
 
-# Some colourblind-aware colour palette that I found online
-colors = ['#377eb8', '#ff7f00', '#4daf4a',
-           '#f781bf', '#a65628', '#984ea3',
-           '#999999', '#e41a1c', '#dede00']
+# https://colorbrewer2.org/#type=diverging&scheme=RdYlBu&n=6
+colors = ['#fee090','#fc8d59','#d73027','#e0f3f8','#91bfdb','#4575b4']
 
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=chunksizes, y=high_latency_times,
@@ -35,9 +33,13 @@ fig.update_layout(
         yanchor="top",
         y=0.99,
         xanchor="left",
-        x=0.01),
+        x=0.01,
+        bgcolor="#e8e8e8",
+        bordercolor="Black",
+        borderwidth=1),
     xaxis_title="log_2(chunksize)",
-    yaxis_title="Program Runtime (s)"
+    yaxis_title="Program Runtime (s)",
+    plot_bgcolor="white"
 )
 
 fig.update_yaxes(dtick=5, showgrid=True, gridwidth=1, gridcolor='grey')
@@ -53,8 +55,8 @@ chunksizes2=[str(x) for x in df2.loc[:,'log_2(chunksize)']]
 chunksizes2=[(['Static Chunksizes (log_2)',] * (len(chunksizes2) - 1)) + ['w/ ACA'], chunksizes2]
 speedups=list(df2.loc[:,'speedup'])
 
-bar_colors = [colors[0],] * len(speedups)
-bar_colors[-1] = colors[1]
+bar_colors = [colors[1],] * len(speedups)
+bar_colors[-1] = colors[2]
 print(bar_colors)
 
 fig2 = go.Figure(data=[go.Bar(
@@ -74,7 +76,8 @@ fig2.update_layout(
         xanchor="left",
         x=0.01),
     # xaxis_title="log_2(chunksize)",
-    yaxis_title="Program Speedup"
+    yaxis_title="Program Speedup",
+    plot_bgcolor="white"
 )
 
 fig2.update_yaxes(dtick=10, showgrid=True, gridwidth=1, gridcolor='grey')
