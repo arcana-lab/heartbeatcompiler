@@ -55,7 +55,10 @@ fig.update_layout(
         bordercolor="Black",
         borderwidth=1),
     yaxis_title="Wasted Polling Count",
-    plot_bgcolor="white"
+    plot_bgcolor="white",
+    height=450,
+    width=800,
+    margin=dict(l=0,r=0,b=0,t=0)
 )
 
 fig.update_xaxes(dtick=1)

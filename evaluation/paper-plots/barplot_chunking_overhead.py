@@ -38,13 +38,16 @@ fig.update_layout(
         bordercolor="Black",
         borderwidth=1),
     yaxis_title="Overhead (%)",
-    plot_bgcolor="white"
+    plot_bgcolor="white",
+    margin=dict(l=0,r=0,b=0,t=40),
+    height=450,
+    width=800
 )
 
 # Add cut-off annotations
 for i, o in enumerate(no_chunking_overheads):
     if o > 10:
-        fig.add_annotation(xref='paper', x=(0.03 + i/8), yref='paper', y=1.01, text=str(o), font_size=9)
+        fig.add_annotation(xref='paper', x=(0.03 + i/8), yref='paper', y=1, text=str(o), font_size=9)
 
 
 # Change the bar mode

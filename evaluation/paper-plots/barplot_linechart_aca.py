@@ -39,7 +39,10 @@ fig.update_layout(
         borderwidth=1),
     xaxis_title="log_2(chunksize)",
     yaxis_title="Program Runtime (s)",
-    plot_bgcolor="white"
+    plot_bgcolor="white",
+    height=450,
+    width=800,
+    margin=dict(l=0,r=0,b=0,t=0)
 )
 
 fig.update_yaxes(dtick=5, showgrid=True, gridwidth=1, gridcolor='grey')
@@ -77,7 +80,10 @@ fig2.update_layout(
         x=0.01),
     # xaxis_title="log_2(chunksize)",
     yaxis_title="Program Speedup",
-    plot_bgcolor="white"
+    plot_bgcolor="white",
+    height=450,
+    width=800,
+    margin=dict(l=0,r=0,b=0,t=0)
 )
 
 fig2.update_yaxes(dtick=10, showgrid=True, gridwidth=1, gridcolor='grey')
