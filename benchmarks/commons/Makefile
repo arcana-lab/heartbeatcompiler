@@ -72,7 +72,7 @@ FLAGS += \
 # Global OPTS used by all implementations
 # ============================================
 ifeq ($(DEBUG), false)
-	OPTS += -O3 -march=native
+	OPTS += -O3 -march=native -fno-vectorize -fno-slp-vectorize
 else
 	FLAGS += -g
 	OPTS += -O0
@@ -318,14 +318,10 @@ ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 endif
 
 POLLS_STATS ?= false			# whether to print polling stats between beats
-NUM_POLLS_STATS ?= false 	# whether to print total polling stats
-BEATS_STATS ?= false			# print the total number of beats (estimated to be the oracle)
+BEATS_STATS ?= false			# print the info related to polling count and heartbeat detection rate
 ifeq ($(ENABLE_ROLLFORWARD), false)
 	ifeq ($(POLLS_STATS), true)
 		MACROS += -DPOLLS_STATS
-	endif
-	ifeq ($(NUM_POLLS_STATS), true)
-		MACROS += -DNUM_POLLS_STATS
 	endif
 	ifeq ($(BEATS_STATS), true)
 		MACROS += -DBEATS_STATS
