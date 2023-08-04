@@ -18,11 +18,14 @@ extern "C" {
 #define LIVE_IN_ENV 2
 #define LIVE_OUT_ENV 3
 
-#if defined(STATS) || defined(POLLS_STATS) || defined(NUM_POLLS_STATS) || defined(BEATS_STATS)
+#if defined(STATS) || defined(POLLS_STATS) || defined(BEATS_STATS)
 static uint64_t polls = 0;
-static uint64_t heartbeats = 0;
+static uint64_t detected_heartbeats = 0;
 #if defined(STATS)
 static uint64_t splits = 0;
+#endif
+#if defined(BEATS_STATS)
+static uint64_t total_heartbeats = 0;
 #endif
 #if defined(POLLS_STATS)
 static uint64_t prev_polls = 0;
@@ -52,14 +55,15 @@ void run_bench(std::function<void()> const &bench_body,
 #if defined(STATS)
   utility::stats_end();
   printf("polls: %ld\n", polls);
-  printf("heartbeats: %ld\n", heartbeats);
+  printf("detected_heartbeats: %ld\n", detected_heartbeats);
   printf("splits: %ld\n", splits);
 #endif
-#if defined(NUM_POLLS_STATS)
-  printf("polls: %ld\n", polls);
-#endif
 #if defined(BEATS_STATS)
-  printf("heartbeats: %ld\n", heartbeats);
+  printf("polls: %ld\n", polls);
+  printf("detected_heartbeats: %ld\n", detected_heartbeats);
+  printf("wasted_polls: %ld\n", polls - detected_heartbeats);
+  printf("total_heartbeats: %ld\n", total_heartbeats);
+  printf("detection_rate: %.2f\n", (double)detected_heartbeats/(double)total_heartbeats * 100);
 #endif
 #if defined(PROMO_STATS)
   for (auto i = 0; i < maxLevel; i++) {
@@ -78,9 +82,10 @@ void printGIS(uint64_t *cxts, uint64_t startLevel, uint64_t maxLevel, std::strin
 #if defined(ENABLE_SOFTWARE_POLLING)
 
 thread_local uint64_t timestamp = 0;
+thread_local uint64_t heartbeat_interval = taskparts::kappa_cycles;
 
 bool heartbeat_polling(task_memory_t *tmem) {
-#if defined(STATS) || defined(POLLS_STATS) || defined(NUM_POLLS_STATS) || defined(BEATS_STATS)
+#if defined(STATS) || defined(POLLS_STATS) || defined(BEATS_STATS)
   polls++;
 #endif
 
@@ -90,9 +95,35 @@ bool heartbeat_polling(task_memory_t *tmem) {
    */
   tmem->polling_count++;
 #endif
-  if ((timestamp + taskparts::kappa_cycles) > taskparts::cycles::now()) {
+  uint64_t current_timestamp = taskparts::cycles::now();
+  if ((timestamp + heartbeat_interval) > current_timestamp) {
     return false;
   }
+#if defined(STATS) || defined(BEATS_STATS)
+  detected_heartbeats++;
+#if defined(BEATS_STATS)
+  uint64_t quotient = 0;
+  while (timestamp + heartbeat_interval <= current_timestamp) {
+    timestamp += heartbeat_interval;
+    quotient++;
+  }
+  if (quotient >= 2 && tmem->chunksize == 1) {
+    // that's the minimal chunksize we can use,
+    // therefore crossing spans of multiple heartbeats
+    // shouldn't count
+    // this is also another advantage of rollforwarding,
+    // which can breakout in the middle of a high latency
+    // function call
+    total_heartbeats += 2;
+  } else {
+    total_heartbeats += quotient;
+  }
+#endif
+#endif
+#if defined(POLLS_STATS)
+  printf("%ld\n", polls-prev_polls);
+  prev_polls = polls;
+#endif
   return true;
 }
 
@@ -113,7 +144,7 @@ thread_local uint64_t polling_count_last_window = 0;
 thread_local uint64_t success_count = 0;
 #endif
 
-thread_local uint64_t sliding_window_size = 5;
+thread_local uint64_t sliding_window_size = 8;
 thread_local uint64_t target_polling_ratio = 8;
 #if defined(ACC_SPMV_STATS)
 typedef struct {
@@ -295,7 +326,6 @@ bool update_and_has_remaining_chunksize(task_memory_t *tmem, uint64_t iterations
 #endif
 
 void heartbeat_start(task_memory_t *tmem) {
-#if defined(ENABLE_HEARTBEAT)
 #if defined(ENABLE_SOFTWARE_POLLING) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
   runtime_memory_reset();
 #endif
@@ -310,7 +340,6 @@ void heartbeat_start(task_memory_t *tmem) {
   }
 #endif
   task_memory_reset(tmem, 0);
-#endif
 }
 
 int64_t loop_handler(
@@ -323,17 +352,6 @@ int64_t loop_handler(
   void (*leftover_tasks[])(uint64_t *, uint64_t *, uint64_t, task_memory_t *),
   uint64_t (*leftover_selector)(uint64_t, uint64_t)
 ) {
-#if defined(STATS) || defined(BEATS_STATS)
-  heartbeats++;
-#if !defined(ADAPTIVE_CHUNKSIZE_CONTROL)
-  assert(polls >= 2);
-#endif
-  polls = 0;
-#endif
-#if defined(POLLS_STATS)
-  printf("%ld\n", polls-prev_polls);
-  prev_polls = polls;
-#endif
 #if defined(OVERHEAD_ANALYSIS)
 #if defined(ENABLE_SOFTWARE_POLLING) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
   runtime_memory_update(tmem, cxts, numLevels);
