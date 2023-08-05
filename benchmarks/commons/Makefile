@@ -48,7 +48,10 @@ endif
 # include benchmark specific settings
 -include bench.config
 
-MACROS += $(TASKPARTS_PLATFORM)
+MACROS += $(TASKPARTS_PLATFORM) \
+	-DTASKPARTS_TPALRTS \
+	-DTASKPARTS_STATS \
+	-DTASKPARTS_USE_CHASELEV_DEQUE
 
 # ============================================
 # Global FLAGS used by all implementations
@@ -112,7 +115,7 @@ postprocess: utility.hpp
 # ============================================
 # Baseline
 # ============================================
-MACROS_BASELINE += -DUSE_BASELINE $(MACROS)
+MACROS_BASELINE += -DUSE_BASELINE $(MACROS) -DTASKPARTS_TPALRTS_MINIMAL
 FLAGS_BASELINE += $(FLAGS)
 OPTS_BASELINE += $(OPTS)
 LIBS_BASELINE += $(LIBS)
@@ -120,15 +123,22 @@ LIBS_BASELINE += $(LIBS)
 %_baseline.bc: %.cpp
 	$(CXX) $(MACROS_BASELINE) $(FLAGS_BASELINE) -c $< -o $@
 
-baseline: main_baseline.bc bench_baseline.bc
+baseline_normalized.bc: main_baseline.bc bench_baseline.bc
+	llvm-link $^ -o $@
+	noelle-norm $@ -o $@
+
+baseline: baseline_normalized.bc
 	llvm-link $^ -o $@.bc
 	$(CXX) $(OPTS_BASELINE) $@.bc -o $@ $(LIBS_BASELINE)
 	make postprocess
 
 run_baseline: baseline
-	UTILITY_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
-	UTILITY_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
-	UTILITY_BENCHMARK_VERBOSE=$(VERBOSE) \
+	TASKPARTS_NUM_WORKERS=1 \
+	TASKPARTS_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
+	TASKPARTS_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
+	TASKPARTS_BENCHMARK_VERBOSE=$(VERBOSE) \
+	TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_FREQUENCY_KHZ) \
+	TASKPARTS_KAPPA_USEC=$(KAPPA_USECS) \
 	./$< $(ARGS)
 
 # ============================================
@@ -332,15 +342,15 @@ OVERHEAD_ANALYSIS ?= false
 ifeq ($(OVERHEAD_ANALYSIS), true)
 	MACROS += -DOVERHEAD_ANALYSIS
 endif
+CHUNKSIZE_TRANSFERRING_OVERHEAD_ANALYSIS ?= false
+ifeq ($(CHUNKSIZE_TRANSFERRING_OVERHEAD_ANALYSIS), true)
+	MACROS += -DCHUNKSIZE_TRANSFERRING_OVERHEAD_ANALYSIS
+endif
 
 # include benchmark heartbeat specific settings
 -include heartbeat.config
 
 # macros need to enable taskparts runtime
-MACROS_HEARTBEAT += \
-	-DTASKPARTS_TPALRTS \
-	-DTASKPARTS_STATS \
-	-DTASKPARTS_USE_CHASELEV_DEQUE
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	ifeq ($(USE_HB_KMOD), true)
 		MACROS_HEARTBEAT += \
