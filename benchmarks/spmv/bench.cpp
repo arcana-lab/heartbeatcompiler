@@ -9,6 +9,7 @@
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 #include "utility.hpp"
 #include <functional>
+#include <taskparts/benchmark.hpp>
 #endif
 #if defined(SPMV_MATRIX_MARKET)
 #include <mm/mm.hpp> // matrix market loader: https://github.com/cwpearson/matrix-market
@@ -21,6 +22,8 @@ namespace spmv {
     uint64_t n_bigrows = 6000000;
     uint64_t degree_bigrows = 100;
   #elif defined(SPMV_POWERLAW)
+    uint64_t n_bigcols = 24;
+  #elif defined(SPMV_POWERLAW_REVERSE)
     uint64_t n_bigcols = 24;
   #elif defined(SPMV_ARROWHEAD)
     uint64_t n_arrowhead = 150000000;
@@ -88,6 +91,15 @@ double* y;
 void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
                std::function<void()> const &bench_end) {
+#if defined(USE_BASELINE)
+  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
+    bench_body();
+  }, [&] (auto sched) {
+    bench_start();
+  }, [&] (auto sched) {
+    bench_end();
+  });
+#else
   utility::run([&] {
     bench_body();
   }, [&] {
@@ -95,6 +107,7 @@ void run_bench(std::function<void()> const &bench_body,
   }, [&] {
     bench_end();
   });
+#endif
 }
 #endif
 

@@ -58,6 +58,11 @@ uint64_t leftover_selector_nest0(uint64_t receivingLevel, uint64_t splittingLeve
   bool run_heartbeat = false;
 #endif
 
+// Entry function
+void spmv_hb_manual(double *val, uint64_t *row_ptr, uint64_t *col_ind, double* x, double* y, uint64_t n) {
+  HEARTBEAT_nest0_loop0(val, row_ptr, col_ind, x, y, n);
+}
+
 // Outlined loops
 void HEARTBEAT_nest0_loop0(double *val, uint64_t *row_ptr, uint64_t *col_ind, double* x, double* y, uint64_t n) {
   if (run_heartbeat) {

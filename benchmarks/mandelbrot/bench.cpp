@@ -4,15 +4,16 @@
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 #include "utility.hpp"
 #include <functional>
+#include <taskparts/benchmark.hpp>
 #endif
 
 namespace mandelbrot {
 
 // width should be a multiple of 8
 #if defined(INPUT_BENCHMARKING)
-  int _mb_height = 15360; // 100;
-  int _mb_width = 15360; // 2048;
-  int _mb_max_depth = 200; // 500000;
+  int _mb_height = 512;
+  int _mb_width = 1024;
+  int _mb_max_depth = 40000;
 #elif defined(INPUT_TPAL)
   int _mb_height = 4192;
   int _mb_width = 4192;
@@ -39,6 +40,15 @@ double g = 2.0;
 void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
                std::function<void()> const &bench_end) {
+#if defined(USE_BASELINE)
+  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
+    bench_body();
+  }, [&] (auto sched) {
+    bench_start();
+  }, [&] (auto sched) {
+    bench_end();
+  });
+#else
   utility::run([&] {
     bench_body();
   }, [&] {
@@ -46,6 +56,7 @@ void run_bench(std::function<void()> const &bench_body,
   }, [&] {
     bench_end();
   });
+#endif
 }
 #endif
 

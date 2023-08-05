@@ -4,16 +4,7 @@
 
 namespace mandelbrot {
 
-void HEARTBEAT_nest0_loop0(double x0, double y0, int height, int width, int max_depth, double xstep, double ystep, unsigned char *output);
-
-inline
 unsigned char * mandelbrot_hb_manual(double x0, double y0, double x1, double y1,
-                                     int height, int width, int max_depth) {
-  double xstep = (x1 - x0) / width;
-  double ystep = (y1 - y0) / height;
-  unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
-  HEARTBEAT_nest0_loop0(x0, y0, height, width, max_depth, xstep, ystep, output);
-  return output;
-}
+                                     int height, int width, int max_depth);
 
 } // namespace mandelbrot

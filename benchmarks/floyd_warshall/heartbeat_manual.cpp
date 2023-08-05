@@ -58,6 +58,13 @@ uint64_t leftover_selector_nest0(uint64_t receivingLevel, uint64_t splittingLeve
   bool run_heartbeat = false;
 #endif
 
+// Entry function
+void floyd_warshall_hb_manual(int *dist, int vertices) {
+  for(int via = 0; via < vertices; via++) {
+    HEARTBEAT_nest0_loop0(dist, vertices, via);
+  }
+}
+
 // Outlined loops
 void HEARTBEAT_nest0_loop0(int *dist, int vertices, int via) {
   if (run_heartbeat) {
