@@ -1,0 +1,8 @@
+benchmarks,tpal_environment_overhead,outline_overhead,environment_overhead,loop_chunking_overhead,chunk_transferring_overhead
+mandelbrot,0,-0.26,0,0.01,5.05
+spmv-arrowhead,40.9,-0.77,0.04,0.72,53.7
+spmv-powerlaw,36.23,2.42,-1.75,2.26,23.41
+spmv-random,31.43,0.89,-1.01,0.92,1.49
+floyd-warshall,-3.46,-3.24,3.46,0.33,9.92
+plus-reduce-array,34.71,-0.01,0,0.14,-0.11
+srad,-7.15,-0.53,1.55,0.56,1.63

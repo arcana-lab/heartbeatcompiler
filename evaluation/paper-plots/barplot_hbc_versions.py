@@ -73,8 +73,8 @@ colors = ['#fee090','#fc8d59','#d73027','#e0f3f8','#91bfdb','#4575b4']
 #     go.Bar(name='hbc + ACC', y=benchmarks, x=hbc_speedups, error_x=dict(type='data', array=hbc_stdev, thickness=1, width=1.5), marker_color=colors[2], text=hbc_text, orientation='h')
 # ])
 fig = go.Figure(data=[
-    go.Bar(name='Rollforwarding via Interrupt Ping Thread', y=benchmarks, x=hbc_rf_speedups, marker_color=colors[4], text=hbc_rf_text, orientation='h'),
-    go.Bar(name='Rollforwarding via Kernel Module', y=benchmarks, x=hbc_rf_kmod_speedups, marker_color=colors[5], text=hbc_rf_kmod_text, orientation='h'),
+    go.Bar(name='Rollforwarding via Interrupt Ping Thread', y=benchmarks, x=hbc_rf_speedups, marker_color=colors[4], text=hbc_rf_text, textfont_size=11, orientation='h'),
+    go.Bar(name='Rollforwarding via Kernel Module', y=benchmarks, x=hbc_rf_kmod_speedups, marker_color=colors[5], text=hbc_rf_kmod_text, textfont_size=11, orientation='h'),
     # go.Bar(name='hbc + Static Chunking', y=benchmarks, x=hbc_static_speedups, marker_color=colors[1], text=hbc_static_text, orientation='h'),
     go.Bar(name='Software Polling', y=benchmarks, x=hbc_speedups, marker_color=colors[2], text=hbc_text, orientation='h')
 ])
@@ -87,30 +87,27 @@ fig.update_layout(
         yanchor="middle",
         y=0.5,
         xanchor="right",
-        x=0.99,
+        x=0.9,
         bgcolor="#e8e8e8",
         bordercolor="Black",
         borderwidth=1),
     xaxis_title="Program Speedup",
+    xaxis_tickvals=[1, 10, 20, 30, 40, 50, 60],
     plot_bgcolor="white",
     height=450,
     width=800,
-    margin=dict(l=0,r=0,b=0,t=35)
+    margin=dict(l=0,r=0,b=0,t=15)
 )
 
-# fig['layout']['yaxis']['autorange'] = "reversed"
-# fig.add_vline(x=9.5)
-# fig.add_hline(y=1, line_dash="5", annotation_text="baseline", annotation_font_size=10, annotation_x=1.01, annotation_xanchor="left")
-# fig.add_hline(y=64, line_dash="5", line_color="red", annotation_text="cores", annotation_font_color="red", annotation_font_size=10, annotation_x=1.01, annotation_xanchor="left")
 fig.add_hline(y=6.5)
-fig.add_vline(x=1, line_dash="5", annotation_text="baseline", annotation_font_size=10, annotation_textangle=315, annotation_x=0, annotation_y=0.99, annotation_yanchor="bottom")
-fig.add_vline(x=64, line_dash="5", line_color="red", annotation_text="cores", annotation_font_color="red", annotation_font_size=10, annotation_textangle=315, annotation_x=63, annotation_y=0.99, annotation_yanchor="bottom", layer="below")
+fig.add_vline(x=1, y1=1.03, line_dash="5", annotation_text="baseline", annotation_font_size=12, annotation_x=1.5, annotation_y=1, annotation_yanchor="bottom")
+fig.add_vline(x=64, y1=1.03, line_dash="5", line_color="red", annotation_text="cores", annotation_font_color="red", annotation_font_size=12, annotation_x=63.5, annotation_xanchor='right', annotation_y=1, annotation_yanchor="bottom")
 
 # Change the bar mode
 fig.update_layout(barmode='group')
 # fig.update_yaxes(dtick=10, showgrid=True, gridwidth=1, gridcolor='grey')
 fig.update_xaxes(dtick=10, showgrid=True, gridwidth=1, gridcolor='grey')
 fig.update_xaxes(showline=True, mirror=True, linewidth=1, linecolor='black')
-fig.update_yaxes(showline=True, mirror=True, linewidth=1, linecolor='black')
+fig.update_yaxes(showline=True, mirror=True, linewidth=1, linecolor='black', tickfont_size=16)
 fig['layout']['yaxis']['autorange'] = "reversed"
 fig.write_image('plots/plot_hbc_versions.pdf', format='pdf')
