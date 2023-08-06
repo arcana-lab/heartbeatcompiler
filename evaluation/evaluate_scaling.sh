@@ -14,13 +14,13 @@ mkdir -p ${ROOT_DIR}/evaluation/results/${experiment};
 # experiment sections
 baseline=true
 hbc_acc=true     # software polling + acc
-hbc_static=true  # software polling + static chunksize
+hbc_static=false  # software polling + static chunksize
 hbc_rf=true      # rollforward + interrupt ping thread
 hbc_rf_kmod=true # rollforward + kernel module
 openmp=true
 
 # benchmark targetted
-benchmarks=(mandelbrot spmv floyd_warshall plus_reduce_array srad mandelbulb cg)
+benchmarks=(mandelbulb)
 ########################################################
 
 function run_and_collect {
@@ -31,7 +31,7 @@ function run_and_collect {
 
   if [ ${technique} == "baseline" ] ; then
     for i in `seq 1 ${baseline_num_runs}` ; do
-      taskset -c 0 make run_baseline >> ${output} ;
+      taskset -c 2 make run_baseline >> ${output} ;
     done
 
   elif [ ${technique} == "openmp" ] ; then
@@ -63,7 +63,7 @@ make link &> /dev/null ;
 # run experiment per benchmark
 for benchmark in ${benchmarks[@]} ; do
   if [ ${benchmark} == spmv ] ; then
-    input_classes=(ARROWHEAD POWERLAW RANDOM MATRIX_MARKET)
+    input_classes=(ARROWHEAD POWERLAW RANDOM)
   else
     input_classes=(PLACE_HODLER_SO_OTHER_BENCHMARKS_CAN_RUN)
   fi
