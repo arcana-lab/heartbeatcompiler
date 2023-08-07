@@ -234,12 +234,16 @@ int64_t HEARTBEAT_nest0_loop1_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
     }
 
 #if defined(ENABLE_HEARTBEAT)
+#if !defined(PROMOTION_INSERTION_OVERHEAD_ANALYSIS)
     if (update_and_has_remaining_chunksize(tmem, high - startIter, chunksize)) {
       break;
     }
+#endif
 
 #if defined(ENABLE_SOFTWARE_POLLING)
+#if !defined(PROMOTION_INSERTION_OVERHEAD_ANALYSIS)
     if (unlikely(heartbeat_polling(tmem))) {
+#endif
       cxts[LEVEL_ONE * CACHELINE + START_ITER] = low - 1;
       rc = loop_handler(
         cxts, constLiveIns, LEVEL_ONE, NUM_LEVELS_NEST0, tmem,
@@ -248,7 +252,9 @@ int64_t HEARTBEAT_nest0_loop1_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
       if (rc > 0) {
         break;
       }
+#if !defined(PROMOTION_INSERTION_OVERHEAD_ANALYSIS)
     }
+#endif
 #else
     if(unlikely(__rf_test())) {
       cxts[LEVEL_ONE * CACHELINE + START_ITER] = low - 1;
@@ -501,12 +507,16 @@ int64_t HEARTBEAT_nest1_loop1_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
     }
 
 #if defined(ENABLE_HEARTBEAT)
+#if !defined(PROMOTION_INSERTION_OVERHEAD_ANALYSIS)
     if (update_and_has_remaining_chunksize(tmem, high - startIter, chunksize)) {
       break;
     }
+#endif
 
 #if defined(ENABLE_SOFTWARE_POLLING)
+#if !defined(PROMOTION_INSERTION_OVERHEAD_ANALYSIS)
     if (unlikely(heartbeat_polling(tmem))) {
+#endif
       cxts[LEVEL_ONE * CACHELINE + START_ITER] = low - 1;
       rc = loop_handler(
         cxts, constLiveIns, LEVEL_ONE, NUM_LEVELS_NEST1, tmem,
@@ -515,7 +525,9 @@ int64_t HEARTBEAT_nest1_loop1_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
       if (rc > 0) {
         break;
       }
+#if !defined(PROMOTION_INSERTION_OVERHEAD_ANALYSIS)
     }
+#endif
 #else
     if(unlikely(__rf_test())) {
       cxts[LEVEL_ONE * CACHELINE + START_ITER] = low - 1;
