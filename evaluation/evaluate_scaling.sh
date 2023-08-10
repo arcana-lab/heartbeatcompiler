@@ -12,15 +12,15 @@ mkdir -p ${ROOT_DIR}/evaluation/results/${experiment};
 
 ########################################################
 # experiment sections
-baseline=true
+baseline=false
 hbc_acc=true     # software polling + acc
 hbc_static=false  # software polling + static chunksize
 hbc_rf=true      # rollforward + interrupt ping thread
 hbc_rf_kmod=true # rollforward + kernel module
-openmp=true
+openmp=false
 
 # benchmark targetted
-benchmarks=(mandelbulb)
+benchmarks=(floyd_warshall)
 ########################################################
 
 function run_and_collect {
@@ -35,13 +35,13 @@ function run_and_collect {
     done
 
   elif [ ${technique} == "openmp" ] ; then
-    for i in `seq 1 ${num_runs}` ; do
+    for i in `seq 1 20` ; do
       WORKERS=${num_workers} \
       timeout ${timeout} make run_openmp >> ${output} ;
     done
 
   else
-    for i in `seq 1 ${num_runs}` ; do
+    for i in `seq 1 10` ; do
       WORKERS=${num_workers} \
       CPU_FREQUENCY_KHZ=${cpu_frequency_khz} \
       KAPPA_USECS=${heartbeat_interval} \
@@ -112,7 +112,7 @@ for benchmark in ${benchmarks[@]} ; do
     # openmp
     if [ ${openmp} = true ] ; then
       omp_schedules=(STATIC DYNAMIC GUIDED)
-      omp_nested_scheduling=(false true)
+      omp_nested_scheduling=(false)
       for omp_schedule in ${omp_schedules[@]} ; do
         for enable_omp_nested_scheduling in ${omp_nested_scheduling[@]} ; do
           clean ; make openmp INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} OMP_SCHEDULE=${omp_schedule} OMP_NESTED_SCHEDULING=${enable_omp_nested_scheduling} &> /dev/null ;
