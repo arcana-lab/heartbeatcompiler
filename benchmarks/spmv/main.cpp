@@ -19,7 +19,7 @@ using namespace spmv;
 int main() {
 
   run_bench([&] {
-#if !defined(ACC_SPMV_STATS)
+#if !defined(ACC_SPMV_STATS) && !defined(SPMV_DETECTION_RATE_ANALYSIS)
     for (int i = 0; i < 10; i++) {
 #endif
 #if defined(USE_BASELINE)
@@ -35,7 +35,7 @@ int main() {
 #elif defined(USE_HB_COMPILER)
       spmv_hb_compiler(val, row_ptr, col_ind, x, y, nb_rows);
 #endif
-#if !defined(ACC_SPMV_STATS)
+#if !defined(ACC_SPMV_STATS) && !defined(SPMV_DETECTION_RATE_ANALYSIS)
     }
 #endif
 

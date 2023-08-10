@@ -302,6 +302,7 @@ ACC_MINIMAL ?= true			# enable acc conservatively to stay faithful to heartbeat 
 ACC_DEBUG ?= false			# print how chunksize changes over polling count
 ACC_EVAL ?= false				# evaluate the accuracy of acc
 ACC_SPMV_STATS ?= false	# plot how chunksize changes varying the number of nonzeros
+SPMV_DETECTION_RATE_ANALYSIS ?= false # parallel outer loop only to simulate heterogeneous latency
 ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 	MACROS_HEARTBEAT += -DCHUNK_LOOP_ITERATIONS
 	PASS_ARGUMENTS_HEARTBEAT_COMPILER += -chunk_loop_iterations
@@ -324,6 +325,9 @@ ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 				MACROS_HEARTBEAT += -DACC_SPMV_STATS
 			endif
 		endif
+		ifeq ($(SPMV_DETECTION_RATE_ANALYSIS), true)
+			MACROS_HEARTBEAT += -DSPMV_DETECTION_RATE_ANALYSIS
+		endif
 	endif
 endif
 
@@ -341,6 +345,10 @@ endif
 OVERHEAD_ANALYSIS ?= false
 ifeq ($(OVERHEAD_ANALYSIS), true)
 	MACROS += -DOVERHEAD_ANALYSIS
+endif
+PROMOTION_INSERTION_OVERHEAD_ANALYSIS ?= false
+ifeq ($(PROMOTION_INSERTION_OVERHEAD_ANALYSIS), true)
+	MACROS += -DPROMOTION_INSERTION_OVERHEAD_ANALYSIS
 endif
 CHUNKSIZE_TRANSFERRING_OVERHEAD_ANALYSIS ?= false
 ifeq ($(CHUNKSIZE_TRANSFERRING_OVERHEAD_ANALYSIS), true)

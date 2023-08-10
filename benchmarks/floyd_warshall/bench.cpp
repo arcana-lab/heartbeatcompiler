@@ -15,7 +15,7 @@
 namespace floyd_warshall {
 
 #if defined(INPUT_BENCHMARKING)
-  int vertices = 4096;
+  int vertices = 8192;
 #elif defined(INPUT_TPAL)
   int vertices = 2048;
 #elif defined(INPUT_TESTING)

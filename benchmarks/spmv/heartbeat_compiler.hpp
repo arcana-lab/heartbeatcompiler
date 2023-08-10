@@ -14,7 +14,7 @@ extern uint64_t ass_begin;
 
 namespace spmv {
 
-#if !defined(ACC_SPMV_STATS)
+#if !defined(ACC_SPMV_STATS) && !defined(SPMV_DETECTION_RATE_ANALYSIS)
 // default parallel annotation for spmv at both outer and inner levels
 
 void HEARTBEAT_nest0_loop0(double *val, uint64_t *row_ptr, uint64_t *col_ind, double* x, double* y, uint64_t n);
@@ -58,6 +58,7 @@ void HEARTBEAT_nest0_loop0(double *val, uint64_t *row_ptr, uint64_t *col_ind, do
 
 void spmv_hb_compiler(double *val, uint64_t *row_ptr, uint64_t *col_ind, double* x, double* y, uint64_t n) {
   HEARTBEAT_nest0_loop0(val, row_ptr, col_ind, x, y, n);
+#if defined(ACC_SPMV_STATS)
   // print the nonzeros and chunksize per row
   uint64_t ass_index = 1;
   for (uint64_t i = 0; i < n; i++) {
@@ -72,6 +73,7 @@ void spmv_hb_compiler(double *val, uint64_t *row_ptr, uint64_t *col_ind, double*
       ass_index++;
     }
   }
+#endif
 }
 
 // Outlined loops
