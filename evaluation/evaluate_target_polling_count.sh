@@ -7,22 +7,25 @@ source common.sh ;
 
 # experiment
 experiment=target_polling_count
-keyword=heartbeats
 mkdir -p ${ROOT_DIR}/evaluation/results/${experiment};
 
 ########################################################
 # experiment sections
-target_polling_counts=(2 4 8 16 32)
+target_polling_counts=(1 2 4 8 16 32)
+# target_polling_counts=(1 10 100 1000 10000 100000 1000000) # after a certain time, the chunksize will be 1 and no longer shrink
+
+detection_rate=true
+speedup=false
 
 # benchmark targetted
-benchmarks=(mandelbrot spmv floyd_warshall plus_reduce_array srad)
+benchmarks=(plus_reduce_array)
 ########################################################
 
-function run_and_collect {
+function run_and_collect_detection_rate {
   local results_path=${1}
   local target_polling_count=${2}
   mkdir -p ${results_path} ;
-  local output=${results_path}/output.txt
+  local output=${results_path}/detection_rate_output.txt
 
   for i in `seq 1 3` ; do
     WORKERS=1 \
@@ -33,6 +36,28 @@ function run_and_collect {
     make run_hbc >> ${output} ;
   done
 
+  keyword=detection_rate
+  collect ${results_path} ${output} ;
+
+  keyword=wasted_polls
+  collect ${results_path} ${output} ;
+}
+
+function run_and_collect_exectime {
+  local results_path=${1}
+  local target_polling_count=${2}
+  mkdir -p ${results_path} ;
+  local output=${results_path}/speedup_output.txt
+
+  for i in `seq 1 3` ; do
+    WORKERS=64 \
+    CPU_FREQUENCY_KHZ=${cpu_frequency_khz} \
+    KAPPA_USECS=${heartbeat_interval} \
+    TARGET_POLLING_RATIO=${target_polling_count} \
+    make run_hbc >> ${output} ;
+  done
+
+  keyword=exectime
   collect ${results_path} ${output} ;
 }
 
@@ -63,8 +88,19 @@ for benchmark in ${benchmarks[@]} ; do
     clean ;
 
     for target_polling_count in ${target_polling_counts[@]} ; do
-      clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} BEATS_STATS=true ACC=true CHUNKSIZE=1 &> /dev/null ;
-      run_and_collect ${results}/${target_polling_count} ${target_polling_count} ;
+
+      # detection_rate
+      if [ ${detection_rate} = true ] ; then
+        clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} BEATS_STATS=true SPMV_DETECTION_RATE_ANALYSIS=true ACC=true CHUNKSIZE=1 &> /dev/null ;
+        run_and_collect_detection_rate ${results}/${target_polling_count} ${target_polling_count} ;
+      fi
+
+      # speedup
+      if [ ${speedup} = true ] ; then
+        clean ; make hbc INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} ACC=true CHUNKSIZE=1 &> /dev/null ;
+        run_and_collect_exectime ${results}/${target_polling_count} ${target_polling_count} ;
+      fi
+
     done
 
     clean ;
