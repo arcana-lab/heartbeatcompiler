@@ -1,0 +1,80 @@
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 7.172}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 7.388}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 7.207}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 7.179}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 7.201}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 7.205}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 7.283}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 7.212}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 7.237}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 7.289}
+]

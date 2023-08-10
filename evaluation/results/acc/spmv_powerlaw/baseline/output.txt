@@ -1,0 +1,80 @@
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 13.421}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 13.473}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 13.405}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 13.395}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 13.417}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 13.431}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 13.474}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 13.430}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 13.395}
+]
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./baseline 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 13.401}
+]

@@ -1,0 +1,180 @@
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.405}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.538}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.668}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.449}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.615}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.393}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.410}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.423}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.681}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.489}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.496}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.443}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.529}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.402}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.581}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.592}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.435}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.452}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.621}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_arrowhead_benchmarking.dat
+[
+{"exectime": 3.455}
+]

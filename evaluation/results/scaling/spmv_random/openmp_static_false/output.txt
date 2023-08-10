@@ -1,0 +1,180 @@
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 0.944}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 0.987}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 0.929}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 1.000}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 0.997}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 0.974}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 0.973}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 1.020}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 0.966}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 0.962}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 0.990}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 1.013}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 0.955}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 0.952}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 0.972}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 0.975}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 0.963}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 0.965}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 0.959}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_random_benchmarking.dat
+[
+{"exectime": 0.959}
+]

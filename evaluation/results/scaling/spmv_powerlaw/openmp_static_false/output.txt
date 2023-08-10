@@ -1,0 +1,180 @@
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 14.009}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 13.990}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 13.988}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 14.079}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 14.130}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 13.937}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 14.059}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 11.625}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 12.529}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 14.260}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 11.888}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 14.070}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 14.127}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 14.258}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 14.038}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 14.199}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 14.035}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 14.026}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 14.031}
+]
+OMP_NUM_THREADS=64 \
+UTILITY_BENCHMARK_WARMUP_SECS=0.0 \
+UTILITY_BENCHMARK_NUM_REPEAT=1 \
+UTILITY_BENCHMARK_VERBOSE=0 \
+./openmp 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 14.048}
+]
