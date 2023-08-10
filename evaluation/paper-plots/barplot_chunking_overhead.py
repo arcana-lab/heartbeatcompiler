@@ -27,11 +27,11 @@ colors = ['#fee090','#fc8d59','#d73027','#e0f3f8','#91bfdb','#4575b4']
 
 # Create the bar chart
 fig = go.Figure(data=[
-    go.Bar(name='No Chunking', x=benchmarks, y=no_chunking_overheads, marker_color=colors[0], text=no_chunking_overheads_text),
-    go.Bar(name='Static Chunking', x=benchmarks, y=static_chunking_overheads, marker_color=colors[1], text=static_chunking_overheads_text),
+    go.Bar(name='No chunking', x=benchmarks, y=no_chunking_overheads, marker_color=colors[0], text=no_chunking_overheads_text),
+    go.Bar(name='Static chunking', x=benchmarks, y=static_chunking_overheads, marker_color=colors[1], text=static_chunking_overheads_text),
     go.Bar(name='Adaptive Chunking', x=benchmarks, y=aca_overheads, marker_color=colors[2], text=aca_overheads_text)
 ])
-fig.update_traces(textposition='outside', texttemplate='%{text:.1f}')
+fig.update_traces(textposition='outside', texttemplate='%{text:.d}')
 
 
 # Move legend
@@ -39,18 +39,18 @@ fig.update_layout(
     legend=dict(
         font_size=16,
         yanchor="top",
-        y=0.9,
+        y=0.88,
         xanchor="left",
         x=0.01,
         bgcolor="#e8e8e8",
         bordercolor="Black",
         borderwidth=1),
-    uniformtext_minsize=14,
+    uniformtext_minsize=13,
     uniformtext_mode='show',
     yaxis_title="Overhead (%)",
     plot_bgcolor="white",
     margin=dict(l=0,r=0,b=0,t=0),
-    height=400,
+    height=350,
     width=800
 )
 
@@ -59,7 +59,7 @@ no_chunking_overheads_text=[round(x, 1) for x in no_chunking_overheads_text]
 # Add cut-off annotations
 for i, o in enumerate(no_chunking_overheads):
     if o > 10:
-        fig.add_annotation(xref='paper', x=(0.03 + i/7), axref='x domain', ax=45, yref='paper', y=1, ayref='y', ay=9, text=str(no_chunking_overheads_text[i]), font_size=14)
+        fig.add_annotation(xref='paper', x=(0.03 + i/7), axref='x domain', ax=45, yref='paper', y=1, ayref='y', ay=9, text=str(no_chunking_overheads_text[i]), font_size=13)
 
 # fig.add_vline(x=6.5)
 

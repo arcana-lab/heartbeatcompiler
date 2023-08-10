@@ -1,4 +1,4 @@
-mandelbrot,mandelbulb,spmv-arrowhead,spmv-powerlaw,spmv-random
-15203,90,8207,8320,16383
-255393,15767,1881,2690,0
+mandelbrot,mandelbulb,cg,spmv-arrowhead,spmv-powerlaw
+15203,90,30464,8207,8320
+255393,15767,5,1881,2690
 ,31665,,,

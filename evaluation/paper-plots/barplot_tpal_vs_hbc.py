@@ -59,10 +59,10 @@ fig.update_layout(
         bgcolor="#e8e8e8",
         bordercolor="Black",
         borderwidth=1),
-    xaxis_title="Program Speedup",
+    xaxis_title="Program speedup",
     xaxis_tickvals=[1, 10, 20, 30, 40, 50, 60],
     plot_bgcolor="white",
-    height=400,
+    height=350,
     width=800,
     margin=dict(l=0,r=0,b=0,t=20)
 )

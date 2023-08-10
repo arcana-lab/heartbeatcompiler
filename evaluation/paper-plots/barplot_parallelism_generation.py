@@ -18,9 +18,11 @@ print(level_one)
 print(level_two)
 
 totals = [i+j+k for i,j,k in zip(level_zero, level_one, level_two)]
-level_zero_rel = [round(i / j * 100, 1) for i,j in zip(level_zero, totals)]
-level_one_rel = [round(i / j * 100, 1) for i,j in zip(level_one, totals)]
-level_two_rel = [round(i / j * 100, 1) for i,j in zip(level_two, totals)]
+level_zero_rel = [round(i / j * 100, 2) for i,j in zip(level_zero, totals)]
+level_one_rel = [round(i / j * 100, 2) for i,j in zip(level_one, totals)]
+level_two_rel = [round(i / j * 100, 2) for i,j in zip(level_two, totals)]
+level_zero_rel_text = level_zero_rel.copy()
+# level_zero_rel_text[6] = '>99.99'
 print(level_zero_rel)
 print(level_one_rel)
 print(level_two_rel)
@@ -30,7 +32,7 @@ colors = ['#fee090','#fc8d59','#d73027','#e0f3f8','#91bfdb','#4575b4']
 
 # Create the bar chart
 fig = go.Figure(data=[
-    go.Bar(name='Nesting level 0', y=benchmarks, x=level_zero_rel, marker_color=colors[0], text=level_zero_rel, textposition='inside', orientation='h'),
+    go.Bar(name='Nesting level 0', y=benchmarks, x=level_zero_rel, marker_color=colors[0], text=level_zero_rel_text, textposition='inside', orientation='h'),
     go.Bar(name='Nesting level 1', y=benchmarks, x=level_one_rel, marker_color=colors[1], text=level_one_rel, textposition='inside', orientation='h'),
     go.Bar(name='Nesting level 2', y=benchmarks, x=level_two_rel, marker_color=colors[2], text=level_two_rel, textposition='inside', orientation='h')
 ])
@@ -42,22 +44,25 @@ fig.update_layout(
     legend=dict(
         font_size=16,
         yanchor="bottom",
-        y=0.03,
+        y=0.01,
         xanchor="left",
-        x=0.01,
+        x=0.003,
         bgcolor="#e8e8e8",
         bordercolor="Black",
         borderwidth=1),
     xaxis_title="Parallelism promotions generated (%)",
     uniformtext_minsize=14,
-    uniformtext_mode='show',
+    uniformtext_mode='hide',
     plot_bgcolor="white",
     margin=dict(l=0,r=0,b=0,t=0),
     height=200,
     width=800
 )
 
-fig.add_annotation(text=level_zero_rel[1], font_color=colors[0], arrowcolor=colors[0], yref='paper', y=0.7, xref='paper', x=0.005, arrowhead=1, axref='x domain', ax=40, ayref='y domain', ay=0, font_size=14)
+fig.add_annotation(text=level_zero_rel[0], font_color='black', y=0, xref='paper', x=-0.001, showarrow=False, font_size=14)
+fig.add_annotation(text=level_zero_rel[1], font_color=colors[0], arrowcolor=colors[0], y=1, xref='paper', x=0.005, arrowhead=1, axref='x domain', ax=30, ayref='y domain', ay=0, font_size=14)
+fig.add_annotation(text=level_one_rel[2], textangle=-90, font_color=colors[1], arrowcolor=colors[1], y=2, xref='paper', x=0.95, arrowhead=1, axref='x domain', ax=20, ayref='y domain', ay=0, font_size=14)
+# fig.add_annotation(text="<0.01", textangle=-90, font_color=colors[1], arrowcolor=colors[1], y=6, xref='paper', x=0.95, arrowhead=1, axref='x domain', ax=20, ayref='y domain', ay=0, font_size=14)
 # fig.add_vline(x=6.5)
 fig['layout']['yaxis']['autorange'] = "reversed"
 # Change the bar mode

@@ -55,7 +55,7 @@ fig = go.Figure(data=[
         go.Bar(orientation='h', y=benchmarks, x=closure_generation_overhead, name='Closure generation', marker_color=colors[1], offsetgroup=2, base=o, legendgroup="hbc2", legendgrouptitle_text="HBC (software polling)"),
         go.Bar(orientation='h', y=benchmarks, x=loop_chunking_overhead, name='Loop chunking transformation', marker_color=colors[2], offsetgroup=2, base=oc, legendgroup="hbc2", legendgrouptitle_text="HBC (software polling)"),
         go.Bar(orientation='h', y=benchmarks, x=promotion_insertion_overhead, name='Promotion insertion', marker_color=colors[3], offsetgroup=2, base=ocl, legendgroup="hbc2"),
-        go.Bar(orientation='h', y=benchmarks, x=chunksize_transferring_overhead, name='Chunksize transferring', marker_color=colors[4], offsetgroup=2, base=oclp, legendgroup="hbc2"),
+        go.Bar(orientation='h', y=benchmarks, x=chunksize_transferring_overhead, name='Chunk size transferring', marker_color=colors[4], offsetgroup=2, base=oclp, legendgroup="hbc2"),
         go.Bar(orientation='h', y=benchmarks, x=ac_polling_overhead, name='AC polling overhead', marker_color=colors[5], offsetgroup=2, base=oclpc, legendgroup="hbc2")
     ])
 
@@ -74,7 +74,7 @@ fig.update_layout(
         bgcolor="#e8e8e8",
         bordercolor="Black",
         borderwidth=1),
-    xaxis_title="Overhead over Baseline (%)",
+    xaxis_title="Overhead over baseline (%)",
     plot_bgcolor="white",
     height=300,
     width=800,
@@ -87,11 +87,13 @@ fig.update_layout(
 for i in range(0, len(benchmarks) - 1):
     fig.add_hline(y=i+0.5, line_width=1, line_color='grey')
 
-# fig.add_annotation(text=str(ocplc[1] + ac_polling_overhead[1]), font_size=14, xref='paper', x=1, yref='paper', y=0.765, axref='x domain', ax=-35, ayref='y domain', ay=-10)
-
+for i in range(0, len(benchmarks) - 1):
+    total_overhead = round(oclpc[i] + ac_polling_overhead[i], 2)
+    fig.add_annotation(text="+"+str(total_overhead), font_size=13, x=total_overhead+5, y=i+0.28, showarrow=False)
+fig.add_annotation(text="+"+str(1.51), font_size=13, x=1.51+6, y=len(benchmarks) - 1+0.28, showarrow=False)
 fig['layout']['yaxis']['autorange'] = "reversed"
 # fig.update_layout(barmode='relative')
-fig.update_xaxes(range=[-10, 65], dtick=10, showgrid=True, gridwidth=1, gridcolor='grey', zerolinecolor='grey', zerolinewidth=1)
+fig.update_xaxes(range=[-10, 69], dtick=10, showgrid=True, gridwidth=1, gridcolor='grey', zerolinecolor='grey', zerolinewidth=1)
 fig.update_yaxes(showline=True, mirror=True, linewidth=1, linecolor='black', tickfont_size=16)
 # fig.update_yaxes(tickangle=-20, ticks="outside")
 fig.update_xaxes(showline=True, mirror=True, linewidth=1, linecolor='black', tickfont_size=14, titlefont_size=20)

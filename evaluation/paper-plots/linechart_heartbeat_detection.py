@@ -25,7 +25,7 @@ print(plus_reduce_array)
 print(srad)
 
 # https://colorbrewer2.org/#type=diverging&scheme=RdYlBu&n=6
-colors = ['#fee090','#fc8d59','#d73027','#e0f3f8','#91bfdb','#4575b4']
+colors = ['#fee090','#fc8d59','#d73027','#af8dc3','#91bfdb','#4575b4']
 symbols = ['circle', 'square', 'diamond', 'cross', 'triangle-up', 'triangle-down', 'star']
 
 fig = make_subplots(rows=2, cols=1, vertical_spacing = 0.05,
@@ -42,7 +42,7 @@ for i in [1, 2]:
                         row=i, col=1)
     fig.add_trace(go.Scatter(x=polling_counts, y=spmv_arrowhead,
                         mode='lines+markers',
-                        name='spmv_arrowhead',
+                        name='spmv-arrowhead',
                         line_color=colors[1],
                         marker_symbol=symbols[1],
                         legendgroup=1,
@@ -50,7 +50,7 @@ for i in [1, 2]:
                         row=i, col=1)
     fig.add_trace(go.Scatter(x=polling_counts, y=spmv_powerlaw,
                         mode='lines+markers',
-                        name='spmv_powerlaw',
+                        name='spmv-powerlaw',
                         line_color=colors[0],
                         marker_symbol=symbols[2],
                         legendgroup=1,
@@ -58,7 +58,7 @@ for i in [1, 2]:
                         row=i, col=1)
     fig.add_trace(go.Scatter(x=polling_counts, y=spmv_random,
                         mode='lines+markers',
-                        name='spmv_random',
+                        name='spmv-random',
                         line_color=colors[3],
                         marker_symbol=symbols[3],
                         legendgroup=1,
@@ -66,7 +66,7 @@ for i in [1, 2]:
                         row=i, col=1)
     fig.add_trace(go.Scatter(x=polling_counts, y=plus_reduce_array,
                         mode='lines+markers',
-                        name='plus_reduce_array',
+                        name='plus-reduce-array',
                         line_color=colors[4],
                         marker_symbol=symbols[4],
                         legendgroup=1,
@@ -81,13 +81,14 @@ for i in [1, 2]:
                         showlegend=show),
                         row=i, col=1)
 
-fig.update_traces(marker=dict(size=12,
+fig.update_traces(line_width=3,
+                  marker=dict(size=12,
                               line=dict(width=1,
                                         color='DarkSlateGrey')))
 # Move legend
 fig.update_layout(
     legend=dict(
-        font_size=18,
+        font_size=16,
         yanchor="bottom",
         y=0.01,
         xanchor="right",
@@ -96,15 +97,18 @@ fig.update_layout(
         bordercolor="Black",
         borderwidth=1),
     plot_bgcolor="white",
-    height=350,
+    height=300,
     width=800,
     margin=dict(l=65,r=0,b=0,t=0)
 )
 
-cut_interval = [10, 50]
-fig.add_annotation(text="Heartbeat detection rate (%)", xref='paper', x=-0.05, yref='paper', y=0.38, textangle=-90, font_size=20)
+fig.add_vline(x=8, layer='below', line_dash="5", line_color="red", row=1)
+fig.add_vline(x=8, line_dash="5", annotation_text="8", annotation_font_size=14, line_color="red", annotation_font_color="red", annotation_x=8.01, annotation_xanchor="center", annotation_y=-0.04, annotation_yanchor="top", row=2)
+
+cut_interval = [10, 45]
+fig.add_annotation(text="Heartbeat detection rate (%)", xref='paper', x=-0.05, yref='paper', y=0.38, textangle=-90, font_size=18)
 fig.update_xaxes(row=1, col=1, range=[0, 35], dtick=5, showgrid=True, gridwidth=1, gridcolor='grey', showline=True, showticklabels=False, mirror=True, linewidth=1, linecolor='black', titlefont_size=20, tickfont_size=14)
 fig.update_xaxes(row=2, col=1, range=[0, 35], dtick=5, showgrid=True, gridwidth=1, gridcolor='grey', showline=True, mirror=True, linewidth=1, linecolor='black', title="Target polling count", titlefont_size=20, tickfont_size=14)
-fig.update_yaxes(range=[0, cut_interval[0]], dtick=10, row=2, col=1, showgrid=True, gridwidth=1, gridcolor='grey', mirror=True, linewidth=1, linecolor='black', titlefont_size=20, tickfont_size=14)
+fig.update_yaxes(range=[0, cut_interval[0]], dtick=10, row=2, col=1, showgrid=True, gridwidth=1, gridcolor='grey', mirror=True, linewidth=1, linecolor='black', titlefont_size=18, tickfont_size=14)
 fig.update_yaxes(range=[cut_interval[1], 105], dtick=10, row=1, col=1, showline=True, gridwidth=1, gridcolor='grey', mirror=True, linewidth=1, linecolor='black', tickfont_size=14)
 fig.write_image('plots/plot_heartbeat_detection.pdf', format='pdf')
