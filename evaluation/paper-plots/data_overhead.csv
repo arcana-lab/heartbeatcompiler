@@ -1,8 +1,8 @@
-benchmarks,tpal_environment_overhead,outline_overhead,environment_overhead,loop_chunking_overhead,chunk_transferring_overhead
-mandelbrot,0,-0.26,0,0.01,5.05
-spmv-arrowhead,40.9,-0.77,0.04,0.72,53.7
-spmv-powerlaw,36.23,2.42,-1.75,2.26,23.41
-spmv-random,31.43,0.89,-1.01,0.92,1.49
-floyd-warshall,-3.46,-3.24,3.46,0.33,9.92
-plus-reduce-array,34.71,-0.01,0,0.14,-0.11
-srad,-7.15,-0.53,1.55,0.56,1.63
+benchmarks,tpal_environment_overhead,outline_overhead,closure_generation_overhead,loop_chunking_overhead,promotion_insertion_overhead,aca_chunksize_transferring_overhead,no_chunking_overhead,static_chunking_overhead,ac_polling_overhead,rf_kmod_overhead
+mandelbrot,0,0,0,0,5.04,0,0.03,0,0.03,6.73
+spmv-arrowhead,40.9,0.38,0,1.28,21.72,34.25,359.97,2.4,0.83,26.35
+spmv-powerlaw,36.23,0.31,0.27,2.1,7,11.87,325.9,1.9,0.59,12.51
+spmv-random,31.43,0.21,0,0,1.58,0.65,376.97,9.26,0.54,8.07
+floyd-warshall,-3.46,0,3.66,0.44,1.23,4.26,747.96,4.13,0.29,17.06
+plus-reduce-array,34.71,0,0,0,0,0,550.14,0.1,0.01,3.1
+srad,-7.15,-1.09,0.46,0.73,0,1.23,137.54,2.43,0.18,7.66
