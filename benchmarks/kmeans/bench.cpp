@@ -10,16 +10,10 @@
 #include <taskparts/benchmark.hpp>
 #endif
 
-#define RANDOM_MAX 2147483647
-
-#ifndef FLT_MAX
-#define FLT_MAX 3.40282347e+38
-#endif
-
 namespace kmeans {
 
 #if defined(INPUT_BENCHMARKING)
-  int numObjects = 40000000;
+  int numObjects = 10000000;
 #elif defined(INPUT_TPAL)
   int numObjects = 1000000;
 #elif defined(INPUT_TESTING)
@@ -115,19 +109,6 @@ int find_nearest_point(int  *pt,          /* [nfeatures] */
   return(index);
 }
 
-inline
-uint64_t hash(uint64_t u) {
-  uint64_t v = u * 3935559000370003845ul + 2691343689449507681ul;
-  v ^= v >> 21;
-  v ^= v << 37;
-  v ^= v >>  4;
-  v *= 4768777513237032717ul;
-  v ^= v << 20;
-  v ^= v >> 41;
-  v ^= v <<  5;
-  return v;
-}
-
 // Features are integers from 0 to 255 by default
 auto kmeans_inputgen(int nObj, int nFeat = 34) -> kmeans_input_type {
   int numObjects = nObj;
@@ -140,7 +121,7 @@ auto kmeans_inputgen(int nObj, int nFeat = 34) -> kmeans_input_type {
   }
   for ( int i = 0; i < nObj; i++ ) {
     for ( int j = 0; j < numAttributes; j++ ) {
-      attributes[i][j] = (int)hash(j) / (int)RAND_MAX;
+      attributes[i][j] = (rand() % (255 - 0 + 1));
     }
   }
   kmeans_input_type in = { nObj, nFeat, attributes };
@@ -306,8 +287,8 @@ int** kmeans_openmp(int **feature,    /* in: [npoints][nfeatures] */
   int  **new_centers;     /* [nclusters][nfeatures] */
   
   int nthreads;
-  int **partial_new_centers_len;
-  int ***partial_new_centers;
+  int *partial_new_centers_len;
+  int *partial_new_centers;
   nthreads = omp_get_max_threads();
 
   /* allocate space for returning variable clusters[] */
@@ -335,25 +316,18 @@ int** kmeans_openmp(int **feature,    /* in: [npoints][nfeatures] */
   for (i=1; i<nclusters; i++)
     new_centers[i] = new_centers[i-1] + nfeatures;
 
-  partial_new_centers_len = (int **)malloc(nthreads * sizeof(int *));
-  partial_new_centers_len[0] = (int *)calloc(nthreads * nclusters, sizeof(int));
-  for (i = 1; i < nthreads; i++)
-    partial_new_centers_len[i] = partial_new_centers_len[i - 1] + nclusters;
+  partial_new_centers_len = (int *)alloca(nthreads * nclusters * sizeof(int));
+  for (i = 0; i < nthreads * nclusters; i++) {
+    partial_new_centers_len[i] = 0;
+  }
 
-  partial_new_centers = (int ***)malloc(nthreads * sizeof(int **));
-  partial_new_centers[0] =
-      (int **)malloc(nthreads * nclusters * sizeof(int *));
-  for (i = 1; i < nthreads; i++)
-      partial_new_centers[i] = partial_new_centers[i - 1] + nclusters;
-
-  for (i = 0; i < nthreads; i++) {
-      for (j = 0; j < nclusters; j++)
-          partial_new_centers[i][j] =
-              (int *)calloc(nfeatures, sizeof(int));
+  partial_new_centers = (int *)alloca(nthreads * nclusters * nfeatures * sizeof(int));
+  for (i = 0; i < nthreads * nclusters * nfeatures; i++) {
+    partial_new_centers[i] = 0;
   }
 
   do {
-		
+  
     delta = 0;
 
     #pragma omp parallel shared(feature, clusters, membership, partial_new_centers, partial_new_centers_len)
@@ -376,22 +350,22 @@ int** kmeans_openmp(int **feature,    /* in: [npoints][nfeatures] */
         membership[i] = index;
 
         /* update new cluster centers : sum of objects located within */
-        partial_new_centers_len[tid][index]++;
+        partial_new_centers_len[tid * nclusters + index]++;
         for (j=0; j<nfeatures; j++)          
-          partial_new_centers[tid][index][j] += feature[i][j];
+          partial_new_centers[tid * (nclusters * nfeatures) + index * nfeatures + j] += feature[i][j];
       }
     }
 
     /* let the main thread perform the array reduction */
     for (i = 0; i < nclusters; i++) {
-        for (j = 0; j < nthreads; j++) {
-            new_centers_len[i] += partial_new_centers_len[j][i];
-            partial_new_centers_len[j][i] = 0;
-            for (k = 0; k < nfeatures; k++) {
-                new_centers[i][k] += partial_new_centers[j][i][k];
-                partial_new_centers[j][i][k] = 0;
-            }
+      for (j = 0; j < nthreads; j++) {
+        new_centers_len[i] += partial_new_centers_len[j * nclusters + i];
+        partial_new_centers_len[j * nclusters + i] = 0;
+        for (k = 0; k < nfeatures; k++) {
+          new_centers[i][k] += partial_new_centers[j * nclusters * nfeatures + i * nfeatures + k];
+          partial_new_centers[j * nclusters * nfeatures + i * nfeatures + k] = 0;
         }
+      }
     }
 
     /* replace old cluster centers with new_centers */
@@ -467,6 +441,7 @@ void test_correctness() {
   for (uint64_t i = 0; i != nclusters; i++) {
     for (uint64_t j = 0; j != numAttributes; j++) {
       auto diff = std::abs(cluster_centres[i][j] - cluster_centres_ref[i][j]);
+      // printf("diff=%d cluster_centres[i]=%d cluster_centres_ref[i]=%d at i, j=%ld, %ld\n", diff, cluster_centres[i][j], cluster_centres_ref[i][j], i, j);
       if (diff > epsilon) {
         printf("diff=%d cluster_centres[i]=%d cluster_centres_ref[i]=%d at i, j=%ld, %ld\n", diff, cluster_centres[i][j], cluster_centres_ref[i][j], i, j);
         num_diffs++;
