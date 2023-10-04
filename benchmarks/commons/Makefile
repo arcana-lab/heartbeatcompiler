@@ -128,8 +128,7 @@ baseline_normalized.bc: main_baseline.bc bench_baseline.bc
 	noelle-norm $@ -o $@
 
 baseline: baseline_normalized.bc
-	llvm-link $^ -o $@.bc
-	$(CXX) $(OPTS_BASELINE) $@.bc -o $@ $(LIBS_BASELINE)
+	$(CXX) $(OPTS_BASELINE) $< -o $@ $(LIBS_BASELINE)
 	make postprocess
 
 run_baseline: baseline
@@ -224,9 +223,12 @@ endif
 %_openmp.bc: %.cpp
 	$(CXX) $(MACROS_OPENMP) $(FLAGS_OPENMP) -c $< -o $@
 
-openmp: main_openmp.bc bench_openmp.bc
-	llvm-link $^ -o $@.bc
-	$(CXX) $(OPTS_OPENMP) $@.bc -o $@ $(LIBS_OPENMP)
+openmp_normalized.bc: main_openmp.bc bench_openmp.bc
+	llvm-link $^ -o $@
+	noelle-norm $@ -o $@
+
+openmp: openmp_normalized.bc
+	$(CXX) $(OPTS_OPENMP) $< -o $@ $(LIBS_OPENMP)
 	make postprocess
 
 run_openmp: openmp
