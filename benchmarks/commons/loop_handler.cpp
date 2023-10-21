@@ -404,7 +404,9 @@ int64_t loop_handler(
   /*
    * Calculate the splitting point of the rest of iterations at splittingLevel
    */
-  uint64_t mid = (cxts[splittingLevel * CACHELINE + START_ITER] + 1 + cxts[splittingLevel * CACHELINE + MAX_ITER]) / 2;
+  uint64_t low = cxts[splittingLevel * CACHELINE + START_ITER];
+  uint64_t high = cxts[splittingLevel * CACHELINE + MAX_ITER];
+  uint64_t mid = (low + 1 + high) / 2;
 
   /*
    * Allocate the second context
@@ -415,7 +417,7 @@ int64_t loop_handler(
    * Construct the context at the splittingLevel for the second task
    */
   cxtsSecond[splittingLevel * CACHELINE + START_ITER]   = mid;
-  cxtsSecond[splittingLevel * CACHELINE + MAX_ITER]     = cxts[splittingLevel * CACHELINE + MAX_ITER];
+  cxtsSecond[splittingLevel * CACHELINE + MAX_ITER]     = high;
   cxtsSecond[splittingLevel * CACHELINE + LIVE_IN_ENV]  = cxts[splittingLevel * CACHELINE + LIVE_IN_ENV];
   cxtsSecond[splittingLevel * CACHELINE + LIVE_OUT_ENV] = cxts[splittingLevel * CACHELINE + LIVE_OUT_ENV];
 
@@ -446,13 +448,6 @@ int64_t loop_handler(
     }, [] { }, taskparts::bench_scheduler());
   
   } else { // the first task needs to compose the leftover work
-
-    /*
-     * Set the startIter for the leftover work to start from
-     */
-    for (uint64_t level = splittingLevel + 1; level <= receivingLevel; level++) {
-      cxts[level * CACHELINE + START_ITER]++;
-    }
 
     /*
      * Determine which leftover task to run

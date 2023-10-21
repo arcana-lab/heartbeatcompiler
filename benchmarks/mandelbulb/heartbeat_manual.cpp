@@ -352,6 +352,8 @@ int64_t HEARTBEAT_nest0_loop2_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
 // Leftover tasks
 void HEARTBEAT_nest0_loop_2_0_leftover(uint64_t *cxts, uint64_t *constLiveIns, uint64_t myIndex, task_memory_t *tmem) {
   int64_t rc = 0;
+
+  cxts[LEVEL_TWO * CACHELINE + START_ITER]++;
   rc = HEARTBEAT_nest0_loop2_slice(cxts, constLiveIns, myIndex, tmem);
   if (rc > 0) {
     return;
@@ -374,6 +376,8 @@ void HEARTBEAT_nest0_loop_2_0_leftover(uint64_t *cxts, uint64_t *constLiveIns, u
 
 void HEARTBEAT_nest0_loop_2_1_leftover(uint64_t *cxts, uint64_t *constLiveIns, uint64_t myIndex, task_memory_t *tmem) {
   int64_t rc = 0;
+
+  cxts[LEVEL_TWO * CACHELINE + START_ITER]++;
   rc = HEARTBEAT_nest0_loop2_slice(cxts, constLiveIns, myIndex, tmem);
   if (rc > 0) {
     return;
@@ -390,6 +394,8 @@ void HEARTBEAT_nest0_loop_2_1_leftover(uint64_t *cxts, uint64_t *constLiveIns, u
 
 void HEARTBEAT_nest0_loop_1_0_leftover(uint64_t *cxts, uint64_t *constLiveIns, uint64_t myIndex, task_memory_t *tmem) {
   int64_t rc = 0;
+
+  cxts[LEVEL_ONE * CACHELINE + START_ITER]++;
   rc = HEARTBEAT_nest0_loop1_slice(cxts, constLiveIns, myIndex, tmem);
   if (rc > 0) {
     return;
