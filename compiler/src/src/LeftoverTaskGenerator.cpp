@@ -116,32 +116,32 @@ void Heartbeat::createLeftoverTasks(
           &*(leftoverTask->arg_begin()+2),  // startingLevel
           &*(leftoverTask->arg_begin()+3)   // myIndex
         };
-        if (level != receivingLevel) {
-          // store startIter + 1
-          auto startIterAddr = invokingBlockBuilder.CreateInBoundsGEP(
-            hbTransformation->getEnvBuilder()->getContextArrayType(),
-            contextArrayCasted,
-            ArrayRef<Value *>({
-              invokingBlockBuilder.getInt64(0),
-              invokingBlockBuilder.getInt64(this->loopToLevel[loop] * hbTransformation->valuesInCacheLine + hbTransformation->startIterationIndex)
-            }),
-            std::string("startIteration_").append(std::to_string(level)).append("_addr")
-          );
-          auto startIter = invokingBlockBuilder.CreateLoad(
-            invokingBlockBuilder.getInt64Ty(),
-            startIterAddr,
-            std::string("startIteration_").append(std::to_string(level))
-          );
-          auto startIterPlusOne = invokingBlockBuilder.CreateAdd(
-            startIter,
-            invokingBlockBuilder.getInt64(1),
-            std::string("startIteration_").append(std::to_string(level)).append("_plusone")
-          );
-          invokingBlockBuilder.CreateStore(
-            startIterPlusOne,
-            startIterAddr
-          );
-        }
+
+        // store startIter + 1
+        auto startIterAddr = invokingBlockBuilder.CreateInBoundsGEP(
+          hbTransformation->getEnvBuilder()->getContextArrayType(),
+          contextArrayCasted,
+          ArrayRef<Value *>({
+            invokingBlockBuilder.getInt64(0),
+            invokingBlockBuilder.getInt64(this->loopToLevel[loop] * hbTransformation->valuesInCacheLine + hbTransformation->startIterationIndex)
+          }),
+          std::string("startIteration_").append(std::to_string(level)).append("_addr")
+        );
+        auto startIter = invokingBlockBuilder.CreateLoad(
+          invokingBlockBuilder.getInt64Ty(),
+          startIterAddr,
+          std::string("startIteration_").append(std::to_string(level))
+        );
+        auto startIterPlusOne = invokingBlockBuilder.CreateAdd(
+          startIter,
+          invokingBlockBuilder.getInt64(1),
+          std::string("startIteration_").append(std::to_string(level)).append("_plusone")
+        );
+        invokingBlockBuilder.CreateStore(
+          startIterPlusOne,
+          startIterAddr
+        );
+
         auto sliceTaskCallInst = invokingBlockBuilder.CreateCall(
           hbTask->getTaskBody(),
           ArrayRef<Value *>({
