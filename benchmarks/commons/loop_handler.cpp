@@ -30,7 +30,7 @@ static uint64_t total_heartbeats = 0;
 #endif
 
 #if defined(PROMO_STATS)
-static int maxLevel = 3;
+static int maxLevel = 4;
 std::unordered_map<int, uint64_t> levelCountMap;
 #endif
 
