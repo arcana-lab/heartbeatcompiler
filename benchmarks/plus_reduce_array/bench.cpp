@@ -107,12 +107,22 @@ double plus_reduce_array_cilkplus(double* a, uint64_t lo, uint64_t hi) {
 
 double plus_reduce_array_openmp(double* a, uint64_t lo, uint64_t hi) {
   double r = 0.0;
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
   #pragma omp parallel for schedule(static) reduction(+:r)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
   #pragma omp parallel for schedule(dynamic) reduction(+:r)
 #elif defined(OMP_SCHEDULE_GUIDED)
   #pragma omp parallel for schedule(guided) reduction(+:r)
+#endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp parallel for schedule(static, OMP_CHUNKSIZE) reduction(+:r)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic, OMP_CHUNKSIZE) reduction(+:r)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp parallel for schedule(guided, OMP_CHUNKSIZE) reduction(+:r)
+#endif
 #endif
   for (uint64_t i = lo; i != hi; i++) {
     r += a[i];

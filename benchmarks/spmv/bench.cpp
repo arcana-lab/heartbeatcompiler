@@ -813,9 +813,10 @@ void spmv_openmp(
   double* x,
   double* y,
   uint64_t n) {
-#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_NESTED_PARALLELISM)
   omp_set_max_active_levels(2);
 #endif
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
   #pragma omp parallel for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
@@ -823,15 +824,34 @@ void spmv_openmp(
 #elif defined(OMP_SCHEDULE_GUIDED)
   #pragma omp parallel for schedule(guided)
 #endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp parallel for schedule(static, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp parallel for schedule(guided, OMP_CHUNKSIZE)
+#endif
+#endif
   for (uint64_t i = 0; i < n; i++) { // row loop
     double r = 0.0;
-#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_NESTED_PARALLELISM)
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
     #pragma omp parallel for schedule(static) reduction(+:r)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
     #pragma omp parallel for schedule(dynamic) reduction(+:r)
 #elif defined(OMP_SCHEDULE_GUIDED)
     #pragma omp parallel for schedule(guided) reduction(+:r)
+#endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+    #pragma omp parallel for schedule(static, OMP_CHUNKSIZE) reduction(+:r)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+    #pragma omp parallel for schedule(dynamic, OMP_CHUNKSIZE) reduction(+:r)
+#elif defined(OMP_SCHEDULE_GUIDED)
+    #pragma omp parallel for schedule(guided, OMP_CHUNKSIZE) reduction(+:r)
+#endif
 #endif
 #endif
     for (uint64_t k = row_ptr[i]; k < row_ptr[i + 1]; k++) { // col loop

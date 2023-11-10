@@ -23,7 +23,6 @@ else
 	llvm-link $^ -o $@.bc
 	$(CXX) $(OPTS_HEARTBEAT_MANUAL) $@.bc -o $@ $(LIBS_HEARTBEAT_MANUAL)
 endif
-	make postprocess
 
 run_hbm: run_heartbeat_manual
 run_hb_manual: run_heartbeat_manual

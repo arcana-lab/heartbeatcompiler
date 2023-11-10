@@ -175,9 +175,10 @@ unsigned char* mandelbrot_openmp(double x0, double y0, double x1, double y1,
   double xstep = (x1 - x0) / width;
   double ystep = (y1 - y0) / height;
   unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
-#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_NESTED_PARALLELISM)
   omp_set_max_active_levels(2);
 #endif
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
   #pragma omp parallel for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
@@ -185,14 +186,33 @@ unsigned char* mandelbrot_openmp(double x0, double y0, double x1, double y1,
 #elif defined(OMP_SCHEDULE_GUIDED)
   #pragma omp parallel for schedule(guided)
 #endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp parallel for schedule(static, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp parallel for schedule(guided, OMP_CHUNKSIZE)
+#endif
+#endif
   for(int j = 0; j < height; ++j) { // col loop
-#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_NESTED_PARALLELISM)
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
     #pragma omp parallel for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
     #pragma omp parallel for schedule(dynamic)
 #elif defined(OMP_SCHEDULE_GUIDED)
     #pragma omp parallel for schedule(guided)
+#endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+    #pragma omp parallel for schedule(static, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+    #pragma omp parallel for schedule(dynamic, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_GUIDED)
+    #pragma omp parallel for schedule(guided, OMP_CHUNKSIZE)
+#endif
 #endif
 #endif
     for (int i = 0; i < width; ++i) { // row loop

@@ -111,7 +111,7 @@ double nested_plus_reduce_array_openmp(double** a, uint64_t lo1, uint64_t hi1, u
   #pragma omp parallel for schedule(guided) reduction(+:r)
 #endif
   for (uint64_t i = lo1; i != hi1; i++) {
-#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_NESTED_PARALLELISM)
 #if defined(OMP_SCHEDULE_STATIC)
     #pragma omp parallel for schedule(static) reduction(+:r)
 #elif defined(OMP_SCHEDULE_DYNAMIC)

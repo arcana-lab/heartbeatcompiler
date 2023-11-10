@@ -112,11 +112,11 @@ for benchmark in ${benchmarks[@]} ; do
     # openmp
     if [ ${openmp} = true ] ; then
       omp_schedules=(STATIC DYNAMIC GUIDED)
-      omp_nested_scheduling=(false)
+      omp_nested_parallelism=(false)
       for omp_schedule in ${omp_schedules[@]} ; do
-        for enable_omp_nested_scheduling in ${omp_nested_scheduling[@]} ; do
-          clean ; make openmp INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} OMP_SCHEDULE=${omp_schedule} OMP_NESTED_SCHEDULING=${enable_omp_nested_scheduling} &> /dev/null ;
-          run_and_collect openmp ${results}/openmp_`echo -e ${omp_schedule} | tr '[:upper:]' '[:lower:]'`_${enable_omp_nested_scheduling} ;
+        for enable_omp_nested_parallelism in ${omp_nested_parallelism[@]} ; do
+          clean ; make openmp INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} OMP_SCHEDULE=${omp_schedule} OMP_NESTED_PARALLELISM=${enable_omp_nested_parallelism} &> /dev/null ;
+          run_and_collect openmp ${results}/openmp_`echo -e ${omp_schedule} | tr '[:upper:]' '[:lower:]'`_${enable_omp_nested_parallelism} ;
         done
       done
     fi

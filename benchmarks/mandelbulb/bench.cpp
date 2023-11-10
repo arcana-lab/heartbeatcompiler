@@ -156,9 +156,10 @@ unsigned char* mandelbulb_openmp(double x0, double y0, double z0,
   double xstep = (x1 - x0) / nx;
   double ystep = (y1 - y0) / ny;
   double zstep = (z1 - z0) / nz;
-#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_NESTED_PARALLELISM)
   omp_set_max_active_levels(3);
 #endif
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
   #pragma omp parallel for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
@@ -166,8 +167,18 @@ unsigned char* mandelbulb_openmp(double x0, double y0, double z0,
 #elif defined(OMP_SCHEDULE_GUIDED)
   #pragma omp parallel for schedule(guided)
 #endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp parallel for schedule(static, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp parallel for schedule(guided, OMP_CHUNKSIZE)
+#endif
+#endif
   for (int i = 0; i < nx; ++i) {
-#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_NESTED_PARALLELISM)
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
     #pragma omp parallel for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
@@ -175,15 +186,34 @@ unsigned char* mandelbulb_openmp(double x0, double y0, double z0,
 #elif defined(OMP_SCHEDULE_GUIDED)
     #pragma omp parallel for schedule(guided)
 #endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+    #pragma omp parallel for schedule(static, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+    #pragma omp parallel for schedule(dynamic, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_GUIDED)
+    #pragma omp parallel for schedule(guided, OMP_CHUNKSIZE)
+#endif
+#endif
 #endif
     for(int j = 0; j < ny; ++j) {
-#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_NESTED_PARALLELISM)
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
-     #pragma omp parallel for schedule(static)
+      #pragma omp parallel for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
       #pragma omp parallel for schedule(dynamic)
 #elif defined(OMP_SCHEDULE_GUIDED)
       #pragma omp parallel for schedule(guided)
+#endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+      #pragma omp parallel for schedule(static, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+      #pragma omp parallel for schedule(dynamic, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_GUIDED)
+      #pragma omp parallel for schedule(guided, OMP_CHUNKSIZE)
+#endif
 #endif
 #endif
       for (int k = 0; k < nz; ++k) {

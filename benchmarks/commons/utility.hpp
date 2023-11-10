@@ -119,7 +119,7 @@ std::string benchmark_name = "";
   printf("\"guided\",\n");
 #endif
   printf("\"nested_scheduling\": ");
-#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_NESTED_PARALLELISM)
   printf("true,\n");
 #else
   printf("false,\n");

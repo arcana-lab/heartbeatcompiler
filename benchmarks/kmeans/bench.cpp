@@ -333,12 +333,22 @@ int** kmeans_openmp(int **feature,    /* in: [npoints][nfeatures] */
     #pragma omp parallel shared(feature, clusters, membership, partial_new_centers, partial_new_centers_len)
     {
       int tid = omp_get_thread_num();
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
       #pragma omp for private(i, j, index) firstprivate(npoints, nclusters, nfeatures) schedule(static) reduction(+ : delta)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
       #pragma omp for private(i, j, index) firstprivate(npoints, nclusters, nfeatures) schedule(dynamic) reduction(+ : delta)
 #elif defined(OMP_SCHEDULE_GUIDED)
       #pragma omp for private(i, j, index) firstprivate(npoints, nclusters, nfeatures) schedule(guided) reduction(+ : delta)
+#endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+      #pragma omp for private(i, j, index) firstprivate(npoints, nclusters, nfeatures) schedule(static, OMP_CHUNKSIZE) reduction(+ : delta)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+      #pragma omp for private(i, j, index) firstprivate(npoints, nclusters, nfeatures) schedule(dynamic, OMP_CHUNKSIZE) reduction(+ : delta)
+#elif defined(OMP_SCHEDULE_GUIDED)
+      #pragma omp for private(i, j, index) firstprivate(npoints, nclusters, nfeatures) schedule(guided, OMP_CHUNKSIZE) reduction(+ : delta)
+#endif
 #endif
       for (i=0; i<npoints; i++) {
         /* find the index of nestest cluster centers */

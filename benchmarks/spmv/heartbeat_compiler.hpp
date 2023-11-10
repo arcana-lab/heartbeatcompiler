@@ -48,7 +48,7 @@ double HEARTBEAT_nest0_loop1(double *val, uint64_t startIter, uint64_t maxIter, 
 #else
 // another parallel annotation for spmv for outer loop only,
 // therefore inner loop shows heterogeneous latency
-// the purpose of this annotation is to demonstrate how ACC changes chunkisze
+// the purpose of this annotation is to demonstrate how ACC changes chunk size
 // in reverse relationship to the number of non-zero elements processed
 
 #include <stdio.h>
