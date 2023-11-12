@@ -30,6 +30,6 @@ clean:
 	make -C compiler clean ;
 
 uninstall:
-	rm -rf runtime rollforward noelle ;
+	rm -rf runtime rollforward matrix-market noelle ;
 
 .PHONY: clean 
