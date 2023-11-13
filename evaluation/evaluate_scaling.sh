@@ -3,6 +3,7 @@
 # environment
 ROOT_DIR=`git rev-parse --show-toplevel`
 source ${ROOT_DIR}/enable ;
+source /project/extra/burnCPU/enable ;
 source common.sh ;
 
 # experiment
@@ -13,14 +14,24 @@ mkdir -p ${ROOT_DIR}/evaluation/results/${experiment};
 ########################################################
 # experiment sections
 baseline=false
-hbc_acc=true     # software polling + acc
-hbc_static=false  # software polling + static chunksize
-hbc_rf=true      # rollforward + interrupt ping thread
-hbc_rf_kmod=true # rollforward + kernel module
-openmp=false
+hbc_acc=false                       # software polling + acc
+hbc_static=false                    # software polling + static chunksize
+hbc_rf=false                        # rollforward + interrupt ping thread
+hbc_rf_kmod=false                   # rollforward + kernel module
+openmp=false                        # default openmp with different schedulers
+openmp_nested_parallelism=false     # run openmp with nested parallelism enabled
+openmp_chunksize_sensitivity=false  # run openmp with various chunksize
 
 # benchmark targetted
-benchmarks=(floyd_warshall)
+benchmarks=(cg floyd_warshall kmeans mandelbrot mandelbulb plus_reduce_array spmv srad)
+
+# spmv settings
+input_classes=(ARROWHEAD POWERLAW RANDOM)
+
+# openmp settings
+omp_schedules=(STATIC DYNAMIC GUIDED)
+omp_nested_parallelism=(false true)
+omp_chunksizes=(0 1 2 4 8 16)  # 0 means default chunksize
 ########################################################
 
 function run_and_collect {
@@ -30,21 +41,33 @@ function run_and_collect {
   local output=${results_path}/output.txt
 
   if [ ${technique} == "baseline" ] ; then
-    for i in `seq 1 ${baseline_num_runs}` ; do
+    # burnP6
+    killall burnP6 &> /dev/null ;
+
+    for coreID in `seq -s' ' 4 2 10` ; do
+      taskset -c ${coreID} burnP6 &
+    done
+
+    for i in `seq 1 3` ; do
       taskset -c 2 make run_baseline >> ${output} ;
     done
 
+    # kill burnP6
+    killall burnP6 &> /dev/null ;
+
   elif [ ${technique} == "openmp" ] ; then
-    for i in `seq 1 20` ; do
-      WORKERS=${num_workers} \
-      timeout ${timeout} make run_openmp >> ${output} ;
+    for i in `seq 1 5` ; do
+      WORKERS=56 \
+      numactl --physcpubind=56-111 --interleave=all \
+      make run_openmp >> ${output} ;
     done
 
   else
-    for i in `seq 1 10` ; do
-      WORKERS=${num_workers} \
+    for i in `seq 1 5` ; do
+      WORKERS=56 \
       CPU_FREQUENCY_KHZ=${cpu_frequency_khz} \
       KAPPA_USECS=${heartbeat_interval} \
+      numactl --physcpubind=56-111 --interleave=all \
       make run_hbc >> ${output} ;
     done
   
@@ -62,10 +85,15 @@ make link &> /dev/null ;
 
 # run experiment per benchmark
 for benchmark in ${benchmarks[@]} ; do
-  if [ ${benchmark} == spmv ] ; then
-    input_classes=(ARROWHEAD POWERLAW RANDOM)
-  else
-    input_classes=(PLACE_HODLER_SO_OTHER_BENCHMARKS_CAN_RUN)
+  if [ ${benchmark} != spmv ] ; then
+    input_classes=(DEFAULT_INPUT_CLASS)
+  fi
+
+  if [ ${openmp_nested_parallelism} = true ] ; then
+    experiment=openmp_nested_parallelism
+  fi
+  if [ ${openmp_chunksize_sensitivity} = true ] ; then
+    experiment=openmp_chunksize_sensitivity
   fi
 
   for input_class in ${input_classes[@]} ; do
@@ -111,12 +139,28 @@ for benchmark in ${benchmarks[@]} ; do
 
     # openmp
     if [ ${openmp} = true ] ; then
-      omp_schedules=(STATIC DYNAMIC GUIDED)
-      omp_nested_parallelism=(false)
+      for omp_schedule in ${omp_schedules[@]} ; do
+        clean ; make openmp INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} OMP_SCHEDULE=${omp_schedule} &> /dev/null ;
+        run_and_collect openmp ${results}/openmp_`echo -e ${omp_schedule} | tr '[:upper:]' '[:lower:]'` ;
+      done
+    fi
+
+    # openmp_nested_parallelism
+    if [ ${openmp_nested_parallelism} = true ] ; then
       for omp_schedule in ${omp_schedules[@]} ; do
         for enable_omp_nested_parallelism in ${omp_nested_parallelism[@]} ; do
           clean ; make openmp INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} OMP_SCHEDULE=${omp_schedule} OMP_NESTED_PARALLELISM=${enable_omp_nested_parallelism} &> /dev/null ;
           run_and_collect openmp ${results}/openmp_`echo -e ${omp_schedule} | tr '[:upper:]' '[:lower:]'`_${enable_omp_nested_parallelism} ;
+        done
+      done
+    fi
+
+    # openmp_chunksize_sensitivity
+    if [ ${openmp_chunksize_sensitivity} = true ] ; then
+      for omp_schedule in ${omp_schedules[@]} ; do
+        for omp_chunksize in ${omp_chunksizes[@]} ; do
+          clean ; make openmp INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} OMP_SCHEDULE=${omp_schedule} OMP_CHUNKSIZE=${omp_chunksize} &> /dev/null ;
+          run_and_collect openmp ${results}/openmp_`echo -e ${omp_schedule} | tr '[:upper:]' '[:lower:]'`_${omp_chunksize} ;
         done
       done
     fi
