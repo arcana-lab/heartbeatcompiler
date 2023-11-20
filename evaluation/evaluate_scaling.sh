@@ -57,17 +57,17 @@ function run_and_collect {
 
   elif [ ${technique} == "openmp" ] ; then
     for i in `seq 1 5` ; do
-      WORKERS=56 \
-      numactl --physcpubind=56-111 --interleave=all \
+      WORKERS=28 \
+      numactl --physcpubind=28-55 --interleave=all \
       make run_openmp >> ${output} ;
     done
 
   else
     for i in `seq 1 5` ; do
-      WORKERS=56 \
+      WORKERS=28 \
       CPU_FREQUENCY_KHZ=${cpu_frequency_khz} \
       KAPPA_USECS=${heartbeat_interval} \
-      numactl --physcpubind=56-111 --interleave=all \
+      numactl --physcpubind=28-55 --interleave=all \
       make run_hbc >> ${output} ;
     done
   
@@ -87,13 +87,6 @@ make link &> /dev/null ;
 for benchmark in ${benchmarks[@]} ; do
   if [ ${benchmark} != spmv ] ; then
     input_classes=(DEFAULT_INPUT_CLASS)
-  fi
-
-  if [ ${openmp_nested_parallelism} = true ] ; then
-    experiment=openmp_nested_parallelism
-  fi
-  if [ ${openmp_chunksize_sensitivity} = true ] ; then
-    experiment=openmp_chunksize_sensitivity
   fi
 
   for input_class in ${input_classes[@]} ; do
@@ -148,10 +141,8 @@ for benchmark in ${benchmarks[@]} ; do
     # openmp_nested_parallelism
     if [ ${openmp_nested_parallelism} = true ] ; then
       for omp_schedule in ${omp_schedules[@]} ; do
-        for enable_omp_nested_parallelism in ${omp_nested_parallelism[@]} ; do
-          clean ; make openmp INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} OMP_SCHEDULE=${omp_schedule} OMP_NESTED_PARALLELISM=${enable_omp_nested_parallelism} &> /dev/null ;
-          run_and_collect openmp ${results}/openmp_`echo -e ${omp_schedule} | tr '[:upper:]' '[:lower:]'`_${enable_omp_nested_parallelism} ;
-        done
+        clean ; make openmp INPUT_SIZE=${input_size} INPUT_CLASS=${input_class} OMP_SCHEDULE=${omp_schedule} OMP_NESTED_PARALLELISM=true &> /dev/null ;
+        run_and_collect openmp ${results}/openmp_`echo -e ${omp_schedule} | tr '[:upper:]' '[:lower:]'`_nested_parallelism ;
       done
     fi
 
