@@ -40,6 +40,11 @@ void run_bench(std::function<void()> const &bench_body,
 #if defined(STATS)
   utility::stats_begin();
 #endif
+#if defined(PROMO_STATS)
+  for (auto i = 0; i < maxLevel; i++) {
+    levelCountMap[i] = 0;
+  }
+#endif
 
   taskparts::benchmark_nativeforkjoin([&] (auto sched) {
     bench_body();
@@ -340,11 +345,6 @@ void heartbeat_start(task_memory_t *tmem) {
 #if defined(CHUNK_LOOP_ITERATIONS) && !defined(ADAPTIVE_CHUNKSIZE_CONTROL)
   if (const char *s = std::getenv("CHUNKSIZE")) {
     chunksize = std::atoll(s);
-  }
-#endif
-#if defined(PROMO_STATS)
-  for (auto i = 0; i < maxLevel; i++) {
-    levelCountMap[i] = 0;
   }
 #endif
   task_memory_reset(tmem, 0);
