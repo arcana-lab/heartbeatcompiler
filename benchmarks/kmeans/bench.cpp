@@ -10,6 +10,11 @@
 #include <taskparts/benchmark.hpp>
 #endif
 
+#define RANDOM_MAX 2147483647
+#ifndef FLT_MAX
+#define FLT_MAX 3.40282347e+38
+#endif
+
 namespace kmeans {
 
 #if defined(INPUT_BENCHMARKING)
@@ -25,15 +30,15 @@ namespace kmeans {
 using kmeans_input_type = struct kmeans_input_struct {
   int nObj;
   int nFeat;
-  int** attributes;
+  float** attributes;
 };
 
 kmeans_input_type in;
-int** attributes;
+float** attributes;
 int numAttributes;
 int nclusters=5;
-int   threshold = 0;
-int **cluster_centres=NULL;
+float   threshold = 0.001;
+float **cluster_centres=NULL;
 
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 void run_bench(std::function<void()> const &bench_body,
@@ -59,6 +64,18 @@ void run_bench(std::function<void()> const &bench_body,
 }
 #endif
 
+uint64_t hash(uint64_t u) {
+  uint64_t v = u * 3935559000370003845ul + 2691343689449507681ul;
+  v ^= v >> 21;
+  v ^= v << 37;
+  v ^= v >>  4;
+  v *= 4768777513237032717ul;
+  v ^= v << 20;
+  v ^= v >> 41;
+  v ^= v <<  5;
+  return v;
+}
+
 template <typename T>
 void zero_init(T* a, std::size_t n) {
   volatile T* b = (volatile T*)a;
@@ -76,12 +93,12 @@ void* mycalloc(std::size_t szb) {
 /*----< euclid_dist_2() >----------------------------------------------------*/
 /* multi-dimensional spatial Euclid distance square */
 __inline
-int euclid_dist_2(int *pt1,
-                    int *pt2,
+float euclid_dist_2(float *pt1,
+                    float *pt2,
                     int    numdims)
 {
   int i;
-  int ans=0;
+  float ans=0.0;
 
   for (i=0; i<numdims; i++)
     ans += (pt1[i]-pt2[i]) * (pt1[i]-pt2[i]);
@@ -90,16 +107,16 @@ int euclid_dist_2(int *pt1,
 }
 
 // __inline
-int find_nearest_point(int  *pt,          /* [nfeatures] */
+int find_nearest_point(float  *pt,          /* [nfeatures] */
                        int     nfeatures,
-                       int **pts,         /* [npts][nfeatures] */
+                       float **pts,         /* [npts][nfeatures] */
                        int     npts)
 {
   int index, i;
-  int min_dist=INT32_MAX;
+  float min_dist=FLT_MAX;
   /* find the cluster center id with min distance to pt */
   for (i=0; i<npts; i++) {
-    int dist;
+    float dist;
     dist = euclid_dist_2(pt, pts[i], nfeatures);  /* no need square root */
     if (dist < min_dist) {
       min_dist = dist;
@@ -113,15 +130,15 @@ int find_nearest_point(int  *pt,          /* [nfeatures] */
 auto kmeans_inputgen(int nObj, int nFeat = 34) -> kmeans_input_type {
   int numObjects = nObj;
   int numAttributes = nFeat;
-  int** attributes;
-  attributes    = (int**)malloc(numObjects*             sizeof(int*));
-  attributes[0] = (int*) malloc(numObjects*numAttributes*sizeof(int));
+  float** attributes;
+  attributes    = (float**)malloc(numObjects*             sizeof(float*));
+  attributes[0] = (float*) malloc(numObjects*numAttributes*sizeof(float));
   for (int i=1; i<numObjects; i++) {
     attributes[i] = attributes[i-1] + numAttributes;
   }
   for ( int i = 0; i < nObj; i++ ) {
     for ( int j = 0; j < numAttributes; j++ ) {
-      attributes[i][j] = (rand() % (255 - 0 + 1));
+      attributes[i][j] = (float)hash(j) / (float)RAND_MAX;
     }
   }
   kmeans_input_type in = { nObj, nFeat, attributes };
@@ -144,24 +161,24 @@ void finishup() {
 #if defined(USE_BASELINE) || defined(TEST_CORRECTNESS)
 
 /*----< kmeans_clustering() >---------------------------------------------*/
-int** kmeans_serial(int **feature,    /* in: [npoints][nfeatures] */
+float** kmeans_serial(float **feature,    /* in: [npoints][nfeatures] */
                           int     nfeatures,
                           int     npoints,
                           int     nclusters,
-                          int   threshold,
+                          float   threshold,
                           int    *membership) /* out: [npoints] */
 {
 
   int      i, j, n=0, index, loop=0;
   int     *new_centers_len; /* [nclusters]: no. of points in each cluster */
-  int    delta;
-  int  **clusters;   /* out: [nclusters][nfeatures] */
-  int  **new_centers;     /* [nclusters][nfeatures] */
+  float    delta;
+  float  **clusters;   /* out: [nclusters][nfeatures] */
+  float  **new_centers;     /* [nclusters][nfeatures] */
   
 
   /* allocate space for returning variable clusters[] */
-  clusters    = (int**) malloc(nclusters *             sizeof(int*));
-  clusters[0] = (int*)  malloc(nclusters * nfeatures * sizeof(int));
+  clusters    = (float**) malloc(nclusters *             sizeof(float*));
+  clusters[0] = (float*)  malloc(nclusters * nfeatures * sizeof(float));
   for (i=1; i<nclusters; i++)
     clusters[i] = clusters[i-1] + nfeatures;
 
@@ -179,15 +196,15 @@ int** kmeans_serial(int **feature,    /* in: [npoints][nfeatures] */
   /* need to initialize new_centers_len and new_centers[0] to all 0 */
   new_centers_len = (int*) mycalloc(nclusters * sizeof(int));
 
-  new_centers    = (int**) malloc(nclusters *            sizeof(int*));
-  new_centers[0] = (int*)  mycalloc(nclusters * nfeatures * sizeof(int));
+  new_centers    = (float**) malloc(nclusters *            sizeof(float*));
+  new_centers[0] = (float*)  mycalloc(nclusters * nfeatures * sizeof(float));
   for (i=1; i<nclusters; i++)
     new_centers[i] = new_centers[i-1] + nfeatures;
  
   
   do {
 		
-    delta = 0;
+    delta = 0.0;
 
     for (i=0; i<npoints; i++) {
       /* find the index of nestest cluster centers */
@@ -209,7 +226,7 @@ int** kmeans_serial(int **feature,    /* in: [npoints][nfeatures] */
       for (j=0; j<nfeatures; j++) {
 	      if (new_centers_len[i] > 0)
 	        clusters[i][j] = new_centers[i][j] / new_centers_len[i];
-	      new_centers[i][j] = 0;   /* set back to 0 */
+	      new_centers[i][j] = 0.0;   /* set back to 0 */
       }
       new_centers_len[i] = 0;   /* set back to 0 */
     }
@@ -227,16 +244,16 @@ int** kmeans_serial(int **feature,    /* in: [npoints][nfeatures] */
 /*---< cluster() >-----------------------------------------------------------*/
 int cluster_serial(int      numObjects,      /* number of input objects */
 		 int      numAttributes,   /* size of attribute of each object */
-		 int  **attributes,      /* [numObjects][numAttributes] */
+		 float  **attributes,      /* [numObjects][numAttributes] */
 		 int      num_nclusters,
-		 int    threshold,       /* in:   */
-		 int ***cluster_centres /* out: [best_nclusters][numAttributes] */
+		 float    threshold,       /* in:   */
+		 float ***cluster_centres /* out: [best_nclusters][numAttributes] */
     
 		 )
 {
   int     nclusters;
   int    *membership;
-  int **tmp_cluster_centres;
+  float **tmp_cluster_centres;
 
   membership = (int*) malloc(numObjects * sizeof(int));
 
@@ -272,28 +289,28 @@ int cluster_serial(int      numObjects,      /* number of input objects */
 #include <omp.h>
 
 /*----< kmeans_clustering() >---------------------------------------------*/
-int** kmeans_openmp(int **feature,    /* in: [npoints][nfeatures] */
+float** kmeans_openmp(float **feature,    /* in: [npoints][nfeatures] */
                           int     nfeatures,
                           int     npoints,
                           int     nclusters,
-                          int   threshold,
+                          float   threshold,
                           int    *membership) /* out: [npoints] */
 {
 
   int      i, j, k, n=0, index, loop=0;
   int     *new_centers_len; /* [nclusters]: no. of points in each cluster */
-  int    delta;
-  int  **clusters;   /* out: [nclusters][nfeatures] */
-  int  **new_centers;     /* [nclusters][nfeatures] */
+  float    delta;
+  float  **clusters;   /* out: [nclusters][nfeatures] */
+  float  **new_centers;     /* [nclusters][nfeatures] */
   
   int nthreads;
   int *partial_new_centers_len;
-  int *partial_new_centers;
+  float *partial_new_centers;
   nthreads = omp_get_max_threads();
 
   /* allocate space for returning variable clusters[] */
-  clusters    = (int**) malloc(nclusters *             sizeof(int*));
-  clusters[0] = (int*)  malloc(nclusters * nfeatures * sizeof(int));
+  clusters    = (float**) malloc(nclusters *             sizeof(float*));
+  clusters[0] = (float*)  malloc(nclusters * nfeatures * sizeof(float));
   for (i=1; i<nclusters; i++)
     clusters[i] = clusters[i-1] + nfeatures;
 
@@ -311,8 +328,8 @@ int** kmeans_openmp(int **feature,    /* in: [npoints][nfeatures] */
   /* need to initialize new_centers_len and new_centers[0] to all 0 */
   new_centers_len = (int*) mycalloc(nclusters * sizeof(int));
 
-  new_centers    = (int**) malloc(nclusters *            sizeof(int*));
-  new_centers[0] = (int*)  mycalloc(nclusters * nfeatures * sizeof(int));
+  new_centers    = (float**) malloc(nclusters *            sizeof(float*));
+  new_centers[0] = (float*)  mycalloc(nclusters * nfeatures * sizeof(float));
   for (i=1; i<nclusters; i++)
     new_centers[i] = new_centers[i-1] + nfeatures;
 
@@ -321,14 +338,14 @@ int** kmeans_openmp(int **feature,    /* in: [npoints][nfeatures] */
     partial_new_centers_len[i] = 0;
   }
 
-  partial_new_centers = (int *)alloca(nthreads * nclusters * nfeatures * sizeof(int));
+  partial_new_centers = (float *)alloca(nthreads * nclusters * nfeatures * sizeof(float));
   for (i = 0; i < nthreads * nclusters * nfeatures; i++) {
     partial_new_centers[i] = 0;
   }
 
   do {
   
-    delta = 0;
+    delta = 0.0;
 
     #pragma omp parallel shared(feature, clusters, membership, partial_new_centers, partial_new_centers_len)
     {
@@ -370,10 +387,10 @@ int** kmeans_openmp(int **feature,    /* in: [npoints][nfeatures] */
     for (i = 0; i < nclusters; i++) {
       for (j = 0; j < nthreads; j++) {
         new_centers_len[i] += partial_new_centers_len[j * nclusters + i];
-        partial_new_centers_len[j * nclusters + i] = 0;
+        partial_new_centers_len[j * nclusters + i] = 0.0;
         for (k = 0; k < nfeatures; k++) {
           new_centers[i][k] += partial_new_centers[j * nclusters * nfeatures + i * nfeatures + k];
-          partial_new_centers[j * nclusters * nfeatures + i * nfeatures + k] = 0;
+          partial_new_centers[j * nclusters * nfeatures + i * nfeatures + k] = 0.0;
         }
       }
     }
@@ -383,7 +400,7 @@ int** kmeans_openmp(int **feature,    /* in: [npoints][nfeatures] */
       for (j=0; j<nfeatures; j++) {
 	      if (new_centers_len[i] > 0)
 	        clusters[i][j] = new_centers[i][j] / new_centers_len[i];
-	      new_centers[i][j] = 0;   /* set back to 0 */
+	      new_centers[i][j] = 0.0;   /* set back to 0 */
       }
       new_centers_len[i] = 0;   /* set back to 0 */
     }
@@ -401,16 +418,16 @@ int** kmeans_openmp(int **feature,    /* in: [npoints][nfeatures] */
 /*---< cluster() >-----------------------------------------------------------*/
 int cluster_openmp(int      numObjects,      /* number of input objects */
 		 int      numAttributes,   /* size of attribute of each object */
-		 int  **attributes,      /* [numObjects][numAttributes] */
+		 float  **attributes,      /* [numObjects][numAttributes] */
 		 int      num_nclusters,
-		 int    threshold,       /* in:   */
-		 int ***cluster_centres /* out: [best_nclusters][numAttributes] */
+		 float    threshold,       /* in:   */
+		 float ***cluster_centres /* out: [best_nclusters][numAttributes] */
     
 		 )
 {
   int     nclusters;
   int    *membership;
-  int **tmp_cluster_centres;
+  float **tmp_cluster_centres;
 
   membership = (int*) malloc(numObjects * sizeof(int));
 
@@ -444,16 +461,16 @@ int cluster_openmp(int      numObjects,      /* number of input objects */
 #include <stdio.h>
 
 void test_correctness() {
-  int **cluster_centres_ref = NULL;
+  float **cluster_centres_ref = NULL;
   cluster_serial(numObjects, numAttributes, attributes, nclusters, threshold, &cluster_centres_ref);
   uint64_t num_diffs = 0;
-  int epsilon = 0;
+  float epsilon = 0.0;
   for (uint64_t i = 0; i != nclusters; i++) {
     for (uint64_t j = 0; j != numAttributes; j++) {
       auto diff = std::abs(cluster_centres[i][j] - cluster_centres_ref[i][j]);
       // printf("diff=%d cluster_centres[i]=%d cluster_centres_ref[i]=%d at i, j=%ld, %ld\n", diff, cluster_centres[i][j], cluster_centres_ref[i][j], i, j);
       if (diff > epsilon) {
-        printf("diff=%d cluster_centres[i]=%d cluster_centres_ref[i]=%d at i, j=%ld, %ld\n", diff, cluster_centres[i][j], cluster_centres_ref[i][j], i, j);
+        printf("diff=%f cluster_centres[i]=%f cluster_centres_ref[i]=%f at i, j=%ld, %ld\n", diff, cluster_centres[i][j], cluster_centres_ref[i][j], i, j);
         num_diffs++;
       }
     }

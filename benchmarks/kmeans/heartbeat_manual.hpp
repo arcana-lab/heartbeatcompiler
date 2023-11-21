@@ -9,31 +9,31 @@ extern
 void* mycalloc(std::size_t szb);
 
 extern
-int find_nearest_point(int  *pt,          /* [nfeatures] */
+int find_nearest_point(float  *pt,          /* [nfeatures] */
                        int     nfeatures,
-                       int **pts,         /* [npts][nfeatures] */
+                       float **pts,         /* [npts][nfeatures] */
                        int     npts);
 
-int** kmeans_hb_manual(int **feature,    /* in: [npoints][nfeatures] */
+float** kmeans_hb_manual(float **feature,    /* in: [npoints][nfeatures] */
                           int     nfeatures,
                           int     npoints,
                           int     nclusters,
-                          int   threshold,
+                          float   threshold,
                           int    *membership); /* out: [npoints] */
 
 inline
 int cluster_hb_manual(int      numObjects,      /* number of input objects */
 		 int      numAttributes,   /* size of attribute of each object */
-		 int  **attributes,      /* [numObjects][numAttributes] */
+		 float  **attributes,      /* [numObjects][numAttributes] */
 		 int      num_nclusters,
-		 int    threshold,       /* in:   */
-		 int ***cluster_centres /* out: [best_nclusters][numAttributes] */
+		 float    threshold,       /* in:   */
+		 float ***cluster_centres /* out: [best_nclusters][numAttributes] */
     
 		 )
 {
   int     nclusters;
   int    *membership;
-  int **tmp_cluster_centres;
+  float **tmp_cluster_centres;
 
   membership = (int*) malloc(numObjects * sizeof(int));
 

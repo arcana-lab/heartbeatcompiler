@@ -31,14 +31,14 @@ static bool __rf_test (void) {
 
 namespace kmeans {
 
-double HEARTBEAT_loop0(int **feature,
+double HEARTBEAT_loop0(float **feature,
                        int nfeatures,
                        int npoints,
                        int nclusters,
                        int *membership,
-                       int **clusters,
+                       float **clusters,
                        int *new_centers_len,
-                       int **new_centers);
+                       float **new_centers);
 
 int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t myIndex, task_memory_t *tmem);
 typedef int64_t (*sliceTasksPointer)(uint64_t *, uint64_t *, uint64_t, task_memory_t *);
@@ -53,24 +53,24 @@ sliceTasksPointer slice_tasks[1] = {
 #endif
 
 // Entry function
-int** kmeans_hb_manual(int **feature,    /* in: [npoints][nfeatures] */
+float** kmeans_hb_manual(float **feature,    /* in: [npoints][nfeatures] */
                           int     nfeatures,
                           int     npoints,
                           int     nclusters,
-                          int   threshold,
+                          float   threshold,
                           int    *membership) /* out: [npoints] */
 {
 
   int      i, j, n=0, index, loop=0;
   int     *new_centers_len; /* [nclusters]: no. of points in each cluster */
-  int    delta;
-  int  **clusters;   /* out: [nclusters][nfeatures] */
-  int  **new_centers;     /* [nclusters][nfeatures] */
+  float    delta;
+  float  **clusters;   /* out: [nclusters][nfeatures] */
+  float  **new_centers;     /* [nclusters][nfeatures] */
   
 
   /* allocate space for returning variable clusters[] */
-  clusters    = (int**) malloc(nclusters *             sizeof(int*));
-  clusters[0] = (int*)  malloc(nclusters * nfeatures * sizeof(int));
+  clusters    = (float**) malloc(nclusters *             sizeof(float*));
+  clusters[0] = (float*)  malloc(nclusters * nfeatures * sizeof(float));
   for (i=1; i<nclusters; i++)
     clusters[i] = clusters[i-1] + nfeatures;
 
@@ -88,8 +88,8 @@ int** kmeans_hb_manual(int **feature,    /* in: [npoints][nfeatures] */
   /* need to initialize new_centers_len and new_centers[0] to all 0 */
   new_centers_len = (int*) mycalloc(nclusters * sizeof(int));
 
-  new_centers    = (int**) malloc(nclusters *            sizeof(int*));
-  new_centers[0] = (int*)  mycalloc(nclusters * nfeatures * sizeof(int));
+  new_centers    = (float**) malloc(nclusters *            sizeof(float*));
+  new_centers[0] = (float*)  mycalloc(nclusters * nfeatures * sizeof(float));
   for (i=1; i<nclusters; i++)
     new_centers[i] = new_centers[i-1] + nfeatures;
  
@@ -120,14 +120,14 @@ int** kmeans_hb_manual(int **feature,    /* in: [npoints][nfeatures] */
 }
 
 // Outlined loops
-double HEARTBEAT_loop0(int **feature,
+double HEARTBEAT_loop0(float **feature,
                        int nfeatures,
                        int npoints,
                        int nclusters,
                        int *membership,
-                       int **clusters,
+                       float **clusters,
                        int *new_centers_len,
-                       int **new_centers) {
+                       float **new_centers) {
   double delta = 0.0;
 
   if (run_heartbeat) {
@@ -152,8 +152,8 @@ double HEARTBEAT_loop0(int **feature,
     int *private_new_centers_len = (int *)alloca(nclusters * sizeof(int));
     redArrLoop0LiveOut1[0 * CACHELINE] = private_new_centers_len;
 
-    int *redArrLoop0LiveOut2[1 * CACHELINE];
-    int *private_new_centers = (int *)alloca(nclusters * nfeatures * sizeof(int));
+    float *redArrLoop0LiveOut2[1 * CACHELINE];
+    float *private_new_centers = (float *)alloca(nclusters * nfeatures * sizeof(float));
     redArrLoop0LiveOut2[0 * CACHELINE] = private_new_centers;
 #elif defined(ARRAY_UPDATE_MAP)
     uint64_t redArrLoop0LiveOut1[1 * CACHELINE];
@@ -161,7 +161,7 @@ double HEARTBEAT_loop0(int **feature,
     redArrLoop0LiveOut1[0 * CACHELINE] = (uint64_t)&private_new_centers_len;
 
     uint64_t redArrLoop0LiveOut2[1 * CACHELINE];
-    std::unordered_map<int, int> private_new_centers;
+    std::unordered_map<int, float> private_new_centers;
     redArrLoop0LiveOut2[0 * CACHELINE] = (uint64_t)&private_new_centers;
 #endif
 
@@ -247,11 +247,11 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
   uint64_t maxIter = cxts[LEVEL_ZERO * CACHELINE + MAX_ITER];
 
   // load const live-ins
-  int **feature = (int **)constLiveIns[0];
+  float **feature = (float **)constLiveIns[0];
   int nfeatures = (int)constLiveIns[1];
   int nclusters = (int)constLiveIns[2];
   int *membership = (int *)constLiveIns[3];
-  int **clusters = (int **)constLiveIns[4];
+  float **clusters = (float **)constLiveIns[4];
 
   // load live-out environment
   uint64_t *liveOutEnv = (uint64_t *)cxts[LIVE_OUT_ENV];
@@ -267,8 +267,8 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
     private_new_centers_len[i] = 0;
   }
 
-  int **redArrLoop0LiveOut2 = (int **)liveOutEnv[2];
-  int *private_new_centers = redArrLoop0LiveOut2[myIndex * CACHELINE];
+  float **redArrLoop0LiveOut2 = (float **)liveOutEnv[2];
+  float *private_new_centers = redArrLoop0LiveOut2[myIndex * CACHELINE];
   for (int i = 0; i < nclusters * nfeatures; i++) {
     private_new_centers[i] = 0.0;
   }
@@ -278,7 +278,7 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
   private_new_centers_len->clear();
 
   uint64_t *redArrLoop0LiveOut2 = (uint64_t *)liveOutEnv[2];
-  std::unordered_map<int, int> *private_new_centers = (std::unordered_map<int, int> *)redArrLoop0LiveOut2[myIndex * CACHELINE];
+  std::unordered_map<int, float> *private_new_centers = (std::unordered_map<int, float> *)redArrLoop0LiveOut2[myIndex * CACHELINE];
   private_new_centers->clear();
 #endif
 
@@ -292,9 +292,9 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
   redArrLoop0LiveOut1Kids[0 * CACHELINE] = new_centers_len_kids0;
   redArrLoop0LiveOut1Kids[1 * CACHELINE] = new_centers_len_kids1;
 
-  int *redArrLoop0LiveOut2Kids[2 * CACHELINE];
-  int *new_centers_kids0 = (int *)alloca(nclusters * nfeatures * sizeof(int));
-  int *new_centers_kids1 = (int *)alloca(nclusters * nfeatures * sizeof(int));
+  float *redArrLoop0LiveOut2Kids[2 * CACHELINE];
+  float *new_centers_kids0 = (float *)alloca(nclusters * nfeatures * sizeof(float));
+  float *new_centers_kids1 = (float *)alloca(nclusters * nfeatures * sizeof(float));
   redArrLoop0LiveOut2Kids[0 * CACHELINE] = new_centers_kids0;
   redArrLoop0LiveOut2Kids[1 * CACHELINE] = new_centers_kids1;
 #elif defined(ARRAY_UPDATE_MAP)
@@ -305,8 +305,8 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
   redArrLoop0LiveOut1Kids[1 * CACHELINE] = (uint64_t)&new_centers_len_kids1;
 
   uint64_t redArrLoop0LiveOut2Kids[2 * CACHELINE];
-  std::unordered_map<int, int> new_centers_kids0;
-  std::unordered_map<int, int> new_centers_kids1;
+  std::unordered_map<int, float> new_centers_kids0;
+  std::unordered_map<int, float> new_centers_kids1;
   redArrLoop0LiveOut2Kids[0 * CACHELINE] = (uint64_t)&new_centers_kids0;
   redArrLoop0LiveOut2Kids[1 * CACHELINE] = (uint64_t)&new_centers_kids1;
 #endif
