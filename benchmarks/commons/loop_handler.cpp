@@ -34,6 +34,11 @@ static int maxLevel = 4;
 std::unordered_map<int, uint64_t> levelCountMap;
 #endif
 
+#if defined(TASK_STATS)
+static uint64_t openmp_num_tasks = 0;
+static uint64_t hbc_num_tasks = 1;
+#endif
+
 void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
                std::function<void()> const &bench_end) {
@@ -74,6 +79,10 @@ void run_bench(std::function<void()> const &bench_body,
   for (auto i = 0; i < maxLevel; i++) {
     printf("%d\t%lu\n", i, levelCountMap[i]);
   }
+#endif
+#if defined(TASK_STATS)
+  printf("Number of OpenMP Tasks\t%lu\n", openmp_num_tasks);
+  printf("Number of HBC Tasks\t%lu\n", hbc_num_tasks);
 #endif
 }
 
@@ -338,7 +347,7 @@ bool update_and_has_remaining_chunksize(task_memory_t *tmem, uint64_t iterations
 }
 #endif
 
-void heartbeat_start(task_memory_t *tmem) {
+void heartbeat_start(task_memory_t *tmem, uint64_t num_iterations) {
 #if defined(ENABLE_SOFTWARE_POLLING) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)
   runtime_memory_reset();
 #endif
@@ -346,6 +355,9 @@ void heartbeat_start(task_memory_t *tmem) {
   if (const char *s = std::getenv("CHUNKSIZE")) {
     chunksize = std::atoll(s);
   }
+#endif
+#if defined(TASK_STATS)
+  openmp_num_tasks += num_iterations;
 #endif
   task_memory_reset(tmem, 0);
 }
@@ -395,6 +407,9 @@ int64_t loop_handler(
 #endif
 #if defined(PROMO_STATS)
   levelCountMap[splittingLevel]++;
+#endif
+#if defined(TASK_STATS)
+  hbc_num_tasks += 2;
 #endif
 
 #if defined(ENABLE_SOFTWARE_POLLING) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL)

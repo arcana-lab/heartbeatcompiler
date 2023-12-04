@@ -295,10 +295,14 @@ endif
 # whether to enable promotion
 ENABLE_PROMOTION ?= true
 PROMO_STATS ?= false	# collect the level of where parallelism is generated
+TASK_STATS ?= false		# collect the number of tasks created
 ifeq ($(ENABLE_PROMOTION), true)
 	MACROS_HEARTBEAT += -DENABLE_PROMOTION
 	ifeq ($(PROMO_STATS), true)
 		MACROS_HEARTBEAT += -DPROMO_STATS
+	endif
+	ifeq ($(TASK_STATS), true)
+		MACROS_HEARTBEAT += -DTASK_STATS
 	endif
 else
 	MACROS_HEARTBEAT += -DDISABLE_PROMOTION

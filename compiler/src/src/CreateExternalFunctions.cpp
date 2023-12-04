@@ -8,6 +8,7 @@ void Heartbeat::createHBStartFunction(Noelle &noelle) {
 
   std::vector<Type *> args{
     PointerType::getUnqual(this->task_memory_t), // tmem
+    tm->getIntegerType(64) // num_iterations
   };
 
   FunctionType *funcType = FunctionType::get(tm->getVoidType(), args, false);

@@ -1291,7 +1291,12 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   this->callToHBResetFunction = loopEntryBuilder.CreateCall(
     hbResetFunction,
     ArrayRef<Value *>({
-      tmem
+      tmem,
+      loopEntryBuilder.CreateSub(
+        lastIterationGoverningIVValue,
+        firstIterationGoverningIVValue,
+        "num_iterations"
+      )
     })
   );
 
