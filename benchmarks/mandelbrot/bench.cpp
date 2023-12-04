@@ -4,15 +4,16 @@
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 #include "utility.hpp"
 #include <functional>
+#include <taskparts/benchmark.hpp>
 #endif
 
 namespace mandelbrot {
 
 // width should be a multiple of 8
 #if defined(INPUT_BENCHMARKING)
-  int _mb_height = 15360;
-  int _mb_width = 15360;
-  int _mb_max_depth = 200;
+  int _mb_height = 512;
+  int _mb_width = 1024;
+  int _mb_max_depth = 40000;
 #elif defined(INPUT_TPAL)
   int _mb_height = 4192;
   int _mb_width = 4192;
@@ -39,6 +40,15 @@ double g = 2.0;
 void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
                std::function<void()> const &bench_end) {
+#if defined(USE_BASELINE)
+  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
+    bench_body();
+  }, [&] (auto sched) {
+    bench_start();
+  }, [&] (auto sched) {
+    bench_end();
+  });
+#else
   utility::run([&] {
     bench_body();
   }, [&] {
@@ -46,6 +56,7 @@ void run_bench(std::function<void()> const &bench_body,
   }, [&] {
     bench_end();
   });
+#endif
 }
 #endif
 
@@ -164,9 +175,10 @@ unsigned char* mandelbrot_openmp(double x0, double y0, double x1, double y1,
   double xstep = (x1 - x0) / width;
   double ystep = (y1 - y0) / height;
   unsigned char* output = (unsigned char*)malloc(width * height * sizeof(unsigned char));
-#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_NESTED_PARALLELISM)
   omp_set_max_active_levels(2);
 #endif
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
   #pragma omp parallel for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
@@ -174,14 +186,33 @@ unsigned char* mandelbrot_openmp(double x0, double y0, double x1, double y1,
 #elif defined(OMP_SCHEDULE_GUIDED)
   #pragma omp parallel for schedule(guided)
 #endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp parallel for schedule(static, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp parallel for schedule(guided, OMP_CHUNKSIZE)
+#endif
+#endif
   for(int j = 0; j < height; ++j) { // col loop
-#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_NESTED_PARALLELISM)
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
     #pragma omp parallel for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
     #pragma omp parallel for schedule(dynamic)
 #elif defined(OMP_SCHEDULE_GUIDED)
     #pragma omp parallel for schedule(guided)
+#endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+    #pragma omp parallel for schedule(static, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+    #pragma omp parallel for schedule(dynamic, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_GUIDED)
+    #pragma omp parallel for schedule(guided, OMP_CHUNKSIZE)
+#endif
 #endif
 #endif
     for (int i = 0; i < width; ++i) { // row loop

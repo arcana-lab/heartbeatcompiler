@@ -7,6 +7,7 @@
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 #include "utility.hpp"
 #include <functional>
+#include <taskparts/benchmark.hpp>
 #endif
 
 // benchmark adapted from https://github.com/benchmark-subsetting/NPB3.0-omp-C/blob/master/CG/cg.c
@@ -28,6 +29,15 @@ scalar rnorm;
 void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
                std::function<void()> const &bench_end) {
+#if defined(USE_BASELINE)
+  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
+    bench_body();
+  }, [&] (auto sched) {
+    bench_start();
+  }, [&] (auto sched) {
+    bench_end();
+  });
+#else
   utility::run([&] {
     bench_body();
   }, [&] {
@@ -35,6 +45,7 @@ void run_bench(std::function<void()> const &bench_body,
   }, [&] {
     bench_end();
   });
+#endif
 }
 #endif
 
@@ -111,7 +122,8 @@ void write_matrix_to_file(const char *filename) {
 }
 
 void setup() {
-  std::string fname = "nlpkkt160/nlpkkt160.mtx";
+  // input from http://sparse.tamu.edu/vanHeukelum/cage15
+  std::string fname = "cage15/cage15.mtx";
   if (const auto env_p = std::getenv("MATRIX_MARKET_FILE")) {
     fname = env_p;
   }
@@ -457,12 +469,22 @@ scalar conj_grad_opencilk(
 
 scalar dotp_openmp(uint64_t n, scalar* r, scalar* q) {
   scalar sum = 0.0;
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
   #pragma omp parallel for schedule(static) reduction(+:sum)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
   #pragma omp parallel for schedule(dynamic) reduction(+:sum)
 #elif defined(OMP_SCHEDULE_GUIDED)
   #pragma omp parallel for schedule(guided) reduction(+:sum)
+#endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp parallel for schedule(static, OMP_CHUNKSIZE) reduction(+:sum)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic, OMP_CHUNKSIZE) reduction(+:sum)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp parallel for schedule(guided, OMP_CHUNKSIZE) reduction(+:sum)
+#endif
 #endif
   for (uint64_t j = 0; j < n; j++) {
     sum += r[j] * q[j];
@@ -517,12 +539,22 @@ scalar conj_grad_openmp(
 /*--------------------------------------------------------------------
 c  Initialize the CG algorithm:
 c-------------------------------------------------------------------*/
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
   #pragma omp for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
   #pragma omp for schedule(dynamic)
 #elif defined(OMP_SCHEDULE_GUIDED)
   #pragma omp for schedule(guided)
+#endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp for schedule(static, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp for schedule(dynamic, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp for schedule(guided, OMP_CHUNKSIZE)
+#endif
 #endif
   for (uint64_t j = 0; j < n; j++) {
     q[j] = 0.0;
@@ -561,12 +593,22 @@ c-------------------------------------------------------------------*/
 c  Obtain z = z + alpha*p
 c  and    r = r - alpha*q
 c---------------------------------------------------------------------*/
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
   #pragma omp for schedule(static) reduction(+:rho)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
   #pragma omp for schedule(dynamic) reduction(+:rho)
 #elif defined(OMP_SCHEDULE_GUIDED)
   #pragma omp for schedule(guided) reduction(+:rho)
+#endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp for schedule(static, OMP_CHUNKSIZE) reduction(+:rho)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp for schedule(dynamic, OMP_CHUNKSIZE) reduction(+:rho)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp for schedule(guided, OMP_CHUNKSIZE) reduction(+:rho)
+#endif
 #endif
     for (uint64_t j = 0; j < n; j++) {
       z[j] = z[j] + alpha * p[j];
@@ -577,12 +619,22 @@ c---------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 c  p = r + beta*p
 c-------------------------------------------------------------------*/
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
-  #pragma omp for nowait
+  #pragma omp for nowait schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
-  #pragma omp for nowait
+  #pragma omp for nowait schedule(dynamic)
 #elif defined(OMP_SCHEDULE_GUIDED)
-  #pragma omp for nowait
+  #pragma omp for nowait schedule(guided)
+#endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp for nowait schedule(static, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp for nowait schedule(dynamic, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp for nowait schedule(guided, OMP_CHUNKSIZE)
+#endif
 #endif
     for (uint64_t j = 0; j < n; j++) {
       p[j] = r[j] + beta * p[j];
@@ -598,12 +650,22 @@ c-------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 c  At this point, r contains A.z
 c-------------------------------------------------------------------*/
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
   #pragma omp for schedule(static) reduction(+:sum)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
   #pragma omp for schedule(dynamic) reduction(+:sum)
 #elif defined(OMP_SCHEDULE_GUIDED)
   #pragma omp for schedule(guided) reduction(+:sum)
+#endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp for schedule(static, OMP_CHUNKSIZE) reduction(+:sum)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp for schedule(dynamic, OMP_CHUNKSIZE) reduction(+:sum)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp for schedule(guided, OMP_CHUNKSIZE) reduction(+:sum)
+#endif
 #endif
   for (uint64_t j = 0; j < n; j++) {
     d = x[j] - r[j];

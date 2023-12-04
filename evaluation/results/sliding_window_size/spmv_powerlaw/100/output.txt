@@ -1,0 +1,75 @@
+TASKPARTS_NUM_WORKERS=1 \
+TASKPARTS_BENCHMARK_WARMUP_SECS=0.0 \
+TASKPARTS_BENCHMARK_NUM_REPEAT=1 \
+TASKPARTS_BENCHMARK_VERBOSE=0 \
+TASKPARTS_CPU_BASE_FREQUENCY_KHZ=3000000 \
+TASKPARTS_KAPPA_USEC=100 \
+./heartbeat_compiler 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 17.707,
+"usertime": 17.653,
+"systime": 0.052,
+"nvcsw": 0,
+"nivcsw": 88,
+"maxrss": 6488652,
+"nsignals": 0,
+"nb_fibers": 343696,
+"nb_steals": 0,
+"total_work_time": 17.116,
+"total_idle_time": 0.000,
+"total_sleep_time": 0.000,
+"total_time": 17.707,
+"cpufreq_khz": 3000000,
+"utilization": 1.000}
+]
+TASKPARTS_NUM_WORKERS=1 \
+TASKPARTS_BENCHMARK_WARMUP_SECS=0.0 \
+TASKPARTS_BENCHMARK_NUM_REPEAT=1 \
+TASKPARTS_BENCHMARK_VERBOSE=0 \
+TASKPARTS_CPU_BASE_FREQUENCY_KHZ=3000000 \
+TASKPARTS_KAPPA_USEC=100 \
+./heartbeat_compiler 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 17.665,
+"usertime": 17.610,
+"systime": 0.053,
+"nvcsw": 0,
+"nivcsw": 86,
+"maxrss": 6488688,
+"nsignals": 0,
+"nb_fibers": 339349,
+"nb_steals": 0,
+"total_work_time": 17.076,
+"total_idle_time": 0.000,
+"total_sleep_time": 0.000,
+"total_time": 17.665,
+"cpufreq_khz": 3000000,
+"utilization": 1.000}
+]
+TASKPARTS_NUM_WORKERS=1 \
+TASKPARTS_BENCHMARK_WARMUP_SECS=0.0 \
+TASKPARTS_BENCHMARK_NUM_REPEAT=1 \
+TASKPARTS_BENCHMARK_VERBOSE=0 \
+TASKPARTS_CPU_BASE_FREQUENCY_KHZ=3000000 \
+TASKPARTS_KAPPA_USEC=100 \
+./heartbeat_compiler 
+read matrix from matrix_powerlaw_benchmarking.dat
+[
+{"exectime": 17.703,
+"usertime": 17.649,
+"systime": 0.052,
+"nvcsw": 0,
+"nivcsw": 84,
+"maxrss": 6488620,
+"nsignals": 0,
+"nb_fibers": 340501,
+"nb_steals": 0,
+"total_work_time": 17.113,
+"total_idle_time": 0.000,
+"total_sleep_time": 0.000,
+"total_time": 17.703,
+"cpufreq_khz": 3000000,
+"utilization": 1.000}
+]

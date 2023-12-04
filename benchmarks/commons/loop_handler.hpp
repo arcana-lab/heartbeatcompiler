@@ -30,12 +30,10 @@ struct task_memory_t {
 #if defined(CHUNK_LOOP_ITERATIONS)
 uint64_t get_chunksize(task_memory_t *tmem);
 
-bool has_remaining_chunksize(task_memory_t *tmem);
-
-uint64_t update_remaining_chunksize(task_memory_t *tmem, uint64_t iterations, uint64_t chunksize);
+bool update_and_has_remaining_chunksize(task_memory_t *tmem, uint64_t iterations, uint64_t chunksize);
 #endif
 
-void heartbeat_start(task_memory_t *tmem);
+void heartbeat_start(task_memory_t *tmem, uint64_t num_iterations);
 
 #if defined(ENABLE_SOFTWARE_POLLING)
 bool heartbeat_polling(task_memory_t *tmem);

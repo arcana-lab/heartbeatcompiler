@@ -9,7 +9,11 @@
 using namespace kmeans;
 
 #if defined(USE_HB_COMPILER)
-bool run_heartbeat = true;
+#if defined(RUN_HEARTBEAT)
+  bool run_heartbeat = true;
+#else
+  bool run_heartbeat = false;
+#endif
 #endif
 
 int main() {

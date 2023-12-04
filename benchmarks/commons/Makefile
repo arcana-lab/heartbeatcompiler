@@ -14,8 +14,8 @@ TASKPARTS_PLATFORM ?= -DTASKPARTS_POSIX -DTASKPARTS_X64
 # ============================================
 # Global MACROS used by all implementations
 # ============================================
-# size of input, either benchmarking, tpal or testing
-# options: benchmarking, tpal, testing
+# size of input, either benchmarking, tpal, testing or user
+# options: benchmarking, tpal, testing, user
 INPUT_SIZE ?= testing
 ifeq ($(INPUT_SIZE), benchmarking)
 	MACROS += -DINPUT_BENCHMARKING
@@ -48,7 +48,10 @@ endif
 # include benchmark specific settings
 -include bench.config
 
-MACROS += $(TASKPARTS_PLATFORM)
+MACROS += $(TASKPARTS_PLATFORM) \
+	-DTASKPARTS_TPALRTS \
+	-DTASKPARTS_STATS \
+	-DTASKPARTS_USE_CHASELEV_DEQUE
 
 # ============================================
 # Global FLAGS used by all implementations
@@ -72,7 +75,9 @@ FLAGS += \
 # Global OPTS used by all implementations
 # ============================================
 ifeq ($(DEBUG), false)
-	OPTS += -O3 -march=native
+	OPTS += \
+		-O3 -march=native \
+		-fno-vectorize -fno-slp-vectorize
 else
 	FLAGS += -g
 	OPTS += -O0
@@ -81,7 +86,7 @@ endif
 # ============================================
 # Global LIBS used by all implementations
 # ============================================
-LIBS = -lm -lstdc++ -pthread -ldl
+LIBS += -lm -lstdc++ -pthread -ldl
 ifeq (, $(shell which jemalloc-config))
 	CUSTOM_MALLOC =
 else
@@ -101,7 +106,7 @@ CPU_FREQUENCY_KHZ ?= 3000000
 KAPPA_USECS ?=100
 
 # =============================================
-# processing
+# Processing
 # =============================================
 preprocess: utility.hpp
 	sed -i '/std::string benchmark_name/c\std::string benchmark_name = \"$(BENCHMARK)\";' $(ROOT_DIR)/benchmarks/commons/utility.hpp ;
@@ -112,7 +117,7 @@ postprocess: utility.hpp
 # ============================================
 # Baseline
 # ============================================
-MACROS_BASELINE += -DUSE_BASELINE $(MACROS)
+MACROS_BASELINE += -DUSE_BASELINE $(MACROS) -DTASKPARTS_TPALRTS_MINIMAL
 FLAGS_BASELINE += $(FLAGS)
 OPTS_BASELINE += $(OPTS)
 LIBS_BASELINE += $(LIBS)
@@ -120,15 +125,20 @@ LIBS_BASELINE += $(LIBS)
 %_baseline.bc: %.cpp
 	$(CXX) $(MACROS_BASELINE) $(FLAGS_BASELINE) -c $< -o $@
 
-baseline: main_baseline.bc bench_baseline.bc
-	llvm-link $^ -o $@.bc
-	$(CXX) $(OPTS_BASELINE) $@.bc -o $@ $(LIBS_BASELINE)
-	make postprocess
+baseline_normalized.bc: main_baseline.bc bench_baseline.bc
+	llvm-link $^ -o $@
+	noelle-norm $@ -o $@
+
+baseline: baseline_normalized.bc
+	$(CXX) $(OPTS_BASELINE) $< -o $@ $(LIBS_BASELINE)
 
 run_baseline: baseline
-	UTILITY_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
-	UTILITY_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
-	UTILITY_BENCHMARK_VERBOSE=$(VERBOSE) \
+	TASKPARTS_NUM_WORKERS=1 \
+	TASKPARTS_BENCHMARK_WARMUP_SECS=$(WARMUP_SECS) \
+	TASKPARTS_BENCHMARK_NUM_REPEAT=$(NUM_REPEAT) \
+	TASKPARTS_BENCHMARK_VERBOSE=$(VERBOSE) \
+	TASKPARTS_CPU_BASE_FREQUENCY_KHZ=$(CPU_FREQUENCY_KHZ) \
+	TASKPARTS_KAPPA_USEC=$(KAPPA_USECS) \
 	./$< $(ARGS)
 
 # ============================================
@@ -197,27 +207,39 @@ FLAGS_OPENMP += -fopenmp $(FLAGS)
 OPTS_OPENMP += $(OPTS)
 LIBS_OPENMP += -fopenmp $(LIBS)
 
+# openmp schedulers to use
+# options: STATIC, DYNAMIC, GUIDED
 OMP_SCHEDULE ?= STATIC
 ifeq ($(OMP_SCHEDULE), STATIC)
-	FLAGS_OPENMP += -DOMP_SCHEDULE_STATIC
+	MACROS_OPENMP += -DOMP_SCHEDULE_STATIC
 else ifeq ($(OMP_SCHEDULE), DYNAMIC)
-	FLAGS_OPENMP += -DOMP_SCHEDULE_DYNAMIC
+	MACROS_OPENMP += -DOMP_SCHEDULE_DYNAMIC
 else ifeq ($(OMP_SCHEDULE), GUIDED)
-	FLAGS_OPENMP += -DOMP_SCHEDULE_GUIDED
+	MACROS_OPENMP += -DOMP_SCHEDULE_GUIDED
 endif
 
-OMP_NESTED_SCHEDULING ?= false
-ifeq ($(OMP_NESTED_SCHEDULING), true)
-	FLAGS_OPENMP += -DOMP_NESTED_SCHEDULING
+# whether to enable nested parallelism for openmp
+OMP_NESTED_PARALLELISM ?= false
+ifeq ($(OMP_NESTED_PARALLELISM), true)
+	MACROS_OPENMP += -DOMP_NESTED_PARALLELISM
+endif
+
+# chunk size used for openmp's different schedulers
+# if unset, use the default value for different schedulers
+OMP_CHUNKSIZE ?= 0
+ifneq ($(OMP_CHUNKSIZE), 0)
+	MACROS_OPENMP += -DOMP_CHUNKSIZE=$(OMP_CHUNKSIZE)
 endif
 
 %_openmp.bc: %.cpp
 	$(CXX) $(MACROS_OPENMP) $(FLAGS_OPENMP) -c $< -o $@
 
-openmp: main_openmp.bc bench_openmp.bc
-	llvm-link $^ -o $@.bc
-	$(CXX) $(OPTS_OPENMP) $@.bc -o $@ $(LIBS_OPENMP)
-	make postprocess
+openmp_normalized.bc: main_openmp.bc bench_openmp.bc
+	llvm-link $^ -o $@
+	noelle-norm $@ -o $@
+
+openmp: openmp_normalized.bc
+	$(CXX) $(OPTS_OPENMP) $< -o $@ $(LIBS_OPENMP)
 
 run_openmp: openmp
 ifneq ($(WORKERS), 0)
@@ -234,7 +256,7 @@ else
 endif
 
 # ============================================
-# Heartbeat
+# Heartbeat Settings
 # ============================================
 HEARTBEAT_LINUX_PATH = $(ROOT_DIR)/heartbeat-linux
 HEARTBEAT_LINUX_INCLUDE =$(HEARTBEAT_LINUX_PATH)/user
@@ -245,6 +267,11 @@ ROLLFORWARD_COMPILER = $(ROLLFORWARD_COMPILER_PATH)/rollforward++
 
 MACROS_HEARTBEAT += $(MACROS)
 
+# whether to run code of heartbeat transformation
+# if set to false, then it will invoke the
+# original outlined loops without modifcation
+# this macro can be used to evaluate the outlining
+# cost of the overhead analysis
 RUN_HEARTBEAT ?= true
 ifeq ($(RUN_HEARTBEAT), true)
 	MACROS_HEARTBEAT += -DRUN_HEARTBEAT
@@ -252,7 +279,9 @@ endif
 
 # whether to enable heartbeat transformation
 # thie macro is used to measure the overhead of
-# preparing loop environment and parallel context
+# preparing loop environment and parallel context,
+# therefore, if set to false, no loop_handler will
+# get inserted.
 # this macro applies to heartbeat_manual only
 # and therefore can only be measured using heartbeat_manual
 ENABLE_HEARTBEAT ?= true
@@ -266,10 +295,14 @@ endif
 # whether to enable promotion
 ENABLE_PROMOTION ?= true
 PROMO_STATS ?= false	# collect the level of where parallelism is generated
+TASK_STATS ?= false		# collect the number of tasks created
 ifeq ($(ENABLE_PROMOTION), true)
 	MACROS_HEARTBEAT += -DENABLE_PROMOTION
 	ifeq ($(PROMO_STATS), true)
 		MACROS_HEARTBEAT += -DPROMO_STATS
+	endif
+	ifeq ($(TASK_STATS), true)
+		MACROS_HEARTBEAT += -DTASK_STATS
 	endif
 else
 	MACROS_HEARTBEAT += -DDISABLE_PROMOTION
@@ -287,10 +320,12 @@ endif
 
 # whether to chunk loop iterations before calling loop_handler
 CHUNK_LOOP_ITERATIONS ?= true
-ACC ?= false						# enable adaptive chunksize control
-ACC_DEBUG ?= false			# print how chunksize changes over polling count
+ACC ?= false						# enable adaptive chunk size control
+ACC_MINIMAL ?= true			# enable acc conservatively to stay faithful to heartbeat scheduling
+ACC_DEBUG ?= false			# print how chunk size changes over polling count
 ACC_EVAL ?= false				# evaluate the accuracy of acc
-ACC_SPMV_STATS ?= false	# plot how chunksize changes varying the number of nonzeros
+ACC_SPMV_STATS ?= false	# plot how chunk size changes varying the number of nonzeros
+SPMV_DETECTION_RATE_ANALYSIS ?= false # parallel outer loop only to simulate heterogeneous latency
 ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 	MACROS_HEARTBEAT += -DCHUNK_LOOP_ITERATIONS
 	PASS_ARGUMENTS_HEARTBEAT_COMPILER += -chunk_loop_iterations
@@ -298,6 +333,11 @@ ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 		ifeq ($(ACC), true)
 			MACROS_HEARTBEAT += -DADAPTIVE_CHUNKSIZE_CONTROL
 			PASS_ARGUMENTS_HEARTBEAT_COMPILER += -adaptive_chunksize_control
+			ifeq ($(ACC_MINIMAL), false)
+				MACROS_HEARTBEAT += -DACC_MAXIMAL
+			else
+				MACROS_HEARTBEAT += -DACC_MINIMAL
+			endif
 			ifeq ($(ACC_DEBUG), true)
 				MACROS_HEARTBEAT += -DACC_DEBUG
 			endif
@@ -308,25 +348,42 @@ ifeq ($(CHUNK_LOOP_ITERATIONS), true)
 				MACROS_HEARTBEAT += -DACC_SPMV_STATS
 			endif
 		endif
+		ifeq ($(SPMV_DETECTION_RATE_ANALYSIS), true)
+			MACROS_HEARTBEAT += -DSPMV_DETECTION_RATE_ANALYSIS
+		endif
 	endif
 endif
 
-# whether to print polling stats
-POLLS_STATS ?= false
+POLLS_STATS ?= false			# whether to print polling stats between beats
+BEATS_STATS ?= false			# print the info related to polling count and heartbeat detection rate
 ifeq ($(ENABLE_ROLLFORWARD), false)
 	ifeq ($(POLLS_STATS), true)
 		MACROS += -DPOLLS_STATS
 	endif
+	ifeq ($(BEATS_STATS), true)
+		MACROS += -DBEATS_STATS
+	endif
+endif
+
+# this enables AC logic without doing the actual promotion
+# considering changing this macro to be more defined somewhere
+OVERHEAD_ANALYSIS ?= false
+ifeq ($(OVERHEAD_ANALYSIS), true)
+	MACROS += -DOVERHEAD_ANALYSIS
+endif
+PROMOTION_INSERTION_OVERHEAD_ANALYSIS ?= false
+ifeq ($(PROMOTION_INSERTION_OVERHEAD_ANALYSIS), true)
+	MACROS += -DPROMOTION_INSERTION_OVERHEAD_ANALYSIS
+endif
+CHUNKSIZE_TRANSFERRING_OVERHEAD_ANALYSIS ?= false
+ifeq ($(CHUNKSIZE_TRANSFERRING_OVERHEAD_ANALYSIS), true)
+	MACROS += -DCHUNKSIZE_TRANSFERRING_OVERHEAD_ANALYSIS
 endif
 
 # include benchmark heartbeat specific settings
 -include heartbeat.config
 
 # macros need to enable taskparts runtime
-MACROS_HEARTBEAT += \
-	-DTASKPARTS_TPALRTS \
-	-DTASKPARTS_STATS \
-	-DTASKPARTS_USE_CHASELEV_DEQUE
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	ifeq ($(USE_HB_KMOD), true)
 		MACROS_HEARTBEAT += \
@@ -358,7 +415,7 @@ LIBS_HEARTBEAT += $(LIBS)
 -include Makefile_heartbeat_compiler
 
 # ============================================
-# Evaluation
+# Condor
 # ============================================
 condor:
 	cd condor ; condor_submit job.con ;

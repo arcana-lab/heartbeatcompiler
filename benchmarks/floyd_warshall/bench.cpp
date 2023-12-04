@@ -6,6 +6,7 @@
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 #include "utility.hpp"
 #include <functional>
+#include <taskparts/benchmark.hpp>
 #endif
 
 #define SUB(array, row_sz, i, j) (array[i * row_sz + j])
@@ -14,7 +15,7 @@
 namespace floyd_warshall {
 
 #if defined(INPUT_BENCHMARKING)
-  int vertices = 4096;
+  int vertices = 8192;
 #elif defined(INPUT_TPAL)
   int vertices = 2048;
 #elif defined(INPUT_TESTING)
@@ -30,6 +31,15 @@ int *dist = nullptr;
 void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
                std::function<void()> const &bench_end) {
+#if defined(USE_BASELINE)
+  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
+    bench_body();
+  }, [&] (auto sched) {
+    bench_start();
+  }, [&] (auto sched) {
+    bench_end();
+  });
+#else
   utility::run([&] {
     bench_body();
   }, [&] {
@@ -37,6 +47,7 @@ void run_bench(std::function<void()> const &bench_body,
   }, [&] {
     bench_end();
   });
+#endif
 }
 #endif
 
@@ -134,9 +145,10 @@ void floyd_warshall_cilkplus(int* dist, int vertices) {
 
 void floyd_warshall_openmp(int* dist, int vertices) {
   for(int via = 0; via < vertices; via++) {
-#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_NESTED_PARALLELISM)
     omp_set_max_active_levels(2);
 #endif
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
     #pragma omp parallel for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
@@ -144,14 +156,33 @@ void floyd_warshall_openmp(int* dist, int vertices) {
 #elif defined(OMP_SCHEDULE_GUIDED)
     #pragma omp parallel for schedule(guided)
 #endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+    #pragma omp parallel for schedule(static, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+    #pragma omp parallel for schedule(dynamic, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_GUIDED)
+    #pragma omp parallel for schedule(guided, OMP_CHUNKSIZE)
+#endif
+#endif
     for(int from = 0; from < vertices; from++) {
-#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_NESTED_PARALLELISM)
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
       #pragma omp parallel for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
       #pragma omp parallel for schedule(dynamic)
 #elif defined(OMP_SCHEDULE_GUIDED)
       #pragma omp parallel for schedule(guided)
+#endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+      #pragma omp parallel for schedule(static, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+      #pragma omp parallel for schedule(dynamic, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_GUIDED)
+      #pragma omp parallel for schedule(guided, OMP_CHUNKSIZE)
+#endif
 #endif
 #endif
       for(int to = 0; to < vertices; to++) {

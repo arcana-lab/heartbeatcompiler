@@ -5,6 +5,7 @@
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 #include "utility.hpp"
 #include <functional>
+#include <taskparts/benchmark.hpp>
 #endif
 
 namespace srad {
@@ -39,6 +40,15 @@ float *J_ref;
 void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
                std::function<void()> const &bench_end) {
+#if defined(USE_BASELINE)
+  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
+    bench_body();
+  }, [&] (auto sched) {
+    bench_start();
+  }, [&] (auto sched) {
+    bench_end();
+  });
+#else
   utility::run([&] {
     bench_body();
   }, [&] {
@@ -46,6 +56,7 @@ void run_bench(std::function<void()> const &bench_body,
   }, [&] {
     bench_end();
   });
+#endif
 }
 #endif
 
@@ -311,9 +322,10 @@ void srad_cilkplus(int rows, int cols, int size_I, int size_R, float* I, float* 
 #include <omp.h>
 
 void srad_openmp(int rows, int cols, int size_I, int size_R, float* I, float* J, float q0sqr, float *dN, float *dS, float *dW, float *dE, float* c, int* iN, int* iS, int* jE, int* jW, float lambda) {
-#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_NESTED_PARALLELISM)
   omp_set_max_active_levels(2);
 #endif
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
   #pragma omp parallel for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
@@ -321,14 +333,33 @@ void srad_openmp(int rows, int cols, int size_I, int size_R, float* I, float* J,
 #elif defined(OMP_SCHEDULE_GUIDED)
   #pragma omp parallel for schedule(guided)
 #endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp parallel for schedule(static, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp parallel for schedule(guided, OMP_CHUNKSIZE)
+#endif
+#endif
   for (int i = 0 ; i < rows ; i++) {
-#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_NESTED_PARALLELISM)
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
     #pragma omp parallel for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
     #pragma omp parallel for schedule(dynamic)
 #elif defined(OMP_SCHEDULE_GUIDED)
     #pragma omp parallel for schedule(guided)
+#endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+    #pragma omp parallel for schedule(static, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+    #pragma omp parallel for schedule(dynamic, OMP_CHUNKSIZE)
+#elif defined(OMP_SCHEDULE_GUIDED)
+    #pragma omp parallel for schedule(guided, OMP_CHUNKSIZE)
+#endif
 #endif
 #endif
     for (int j = 0; j < cols; j++) { 
@@ -362,7 +393,7 @@ void srad_openmp(int rows, int cols, int size_I, int size_R, float* I, float* J,
     }
   
   }
-#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_NESTED_PARALLELISM)
   omp_set_max_active_levels(2);
 #endif
 #if defined(OMP_SCHEDULE_STATIC)
@@ -373,7 +404,7 @@ void srad_openmp(int rows, int cols, int size_I, int size_R, float* I, float* J,
   #pragma omp parallel for schedule(guided)
 #endif
   for (int i = 0; i < rows; i++) {
-#if defined(OMP_NESTED_SCHEDULING)
+#if defined(OMP_NESTED_PARALLELISM)
 #if defined(OMP_SCHEDULE_STATIC)
     #pragma omp parallel for schedule(static)
 #elif defined(OMP_SCHEDULE_DYNAMIC)

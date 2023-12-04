@@ -4,6 +4,7 @@
 #if !defined(USE_HB_MANUAL) && !defined(USE_HB_COMPILER)
 #include "utility.hpp"
 #include <functional>
+#include <taskparts/benchmark.hpp>
 #endif
 
 namespace plus_reduce_array {
@@ -24,6 +25,15 @@ double result = 0.0;
 void run_bench(std::function<void()> const &bench_body,
                std::function<void()> const &bench_start,
                std::function<void()> const &bench_end) {
+#if defined(USE_BASELINE)
+  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
+    bench_body();
+  }, [&] (auto sched) {
+    bench_start();
+  }, [&] (auto sched) {
+    bench_end();
+  });
+#else
   utility::run([&] {
     bench_body();
   }, [&] {
@@ -31,6 +41,7 @@ void run_bench(std::function<void()> const &bench_body,
   }, [&] {
     bench_end();
   });
+#endif
 }
 #endif
 
@@ -96,12 +107,22 @@ double plus_reduce_array_cilkplus(double* a, uint64_t lo, uint64_t hi) {
 
 double plus_reduce_array_openmp(double* a, uint64_t lo, uint64_t hi) {
   double r = 0.0;
+#if !defined(OMP_CHUNKSIZE)
 #if defined(OMP_SCHEDULE_STATIC)
   #pragma omp parallel for schedule(static) reduction(+:r)
 #elif defined(OMP_SCHEDULE_DYNAMIC)
   #pragma omp parallel for schedule(dynamic) reduction(+:r)
 #elif defined(OMP_SCHEDULE_GUIDED)
   #pragma omp parallel for schedule(guided) reduction(+:r)
+#endif
+#else
+#if defined(OMP_SCHEDULE_STATIC)
+  #pragma omp parallel for schedule(static, OMP_CHUNKSIZE) reduction(+:r)
+#elif defined(OMP_SCHEDULE_DYNAMIC)
+  #pragma omp parallel for schedule(dynamic, OMP_CHUNKSIZE) reduction(+:r)
+#elif defined(OMP_SCHEDULE_GUIDED)
+  #pragma omp parallel for schedule(guided, OMP_CHUNKSIZE) reduction(+:r)
+#endif
 #endif
   for (uint64_t i = lo; i != hi; i++) {
     r += a[i];

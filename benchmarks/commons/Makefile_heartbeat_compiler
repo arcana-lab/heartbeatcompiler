@@ -29,7 +29,6 @@ else
 	llvm-link $^ -o $@.bc
 	$(CXX) $(OPTS_HEARTBEAT_COMPILER) $@.bc -o $@ $(LIBS_HEARTBEAT_COMPILER)
 endif
-	make postprocess
 
 run_hbc: run_heartbeat_compiler
 run_hb_compiler: run_heartbeat_compiler

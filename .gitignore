@@ -5,6 +5,8 @@ runtime
 matrix-market
 rollforward
 tpal
+graphit
+taco
 
 # evaluation
 evaluation/results

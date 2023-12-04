@@ -71,6 +71,19 @@ uint64_t leftover_selector_nest0(uint64_t receivingLevel, uint64_t splittingLeve
   bool run_heartbeat = false;
 #endif
 
+// Entry function
+unsigned char * mandelbulb_hb_manual(double x0, double y0, double z0,
+                                     double x1, double y1, double z1,
+                                     int nx, int ny, int nz, int iterations,
+                                     double power) {
+  unsigned char* output = (unsigned char*)malloc(nx * ny * nz * sizeof(unsigned char));
+  double xstep = (x1 - x0) / nx;
+  double ystep = (y1 - y0) / ny;
+  double zstep = (z1 - z0) / nz;
+  HEARTBEAT_nest0_loop0(x0, y0, z0, nx, ny, nz, iterations, power, xstep, ystep, zstep, output);
+  return output;
+}
+
 // Outlined loops
 void HEARTBEAT_nest0_loop0(double x0, double y0, double z0, int nx, int ny, int nz, int iterations, double power, double xstep, double ystep, double zstep, unsigned char *output) {
   if (run_heartbeat) {
@@ -164,39 +177,6 @@ int64_t HEARTBEAT_nest0_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
     if (rc > 0) {
       break;
     }
-
-#if defined(ENABLE_HEARTBEAT)
-#if defined(CHUNK_LOOP_ITERATIONS)
-    // don't poll if we haven't finished a chunk
-    if (has_remaining_chunksize(tmem)) {
-      continue;
-    }
-#endif
-
-#if defined(ENABLE_SOFTWARE_POLLING)
-    if (unlikely(heartbeat_polling(tmem))) {
-      cxts[LEVEL_ZERO * CACHELINE + START_ITER] = startIter;
-      rc = loop_handler(
-        cxts, constLiveIns, LEVEL_ZERO, NUM_LEVELS_NEST0, tmem,
-        slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
-      );
-      if (rc > 0) {
-        break;
-      }
-    }
-#else
-    if(unlikely(__rf_test())) {
-      cxts[LEVEL_ZERO * CACHELINE + START_ITER] = startIter;
-      __rf_handle_wrapper(
-        rc, cxts, constLiveIns, LEVEL_ZERO, NUM_LEVELS_NEST0, tmem,
-        slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
-      );
-      if (rc > 0) {
-        break;
-      }
-    }
-#endif
-#endif
   }
 
   return rc - 1;
@@ -235,39 +215,6 @@ int64_t HEARTBEAT_nest0_loop1_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
     if (rc > 0) {
       break;
     }
-
-#if defined(ENABLE_HEARTBEAT)
-#if defined(CHUNK_LOOP_ITERATIONS)
-    // don't poll if we haven't finished a chunk
-    if (has_remaining_chunksize(tmem)) {
-      continue;
-    }
-#endif
-
-#if defined(ENABLE_SOFTWARE_POLLING)
-    if (unlikely(heartbeat_polling(tmem))) {
-      cxts[LEVEL_ONE * CACHELINE + START_ITER] = startIter;
-      rc = loop_handler(
-        cxts, constLiveIns, LEVEL_ONE, NUM_LEVELS_NEST0, tmem,
-        slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
-      );
-      if (rc > 0) {
-        break;
-      }
-    }
-#else
-    if(unlikely(__rf_test())) {
-      cxts[LEVEL_ONE * CACHELINE + START_ITER] = startIter;
-      __rf_handle_wrapper(
-        rc, cxts, constLiveIns, LEVEL_ONE, NUM_LEVELS_NEST0, tmem,
-        slice_tasks_nest0, leftover_tasks_nest0, &leftover_selector_nest0
-      );
-      if (rc > 0) {
-        break;
-      }
-    }
-#endif
-#endif
   }
 
   return rc - 1;
@@ -298,8 +245,9 @@ int64_t HEARTBEAT_nest0_loop2_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
 
   int64_t rc = 0;
 #if defined(CHUNK_LOOP_ITERATIONS)
-  uint64_t chunksize = get_chunksize(tmem);
+  uint64_t chunksize;
   for (; startIter < maxIter; startIter += chunksize) {
+    chunksize = get_chunksize(tmem);
     uint64_t low = startIter;
     uint64_t high = maxIter < startIter + chunksize ? maxIter : startIter + chunksize;
     for (; low < high; low++) {
@@ -322,8 +270,7 @@ int64_t HEARTBEAT_nest0_loop2_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
     }
 
 #if defined(ENABLE_HEARTBEAT)
-    chunksize = update_remaining_chunksize(tmem, high - startIter, chunksize);
-    if (has_remaining_chunksize(tmem)) {
+    if (update_and_has_remaining_chunksize(tmem, high - startIter, chunksize)) {
       break;
     }
 
@@ -405,6 +352,8 @@ int64_t HEARTBEAT_nest0_loop2_slice(uint64_t *cxts, uint64_t *constLiveIns, uint
 // Leftover tasks
 void HEARTBEAT_nest0_loop_2_0_leftover(uint64_t *cxts, uint64_t *constLiveIns, uint64_t myIndex, task_memory_t *tmem) {
   int64_t rc = 0;
+
+  cxts[LEVEL_TWO * CACHELINE + START_ITER]++;
   rc = HEARTBEAT_nest0_loop2_slice(cxts, constLiveIns, myIndex, tmem);
   if (rc > 0) {
     return;
@@ -427,6 +376,8 @@ void HEARTBEAT_nest0_loop_2_0_leftover(uint64_t *cxts, uint64_t *constLiveIns, u
 
 void HEARTBEAT_nest0_loop_2_1_leftover(uint64_t *cxts, uint64_t *constLiveIns, uint64_t myIndex, task_memory_t *tmem) {
   int64_t rc = 0;
+
+  cxts[LEVEL_TWO * CACHELINE + START_ITER]++;
   rc = HEARTBEAT_nest0_loop2_slice(cxts, constLiveIns, myIndex, tmem);
   if (rc > 0) {
     return;
@@ -443,6 +394,8 @@ void HEARTBEAT_nest0_loop_2_1_leftover(uint64_t *cxts, uint64_t *constLiveIns, u
 
 void HEARTBEAT_nest0_loop_1_0_leftover(uint64_t *cxts, uint64_t *constLiveIns, uint64_t myIndex, task_memory_t *tmem) {
   int64_t rc = 0;
+
+  cxts[LEVEL_ONE * CACHELINE + START_ITER]++;
   rc = HEARTBEAT_nest0_loop1_slice(cxts, constLiveIns, myIndex, tmem);
   if (rc > 0) {
     return;

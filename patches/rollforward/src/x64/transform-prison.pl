@@ -2,23 +2,43 @@
 
 # changed above from globalsymbol_regex = r'^[^.]\w+:' -- Mike
 
+# this is used to detect and transform local labels that should
+# be transformed.   ".LABEL:"
+# ideally we would use a more closely matching pattern than this
+# but it does seem to work
 $localsymbol_regex = '^\.[\w.]+:';
+# better version we will not use just yet
+#$localsymbol_regex = "^\.[[:alpha:]_.][[:alnum:]_$.]*:";
 
-$globalsymbol_regex = '^[^.].*:';
+# the following is used to detect and reject global symbols, which
+# do not get an RF version in the destination
+# "LABEL:"  BUT "LABEL: foo bar" should turn into "foo bar"
+$globalsymbol_regex='^\s*[^.][[:alpha:]_.][[:alnum:]_$.]*:';
+# old version:
+#$globalsymbol_regex = '^[^.][^\#]*:';
+
+# the following several regexps are used to reject
+# some ".DIRECTIVE ..." lines in the destination
 $commsymbol_regex = '^\s+\.comm.+';
 $weakrefsymbol_regex = '^\s+\.weakref.+';
 $weaksymbol_regex = '^\s+\.weak.+';
 $setsymbol_regex = '^\s+\.set.+';
 $filesymbol_regex = '^\s+\.file.+';
 
+# the following captures invocation of the rf handler,
+# which must be special cased (removed in the source)
 $call_regex = 'call.+__rf_handle_.+';
 
+# the following captures the RF check in the source
 $mov_regex = 'mov.*\s+\$__rf_signal';
 $mov_search_regex='\$__rf_signal';
 $mov_repl_src='$0';
 $mov_repl_dst='$1';
 
 
+#
+# the list of regexps that will cause a skip in the dest
+#
 @skip_regexps = (
     $globalsymbol_regex,
     $commsymbol_regex,
@@ -28,7 +48,8 @@ $mov_repl_dst='$1';
     $filesymbol_regex
     # add more here
     );
-    
+
+# the union of that list
 $skip_regexp = join("|", map { "(".$_.")"} @skip_regexps);
 
 
@@ -71,11 +92,14 @@ print OUT "\n\n";
 
 print STDERR "Emitted source lines\n";
 
+print OUT ".p2align 12\n";  # put us at start of page
+
 $i=0; map { emit_dst_line($_); $i++; print STDERR "emitted destination line $i ($n_dest_lines_modded modified)\r" if !($i % 1000); } @lines;
 
 print STDERR "Emitted $i destination lines ($n_dest_lines_modded modified)\n";
 print OUT "\n\n";
 print OUT ".data\n";
+print OUT ".p2align 12\n";  # put us at start of page
 print OUT ".globl rollforward_table\n";
 print OUT "rollforward_table:\n";
 
@@ -89,7 +113,7 @@ $size=0; $i=0; map {
 
 print STDERR "Emitted rollforward table\n";
 
-
+print OUT ".p2align 12\n"; # put us at start of page
 print OUT ".globl rollback_table\n";
 print OUT "rollback_table:\n";
 
@@ -100,6 +124,7 @@ $i=0; map {
     $i++;
 } @lines;
 
+print OUT ".p2align 12\n"; # put us at start of page
 print OUT ".globl rollforward_table_size\n";
 print OUT "rollforward_table_size: .quad $size\n";
 print OUT ".globl rollback_table_size\n";
@@ -128,13 +153,13 @@ sub emit_src_line
 	print OUT "__RF_SRC_$i: ";
     }
     my $sl = $l;
-    if ($sl =~ /$call_regex/) {
-	$sl = "# removed handler call: $sl";
+    if (0 && $sl =~ /$call_regex/) {
+	$sl = "nop; nop; nop; nop; nop  # removed handler call: $sl";
     }
     if ($sl =~/$mov_regex/) {
 	chomp($sl);
 	$sl =~ s/$mov_search_regex/$mov_repl_src/;
-	$sl .= "  # updated prison check to $mov_repl_src\n";
+	$sl .= "  # updated src prison check to $mov_repl_src\n";
     }
     print OUT $sl;
 }
@@ -179,9 +204,13 @@ sub emit_dst_line
 
 
 
-	
-    $sl =~ s/$skip_regexp/\#removed/g;
-
+    $csl = $sl;
+    chomp($csl);
+    if ($sl=~/$skip_regexp/) {
+       $sl = "# skipped '$csl'\n";
+    }
+    #  $sl =~ s/$skip_regexp/\# skipped '$csl'/g;
+    #  $sl =~ s/$skip_regexp/\# skipped/g;
 
 
     
@@ -200,7 +229,7 @@ sub emit_dst_line
     if ($sl =~/$mov_regex/) {
 	chomp($sl);
 	$sl =~ s/$mov_search_regex/$mov_repl_dst/;
-	$sl .= "  # updated prison check to $mov_repl_dst\n";
+	$sl .= "  # updated dst prison check to $mov_repl_dst\n";
     }
     
 

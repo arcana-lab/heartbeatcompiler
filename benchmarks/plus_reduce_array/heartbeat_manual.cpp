@@ -42,6 +42,12 @@ sliceTasksPointer slice_tasks[1] = {
   bool run_heartbeat = false;
 #endif
 
+// Entry function
+double plus_reduce_array_hb_manual(double* a, uint64_t lo, uint64_t hi) {
+  double r = HEARTBEAT_loop0(a, lo, hi);
+  return r;
+}
+
 // Outlined loops
 double HEARTBEAT_loop0(double *a, uint64_t lo, uint64_t hi) {
   double r = 0.0;
@@ -105,8 +111,9 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
 #if defined(CHUNK_LOOP_ITERATIONS)
   // here the predict to compare has to be '<' not '!=',
   // otherwise there's an infinite loop bug
-  uint64_t chunksize = get_chunksize(tmem);
+  uint64_t chunksize;
   for (; startIter < maxIter; startIter += chunksize) {
+    chunksize = get_chunksize(tmem);
     uint64_t low = startIter;
     uint64_t high = maxIter < startIter + chunksize ? maxIter : startIter + chunksize;
     for (; low < high; low++) {
@@ -114,15 +121,18 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
     }
 
 #if defined(ENABLE_HEARTBEAT)
-    chunksize = update_remaining_chunksize(tmem, high - startIter, chunksize);
-    if (has_remaining_chunksize(tmem)) {
-      // early exit and don't call the loop_handler,
-      // this avoids the overhead if the loop count is small
+#if !defined(PROMOTION_INSERTION_OVERHEAD_ANALYSIS)
+    // early exit and don't call the loop_handler,
+    // this avoids the overhead if the loop count is small
+    if (update_and_has_remaining_chunksize(tmem, high - startIter, chunksize)) {
       break;
     }
+#endif
 
 #if defined(ENABLE_SOFTWARE_POLLING)
+#if !defined(PROMOTION_INSERTION_OVERHEAD_ANALYSIS)
     if (unlikely(heartbeat_polling(tmem))) {
+#endif
       cxts[LEVEL_ZERO * CACHELINE + START_ITER] = low - 1;
       rc = loop_handler(
         cxts, constLiveIns, LEVEL_ZERO, NUM_LEVELS, tmem,
@@ -131,7 +141,9 @@ int64_t HEARTBEAT_loop0_slice(uint64_t *cxts, uint64_t *constLiveIns, uint64_t m
       if (rc > 0) {
         break;
       }
+#if !defined(PROMOTION_INSERTION_OVERHEAD_ANALYSIS)
     }
+#endif
 #else
     if(unlikely(__rf_test())) {
       cxts[LEVEL_ZERO * CACHELINE + START_ITER] = low - 1;
