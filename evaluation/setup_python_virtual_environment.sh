@@ -20,6 +20,7 @@ if ! test -d ${virtualEnvDir} ; then
     pip install pandas ;
     pip install plotly==5.15.0 ;
     pip install -U kaleido ;
+    pip install mathjax ;
 
 else
   source ${virtualEnvDir}/bin/activate ;
