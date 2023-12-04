@@ -16,6 +16,7 @@ spmv_powerlaw=list(df.loc[2][1:])
 spmv_random=list(df.loc[3][1:])
 plus_reduce_array=list(df.loc[4][1:])
 srad=list(df.loc[5][1:])
+kmeans=list(df.loc[6][1:])
 print(polling_counts)
 print(mandelbrot)
 print(spmv_arrowhead)
@@ -23,9 +24,10 @@ print(spmv_powerlaw)
 print(spmv_random)
 print(plus_reduce_array)
 print(srad)
+print(kmeans)
 
 # https://colorbrewer2.org/#type=diverging&scheme=RdYlBu&n=6
-colors = ['#fee090','#fc8d59','#d73027','#af8dc3','#91bfdb','#4575b4']
+colors = ['#fee090','#fc8d59','#d73027','#af8dc3','#91bfdb','#4575b4', '#e0f3f8']
 symbols = ['circle', 'square', 'diamond', 'cross', 'triangle-up', 'triangle-down', 'star']
 
 fig = make_subplots(rows=2, cols=1, vertical_spacing = 0.05,
@@ -35,7 +37,7 @@ for i in [1, 2]:
     fig.add_trace(go.Scatter(x=polling_counts, y=mandelbrot,
                         mode='lines+markers',
                         name='mandelbrot',
-                        line_color=colors[2],
+                        line_color=colors[0],
                         marker_symbol=symbols[0],
                         legendgroup=1,
                         showlegend=show),
@@ -43,7 +45,7 @@ for i in [1, 2]:
     fig.add_trace(go.Scatter(x=polling_counts, y=spmv_arrowhead,
                         mode='lines+markers',
                         name='spmv-arrowhead',
-                        line_color=colors[1],
+                        line_color=colors[3],
                         marker_symbol=symbols[1],
                         legendgroup=1,
                         showlegend=show),
@@ -51,7 +53,7 @@ for i in [1, 2]:
     fig.add_trace(go.Scatter(x=polling_counts, y=spmv_powerlaw,
                         mode='lines+markers',
                         name='spmv-powerlaw',
-                        line_color=colors[0],
+                        line_color=colors[6],
                         marker_symbol=symbols[2],
                         legendgroup=1,
                         showlegend=show),
@@ -59,7 +61,15 @@ for i in [1, 2]:
     fig.add_trace(go.Scatter(x=polling_counts, y=spmv_random,
                         mode='lines+markers',
                         name='spmv-random',
-                        line_color=colors[3],
+                        line_color=colors[2],
+                        marker_symbol=symbols[6],
+                        legendgroup=1,
+                        showlegend=show),
+                        row=i, col=1)
+    fig.add_trace(go.Scatter(x=polling_counts, y=kmeans,
+                        mode='lines+markers',
+                        name='kmeans',
+                        line_color=colors[5],
                         marker_symbol=symbols[3],
                         legendgroup=1,
                         showlegend=show),
@@ -75,7 +85,7 @@ for i in [1, 2]:
     fig.add_trace(go.Scatter(x=polling_counts, y=srad,
                         mode='lines+markers',
                         name='srad',
-                        line_color=colors[5],
+                        line_color=colors[1],
                         marker_symbol=symbols[5],
                         legendgroup=1,
                         showlegend=show),

@@ -1,0 +1,6 @@
+benchmarks,openmp_dynamic_speedup,nested_parallelism_speedup
+mandelbrot,55.8,1.5
+spmv-arrowhead,2.6,
+spmv-powerlaw,12.9,
+mandelbulb,32.5,
+cg,3.9,3.6

@@ -70,9 +70,10 @@ fig.update_layout(
 )
 
 # Add lines
-fig.add_hline(y=6.5)
-fig.add_vline(x=1, line_dash="5", annotation_text="baseline", annotation_font_size=15, annotation_textangle=315, annotation_x=0, annotation_y=0.99, annotation_yanchor="bottom")
-fig.add_vline(x=64, line_dash="5", line_color="red", annotation_text="cores", annotation_font_color="red", annotation_font_size=15, annotation_textangle=315, annotation_x=63, annotation_y=0.99, annotation_yanchor="bottom")
+fig.add_hline(y=7.5)
+fig.add_vline(x=1, y1=1.1, line_dash="5", annotation_text="baseline", annotation_font_size=16, annotation_x=1.5, annotation_y=1, annotation_yanchor="bottom")
+fig.add_vline(x=64, y1=1.1, line_dash="5", line_color="red", annotation_text="cores", annotation_font_color="red", annotation_font_size=16, annotation_x=63.5, annotation_xanchor='right', annotation_y=1, annotation_yanchor="bottom")
+
 
 fig['layout']['yaxis']['autorange'] = "reversed"
 fig.update_layout(barmode='group')

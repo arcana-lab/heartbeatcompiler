@@ -105,7 +105,7 @@ fig.update_layout(
     margin=dict(l=0,r=0,b=0,t=20)
 )
 
-fig.add_hline(y=6.5)
+fig.add_hline(y=len(benchmarks) - 1.5)
 fig.add_vline(x=1, y1=1.1, line_dash="5", annotation_text="baseline", annotation_font_size=16, annotation_x=1.5, annotation_y=1, annotation_yanchor="bottom")
 fig.add_vline(x=64, y1=1.1, line_dash="5", line_color="red", annotation_text="cores", annotation_font_color="red", annotation_font_size=16, annotation_x=63.5, annotation_xanchor='right', annotation_y=1, annotation_yanchor="bottom")
 
