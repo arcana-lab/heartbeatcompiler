@@ -9,7 +9,7 @@ source common.sh ;
 # experiment
 experiment=scaling
 keyword=exectime
-mkdir -p ${ROOT_DIR}/evaluation/results/${experiment};
+mkdir -p ${ROOT_DIR}/evaluation/results/${experiment} ;
 
 ########################################################
 # experiment sections
@@ -23,14 +23,14 @@ openmp_nested_parallelism=false     # run openmp with nested parallelism enabled
 openmp_chunksize_sensitivity=false  # run openmp with various chunksize
 
 # benchmark targetted
-benchmarks=(cg floyd_warshall kmeans mandelbrot mandelbulb plus_reduce_array spmv srad)
+benchmarks=(cg floyd_warshall mandelbrot mandelbulb plus_reduce_array spmv srad)
+# hbm_benchmarks=(kmeans)
 
 # spmv settings
-input_classes=(ARROWHEAD POWERLAW RANDOM)
+spmv_input_classes=(ARROWHEAD POWERLAW RANDOM)
 
 # openmp settings
 omp_schedules=(STATIC DYNAMIC GUIDED)
-omp_nested_parallelism=(false true)
 omp_chunksizes=(0 1 2 4 8 16)  # 0 means default chunksize
 ########################################################
 
@@ -87,6 +87,8 @@ make link &> /dev/null ;
 for benchmark in ${benchmarks[@]} ; do
   if [ ${benchmark} != spmv ] ; then
     input_classes=(DEFAULT_INPUT_CLASS)
+  else
+    input_classes=${spmv_input_classes}
   fi
 
   for input_class in ${input_classes[@]} ; do
