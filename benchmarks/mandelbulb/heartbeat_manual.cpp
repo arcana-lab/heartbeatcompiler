@@ -111,7 +111,7 @@ void HEARTBEAT_nest0_loop0(double x0, double y0, double z0, int nx, int ny, int 
 
     // allocate the task memory struct and initialize
     task_memory_t tmem;
-    heartbeat_start(&tmem);
+    heartbeat_start(&tmem, nx-0);
 
     // invoke nest0_loop0 in heartbeat form
     HEARTBEAT_nest0_loop0_slice(cxts, constLiveIns, 0, &tmem);

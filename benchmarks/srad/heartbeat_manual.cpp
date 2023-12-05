@@ -98,7 +98,7 @@ void HEARTBEAT_nest0_loop0(int rows, int cols, float *J, float q0sqr, float *dN,
 
     // allocate the task memory struct and initialize
     task_memory_t tmem;
-    heartbeat_start(&tmem);
+    heartbeat_start(&tmem, rows-0);
 
     // invoke loop0 in heartbeat form
     HEARTBEAT_nest0_loop0_slice(cxts, constLiveIns, 0, &tmem);
@@ -399,7 +399,7 @@ void HEARTBEAT_nest1_loop0(int rows, int cols, float *J, float *dN, float *dS, f
 
     // allocate the task memory struct and initialize
     task_memory_t tmem;
-    heartbeat_start(&tmem);
+    heartbeat_start(&tmem, rows-0);
 
     // invoke nest1_loop0 in heartbeat form
     HEARTBEAT_nest1_loop0_slice(cxts, constLiveIns, 0, &tmem);

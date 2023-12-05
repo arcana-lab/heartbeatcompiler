@@ -85,7 +85,7 @@ void HEARTBEAT_nest0_loop0(double *val, uint64_t *row_ptr, uint64_t *col_ind, do
 
     // allocate the task memory struct and initialize
     task_memory_t tmem;
-    heartbeat_start(&tmem);
+    heartbeat_start(&tmem, n-0);
 
     // invoke loop0 in heartbeat form
     HEARTBEAT_nest0_loop0_slice(cxts, constLiveIns, 0, &tmem);

@@ -178,7 +178,7 @@ double HEARTBEAT_loop0(float **feature,
 
     // allocate the task memory struct and initialize
     task_memory_t tmem;
-    heartbeat_start(&tmem);
+    heartbeat_start(&tmem, npoints-0);
 
     // invoke loop0 in heartbeat form
     HEARTBEAT_loop0_slice(cxts, constLiveIns, 0, &tmem);

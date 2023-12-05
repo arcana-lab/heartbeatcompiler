@@ -72,7 +72,7 @@ double HEARTBEAT_loop0(double *a, uint64_t lo, uint64_t hi) {
 
     // allocate the task memory struct and initialize
     task_memory_t tmem;
-    heartbeat_start(&tmem);
+    heartbeat_start(&tmem, hi-lo);
 
     // invoke loop0 in heartbeat form
     HEARTBEAT_loop0_slice(cxts, constLiveIns, 0, &tmem);
