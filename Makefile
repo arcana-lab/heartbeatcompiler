@@ -7,8 +7,8 @@ runtime:
 	cd rollforward ; git checkout 217d186a47388a84f96fdc2060f91e68c5fab402 ;
 
 noelle:
-	git clone https://github.com/yiansu/noelle.git noelle ;
-	cd noelle ; git checkout origin/llvm15 -b llvm15 ;
+	git clone https://github.com/arcana-lab/noelle.git noelle ;
+	cd noelle ; git checkout origin/v14 -b v14 ; git checkout 5987200e39358d55bf4e69db3b58ca1d4d8f9734 ;
 
 matrix-market:
 	git clone https://github.com/cwpearson/matrix-market.git matrix-market ;
@@ -32,4 +32,4 @@ clean:
 uninstall:
 	rm -rf runtime rollforward matrix-market noelle ;
 
-.PHONY: clean 
+.PHONY: clean
