@@ -59,7 +59,6 @@ MACROS += $(TASKPARTS_PLATFORM) \
 FRONTEND_OPTIONS += \
 	-O1 -emit-llvm \
 	-Xclang -disable-llvm-passes \
-	-Xclang -no-opaque-pointers \
 	-Xclang -ffp-contract=off
 
 FLAGS += \
