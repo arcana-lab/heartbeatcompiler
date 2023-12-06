@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 - 2022  Angelo Matni, Simone Campanoni
+ * Copyright 2016 - 2023  Angelo Matni, Simone Campanoni
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
@@ -23,9 +23,22 @@
 #include "noelle/core/LoopEnvironmentBuilder.hpp"
 #include "noelle/core/Architecture.hpp"
 
-namespace llvm::noelle {
+namespace arcana::noelle {
 
 LoopEnvironmentBuilder::LoopEnvironmentBuilder(LLVMContext &cxt) : CXT{ cxt } {
+  return;
+}
+
+LoopEnvironmentBuilder::LoopEnvironmentBuilder(LLVMContext &cxt,
+                                               LoopEnvironment *environment,
+                                               uint64_t numberOfUsers)
+  : LoopEnvironmentBuilder(
+      cxt,
+      environment,
+      [](uint32_t variableID, bool isLiveOut) -> bool { return false; },
+      1,
+      numberOfUsers) {
+
   return;
 }
 
@@ -295,8 +308,9 @@ void LoopEnvironmentBuilder::generateEnvVariables(IRBuilder<> &builder) {
     /*
      * Compute the address of the variable with index "envIndex".
      */
-    auto envPtr =
-        builder.CreateInBoundsGEP(ptrType->getPointerElementType(), arr, ArrayRef<Value *>({ zeroV, indValue }));
+    auto envPtr = builder.CreateGEP(arr->getType()->getPointerElementType(),
+                                    arr,
+                                    ArrayRef<Value *>({ zeroV, indValue }));
 
     /*
      * Cast the pointer to the proper data type.
@@ -382,16 +396,15 @@ void LoopEnvironmentBuilder::generateEnvVariables(IRBuilder<> &builder) {
 BasicBlock *LoopEnvironmentBuilder::reduceLiveOutVariables(
     BasicBlock *bb,
     IRBuilder<> &builder,
-    const std::unordered_map<uint32_t, Instruction::BinaryOps>
-        &reducableBinaryOps,
-    const std::unordered_map<uint32_t, Value *> &initialValues,
-    Value *numberOfThreadsExecuted) {
+    const std::unordered_map<uint32_t, BinaryReductionSCC *> &reductions,
+    Value *numberOfThreadsExecuted,
+    std::function<Value *(ReductionSCC *scc)> castingInitialValue) {
   assert(bb != nullptr);
 
   /*
    * Check if there are any live-out variable that needs to be reduced.
    */
-  if (initialValues.size() == 0) {
+  if (reductions.size() == 0) {
     return bb;
   }
 
@@ -437,10 +450,16 @@ BasicBlock *LoopEnvironmentBuilder::reduceLiveOutVariables(
    */
   std::vector<PHINode *> phiNodes;
   auto count = 0;
-  for (auto envIDInitValue : initialValues) {
+  for (auto envIDInitValue : reductions) {
     auto envID = envIDInitValue.first;
     auto envIndex = this->envIDToIndex[envID];
-    auto initialValue = envIDInitValue.second;
+    auto red = envIDInitValue.second;
+    auto initialValue = red->getInitialValue();
+
+    /*
+     * Cast initial value.
+     */
+    initialValue = castingInitialValue(red);
 
     /*
      * Create a PHI node for the current reduced variable.
@@ -469,7 +488,7 @@ BasicBlock *LoopEnvironmentBuilder::reduceLiveOutVariables(
    */
   count = 0;
   std::vector<Value *> loadedValues;
-  for (auto envIDInitValue : initialValues) {
+  for (auto envIDInitValue : reductions) {
     auto envID = envIDInitValue.first;
     auto envIndex = this->envIDToIndex[envID];
 
@@ -488,24 +507,26 @@ BasicBlock *LoopEnvironmentBuilder::reduceLiveOutVariables(
     auto baseAddressOfReducedVar =
         this->envIndexToVectorOfReducableVar.at(envIndex);
     auto zeroV = cast<Value>(ConstantInt::get(int32Type, 0));
-    auto effectiveAddressOfReducedVar = loopBodyBuilder.CreateInBoundsGEP(
-        envIDInitValue.second->getType(),
+    auto varType = envTypes[envIndex];
+    auto ptrType = PointerType::getUnqual(varType);
+    auto effectiveAddressOfReducedVar = loopBodyBuilder.CreateGEP(
+        baseAddressOfReducedVar->getType()->getPointerElementType(),
         baseAddressOfReducedVar,
         ArrayRef<Value *>({ zeroV, offsetValue }));
 
     /*
      * Finally, cast the effective address to the correct LLVM type.
      */
-    auto varType = envTypes[envIndex];
-    auto ptrType = PointerType::getUnqual(varType);
     auto effectiveAddressOfReducedVarProperlyCasted =
         loopBodyBuilder.CreateBitCast(effectiveAddressOfReducedVar, ptrType);
 
     /*
      * Load the next value that needs to be accumulated.
      */
-    auto envVar =
-        loopBodyBuilder.CreateLoad(varType, effectiveAddressOfReducedVarProperlyCasted);
+    auto envVar = loopBodyBuilder.CreateLoad(
+        effectiveAddressOfReducedVarProperlyCasted->getType()
+            ->getPointerElementType(),
+        effectiveAddressOfReducedVarProperlyCasted);
     loadedValues.push_back(envVar);
   }
 
@@ -513,7 +534,7 @@ BasicBlock *LoopEnvironmentBuilder::reduceLiveOutVariables(
    * Accumulate values to the appropriate accumulators.
    */
   count = 0;
-  for (auto envIDInitValue : initialValues) {
+  for (auto envIDInitValue : reductions) {
     auto envID = envIDInitValue.first;
     auto envIndex = this->envIDToIndex[envID];
 
@@ -521,7 +542,8 @@ BasicBlock *LoopEnvironmentBuilder::reduceLiveOutVariables(
      * Fetch the information about the operation to perform to accumulate
      * values.
      */
-    auto binOp = reducableBinaryOps.at(envID);
+    auto red = reductions.at(envID);
+    auto binOp = red->getReductionOperation();
 
     /*
      * Fetch the accumulator, which is the PHI node related to the current
@@ -548,7 +570,7 @@ BasicBlock *LoopEnvironmentBuilder::reduceLiveOutVariables(
    * Fix the PHI nodes of the accumulators.
    */
   count = 0;
-  for (auto envIDInitValue : initialValues) {
+  for (auto envIDInitValue : reductions) {
     auto envID = envIDInitValue.first;
     auto envIndex = this->envIDToIndex[envID];
 
@@ -704,4 +726,4 @@ LoopEnvironmentBuilder::~LoopEnvironmentBuilder() {
     delete user;
 }
 
-} // namespace llvm::noelle
+} // namespace arcana::noelle

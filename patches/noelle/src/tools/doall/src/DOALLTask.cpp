@@ -21,29 +21,34 @@
  */
 #include "noelle/tools/DOALLTask.hpp"
 
-namespace llvm::noelle {
+namespace arcana::noelle {
 
 DOALLTask::DOALLTask(FunctionType *taskSignature, Module &M)
-  : Task{ 0, taskSignature, M } {
+  : Task{ taskSignature, M } {
+
+  /*
+   * Fetch the arguments.
+   */
+  auto argIter = this->F->arg_begin();
+  this->envArg = (Value *)&*(argIter++);
+  this->taskInstanceID = (Value *)&*(argIter++);
+  this->numTaskInstances = (Value *)&*(argIter++);
+  this->chunkSizeArg = (Value *)&*(argIter++);
+
+  this->instanceIndexV = taskInstanceID;
+
+  this->envArg->setName("env");
+  this->taskInstanceID->setName("taskInstanceID");
+  this->numTaskInstances->setName("numTaskInstances");
+  this->chunkSizeArg->setName("chunkSize");
 
   return;
 }
 
 DOALLTask::DOALLTask(FunctionType *taskSignature, Module &M, std::string &name)
-  : Task{ 0, taskSignature, M, name } {
+  : Task{ taskSignature, M, name } {
 
   return;
 }
 
-void DOALLTask::extractFuncArgs(void) {
-  auto argIter = this->F->arg_begin();
-  this->envArg = (Value *)&*(argIter++);
-  this->coreArg = (Value *)&*(argIter++);
-  this->numCoresArg = (Value *)&*(argIter++);
-  this->chunkSizeArg = (Value *)&*(argIter++);
-  this->instanceIndexV = coreArg;
-
-  return;
-}
-
-} // namespace llvm::noelle
+} // namespace arcana::noelle

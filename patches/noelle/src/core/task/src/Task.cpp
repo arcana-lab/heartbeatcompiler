@@ -21,16 +21,23 @@
  */
 #include "noelle/core/Task.hpp"
 
-namespace llvm::noelle {
+namespace arcana::noelle {
 
-Task::Task(uint32_t ID, FunctionType *taskSignature, Module &M) : ID{ ID } {
+Task::Task(FunctionType *taskSignature, Module &M)
+  : instanceIndexV{ nullptr },
+    envArg{ nullptr } {
+
+  /*
+   * Make task IDs unique
+   */
+  this->ID = Task::currentID;
+  Task::currentID++;
 
   /*
    * Create the name of the function.
    */
   auto functionName = std::string{ "noelle_task_" };
-  functionName.append(std::to_string(Task::currentID));
-  Task::currentID++;
+  functionName.append(std::to_string(this->ID));
 
   /*
    * Create the empty body of the task.
@@ -50,11 +57,23 @@ Task::Task(uint32_t ID, FunctionType *taskSignature, Module &M) : ID{ ID } {
   this->entryBlock = BasicBlock::Create(cxt, "", this->F);
   this->exitBlock = BasicBlock::Create(cxt, "", this->F);
 
+  /*
+   * Add the return instruction.
+   */
+  IRBuilder<> exitB(this->exitBlock);
+  exitB.CreateRetVoid();
+
   return;
 }
 
-Task::Task(uint32_t ID, FunctionType *taskSignature, Module &M, std::string &name) : ID{ ID } {
+Task::Task(FunctionType *taskSignature, Module &M, std::string &name)
+  : instanceIndexV{ nullptr },
+    envArg{ nullptr } {
 
+  /*
+   * Make task IDs unique
+   */
+  this->ID = Task::currentID;
   Task::currentID++;
 
   /*
@@ -77,6 +96,7 @@ Task::Task(uint32_t ID, FunctionType *taskSignature, Module &M, std::string &nam
 
   return;
 }
+
 
 uint32_t Task::getID(void) const {
   return this->ID;
@@ -212,6 +232,8 @@ std::unordered_set<BasicBlock *> Task::getOriginalBasicBlocks(void) const {
 void Task::addBasicBlock(BasicBlock *original, BasicBlock *internal) {
   this->basicBlockClones[original] = internal;
 
+  // this->adjustDataAndControlFlowToUseClones();
+
   return;
 }
 
@@ -238,6 +260,8 @@ BasicBlock *Task::addBasicBlockStub(BasicBlock *original) {
 BasicBlock *Task::cloneAndAddBasicBlock(BasicBlock *original) {
   auto f = [](Instruction *o) -> bool { return true; };
   auto newBB = this->cloneAndAddBasicBlock(original, f);
+
+  // this->adjustDataAndControlFlowToUseClones();
 
   return newBB;
 }
@@ -272,7 +296,32 @@ BasicBlock *Task::cloneAndAddBasicBlock(
     this->instructionCloneToOriginal[cloneI] = &I;
   }
 
+  // this->adjustDataAndControlFlowToUseClones();
+
   return cloneBB;
+}
+
+void Task::cloneAndAddBasicBlocks(const std::unordered_set<BasicBlock *> &bbs) {
+  auto filter = [](Instruction *i) -> bool { return true; };
+  this->cloneAndAddBasicBlocks(bbs, filter);
+
+  return;
+}
+
+void Task::cloneAndAddBasicBlocks(
+    const std::unordered_set<BasicBlock *> &bbs,
+    std::function<bool(Instruction *origInst)> filter) {
+
+  /*
+   * Clone all the basic blocks given as input.
+   */
+  for (auto originBB : bbs) {
+    this->cloneAndAddBasicBlock(originBB, filter);
+  }
+
+  // this->adjustDataAndControlFlowToUseClones();
+
+  return;
 }
 
 Value *Task::getTaskInstanceID(void) const {
@@ -353,6 +402,8 @@ void Task::addInstruction(Instruction *original, Instruction *internal) {
   this->instructionClones[original] = internal;
   this->instructionCloneToOriginal[internal] = original;
 
+  // this->adjustDataAndControlFlowToUseClones();
+
   return;
 }
 
@@ -369,6 +420,8 @@ Instruction *Task::cloneAndAddInstruction(Instruction *original) {
   auto cloneI = original->clone();
 
   this->addInstruction(original, cloneI);
+
+  // this->adjustDataAndControlFlowToUseClones();
 
   return cloneI;
 }
@@ -390,4 +443,4 @@ Task::~Task() {
 
 uint64_t Task::currentID = 0;
 
-} // namespace llvm::noelle
+} // namespace arcana::noelle

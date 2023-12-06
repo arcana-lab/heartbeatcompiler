@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 - 2021  Angelo Matni, Simone Campanoni
+ * Copyright 2016 - 2023  Angelo Matni, Simone Campanoni
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
@@ -23,12 +23,12 @@
 
 #include "noelle/core/SystemHeaders.hpp"
 
-namespace llvm::noelle {
+namespace arcana::noelle {
 
 class Task {
 public:
-  Task(uint32_t ID, FunctionType *taskSignature, Module &M);
-  Task(uint32_t ID, FunctionType *taskSignature, Module &M, std::string &name);
+  Task(FunctionType *taskSignature, Module &M);
+  Task(FunctionType *taskSignature, Module &M, std::string &name);
 
   /*
    * IDs
@@ -107,6 +107,12 @@ public:
       BasicBlock *original,
       std::function<bool(Instruction *origInst)> filter);
 
+  void cloneAndAddBasicBlocks(const std::unordered_set<BasicBlock *> &bbs);
+
+  void cloneAndAddBasicBlocks(
+      const std::unordered_set<BasicBlock *> &bbs,
+      std::function<bool(Instruction *origInst)> filter);
+
   void removeOriginalBasicBlock(BasicBlock *b);
 
   BasicBlock *getEntry(void) const;
@@ -119,6 +125,15 @@ public:
 
   void tagBasicBlockAsLastBlock(BasicBlock *b);
 
+  BasicBlock *newBasicBlock(void);
+
+  BasicBlock *newBasicBlock(const std::string &name);
+
+  /*
+   * Data
+   */
+  AllocaInst *newStackVariable(Type *typeOfVariable);
+
   /*
    * Body
    */
@@ -129,7 +144,12 @@ public:
    */
   Value *getEnvironment(void) const;
 
-  virtual void extractFuncArgs(void) = 0;
+  /*
+   * Adjust data flows
+   */
+  void adjustDataAndControlFlowToUseClones(void);
+
+  void adjustDataAndControlFlowToUseClones(Instruction *cloneI);
 
   virtual ~Task();
 
@@ -177,4 +197,4 @@ private:
   static uint64_t currentID;
 };
 
-} // namespace llvm::noelle
+} // namespace arcana::noelle

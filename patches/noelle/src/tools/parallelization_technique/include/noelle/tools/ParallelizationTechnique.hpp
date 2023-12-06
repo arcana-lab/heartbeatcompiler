@@ -26,15 +26,13 @@
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "noelle/core/Noelle.hpp"
 #include "noelle/core/LoopDependenceInfo.hpp"
-// #include "Heuristics.hpp"
+#include "Heuristics.hpp"
 #include "noelle/core/Task.hpp"
 #include "noelle/core/Hot.hpp"
 #include "noelle/core/PDGPrinter.hpp"
 #include "noelle/core/SubCFGs.hpp"
 
-class Heuristics {};
-
-namespace llvm::noelle {
+namespace arcana::noelle {
 
 class ParallelizationTechnique {
 public:
@@ -66,6 +64,8 @@ public:
   virtual uint32_t getMinimumNumberOfIdleCores(void) const = 0;
 
   virtual std::string getName(void) const = 0;
+
+  virtual Transformation getParallelizationID(void) const = 0;
 
   /*
    * Destructor.
@@ -164,13 +164,9 @@ protected:
       bool isReduced,
       DominatorSummary &taskDS);
 
-  void adjustDataFlowToUseClones(LoopDependenceInfo *LDI, int taskIndex);
-
-  void adjustDataFlowToUseClones(Instruction *cloneI, int taskIndex);
-
   virtual void setReducableVariablesToBeginAtIdentityValue(
-      LoopDependenceInfo *LDI,
-      int taskIndex);
+    LoopDependenceInfo *LDI,
+    int taskIndex);
 
   Value *castToCorrectReducibleType(IRBuilder<> &builder,
                                     Value *value,
@@ -199,6 +195,8 @@ protected:
 
   virtual void makePRVGsReentrant(void);
 
+  Value *fetchCloneInTask(Task *t, Value *original);
+
   /*
    * Fields
    */
@@ -212,6 +210,7 @@ protected:
   BasicBlock *entryPointOfParallelizedLoop, *exitPointOfParallelizedLoop;
   std::vector<Task *> tasks;
   uint32_t numTaskInstances;
+  std::map<uint64_t, uint64_t> fromTaskIDToUserID;
 };
 
-} // namespace llvm::noelle
+} // namespace arcana::noelle

@@ -24,7 +24,7 @@
 #include "noelle/core/SystemHeaders.hpp"
 #include "noelle/core/PDG.hpp"
 
-namespace llvm::noelle {
+namespace arcana::noelle {
 
 class LoopEnvironment {
 public:
@@ -38,14 +38,19 @@ public:
 
   iterator_range<std::vector<Value *>::iterator> getProducers(void);
 
-  iterator_range<std::set<int>::iterator> getEnvIDsOfLiveInVars(void);
+  iterator_range<std::set<int>::iterator> getEnvIDsOfLiveInVars(void) const;
 
-  iterator_range<std::set<int>::iterator> getEnvIDsOfLiveOutVars(void);
+  iterator_range<std::set<int>::iterator> getEnvIDsOfLiveOutVars(void) const;
 
   /*
-   * One per external dependent + one to track exit block
+   * One per live-in variables + one per live-out variable + one to track the
+   * exit block (if needed)
    */
   uint64_t size(void) const;
+
+  uint64_t getNumberOfLiveIns(void) const;
+
+  uint64_t getNumberOfLiveOuts(void) const;
 
   int64_t getExitBlockID(void) const;
 
@@ -65,7 +70,7 @@ public:
                           const std::unordered_set<Instruction *> &consumers);
 
   void printEnvironmentInfo();
-  uint64_t getLiveOutSize(); 
+  uint64_t getLiveOutSize();
 
 private:
   uint64_t addLiveInProducer(Value *producer);
@@ -84,4 +89,4 @@ private:
   Type *exitBlockType;
 };
 
-} // namespace llvm::noelle
+} // namespace arcana::noelle

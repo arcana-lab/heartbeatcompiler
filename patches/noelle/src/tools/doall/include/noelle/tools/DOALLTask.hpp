@@ -24,7 +24,7 @@
 #include "noelle/core/Task.hpp"
 #include "noelle/core/SCCDAGAttrs.hpp"
 
-namespace llvm::noelle {
+namespace arcana::noelle {
 
 class DOALLTask : public Task {
 public:
@@ -39,7 +39,7 @@ public:
   /*
    * Chunking function specific arguments
    */
-  Value *coreArg, *numCoresArg, *chunkSizeArg;
+  Value *taskInstanceID, *numTaskInstances, *chunkSizeArg;
 
   /*
    * Clone of original IV loop, new outer loop
@@ -49,7 +49,6 @@ public:
   CmpInst *cloneOfOriginalCmp;
   BranchInst *cloneOfOriginalBr;
   PHINode *outermostLoopIV;
-
-  void extractFuncArgs() override;
 };
-} // namespace llvm::noelle
+
+} // namespace arcana::noelle

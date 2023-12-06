@@ -21,7 +21,7 @@
  */
 #include "noelle/core/LoopEnvironment.hpp"
 
-namespace llvm::noelle {
+namespace arcana::noelle {
 
 LoopEnvironment::LoopEnvironment(PDG *loopDG,
                                  std::vector<BasicBlock *> &exitBlocks)
@@ -75,7 +75,7 @@ LoopEnvironment::LoopEnvironment(PDG *loopDG,
       /*
        * Fetch the current consumer of the new live-in value.
        */
-      auto consumerOfNewLiveIn = edge->getIncomingT();
+      auto consumerOfNewLiveIn = edge->getDst();
       assert(isa<Instruction>(consumerOfNewLiveIn));
       auto consumerOfNewLiveIn_inst = cast<Instruction>(consumerOfNewLiveIn);
 
@@ -95,7 +95,7 @@ LoopEnvironment::LoopEnvironment(PDG *loopDG,
       if (edge->isMemoryDependence() || edge->isControlDependence()) {
         continue;
       }
-      auto internalValue = edge->getOutgoingT();
+      auto internalValue = edge->getSrc();
       if (!this->isProducer(internalValue)) {
         this->addLiveOutProducer(internalValue);
       }
@@ -154,6 +154,8 @@ uint64_t LoopEnvironment::addProducer(Value *producer, bool liveIn) {
   }
 
   /*
+   * @producer is not part of the environment already.
+   *
    * Add @producer to the environment.
    */
   auto nextEnvID = this->envProducers.size();
@@ -249,12 +251,12 @@ iterator_range<std::vector<Value *>::iterator> LoopEnvironment::getProducers(
 }
 
 iterator_range<std::set<int>::iterator> LoopEnvironment::getEnvIDsOfLiveInVars(
-    void) {
+    void) const {
   return make_range(liveInIDs.begin(), liveInIDs.end());
 }
 
 iterator_range<std::set<int>::iterator> LoopEnvironment::getEnvIDsOfLiveOutVars(
-    void) {
+    void) const {
   return make_range(liveOutIDs.begin(), liveOutIDs.end());
 }
 
@@ -263,6 +265,17 @@ Value *LoopEnvironment::getProducer(uint64_t id) const {
   return envProducers[id];
 }
 
+uint64_t LoopEnvironment::getNumberOfLiveIns(void) const {
+  auto liveIns = this->getEnvIDsOfLiveInVars();
+  auto numberOfLiveIns = std::distance(liveIns.begin(), liveIns.end());
+  return numberOfLiveIns;
+}
+
+uint64_t LoopEnvironment::getNumberOfLiveOuts(void) const {
+  auto liveOuts = this->getEnvIDsOfLiveInVars();
+  auto numberOfLiveOuts = std::distance(liveOuts.begin(), liveOuts.end());
+  return numberOfLiveOuts;
+}
 void LoopEnvironment::printEnvironmentInfo() {
   errs() << "LoopEnvironment::printEnvironmentInfo\n";
   int index = 0;
@@ -286,4 +299,4 @@ uint64_t LoopEnvironment::getLiveOutSize() {
   return this->liveOutIDs.size();
 }
 
-} // namespace llvm::noelle
+} // namespace arcana::noelle

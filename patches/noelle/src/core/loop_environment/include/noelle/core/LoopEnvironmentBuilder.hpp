@@ -22,10 +22,11 @@
 #pragma once
 
 #include "noelle/core/SystemHeaders.hpp"
+#include "noelle/core/BinaryReductionSCC.hpp"
 #include "noelle/core/LoopEnvironment.hpp"
 #include "noelle/core/LoopEnvironmentUser.hpp"
 
-namespace llvm::noelle {
+namespace arcana::noelle {
 
 class LoopEnvironmentBuilder {
 public:
@@ -35,6 +36,10 @@ public:
    * Should be removed after the generalization
    */
   LoopEnvironmentBuilder(LLVMContext &cxt);
+
+  LoopEnvironmentBuilder(LLVMContext &cxt,
+                         LoopEnvironment *env,
+                         uint64_t numberOfUsers);
 
   LoopEnvironmentBuilder(
       LLVMContext &cxt,
@@ -78,10 +83,9 @@ public:
   BasicBlock *reduceLiveOutVariables(
       BasicBlock *bb,
       IRBuilder<> &builder,
-      const std::unordered_map<uint32_t, Instruction::BinaryOps>
-          &reducableBinaryOps,
-      const std::unordered_map<uint32_t, Value *> &initialValues,
-      Value *numberOfThreadsExecuted);
+      const std::unordered_map<uint32_t, BinaryReductionSCC *> &reductions,
+      Value *numberOfThreadsExecuted,
+      std::function<Value *(ReductionSCC *scc)> castingInitialValue);
 
   /*
    * As all users of the environment know its structure, pass around the
@@ -101,21 +105,16 @@ public:
   Value *getReducedEnvironmentVariable(uint32_t id, uint32_t reducerInd) const;
   virtual bool hasVariableBeenReduced(uint32_t id) const;
 
-  virtual ~LoopEnvironmentBuilder();
+  ~LoopEnvironmentBuilder();
 
 protected:
   LLVMContext &CXT;
   uint64_t envSize;
   uint64_t numReducers;
-  std::unordered_map<uint32_t, Value *>
-      envIndexToVar; // envIndex to sigle environment variable
-  std::unordered_map<uint32_t, std::vector<Value *>>
-      envIndexToReducableVar; // envIndex to reducible environment variable
-  std::unordered_map<uint32_t, AllocaInst *>
-      envIndexToVectorOfReducableVar; // envIndex to reducible envrionment
-                                      // variable array
-  std::unordered_map<uint32_t, Value *>
-      envIndexToAccumulatedReducableVar; // envIndex to latest reduction result
+  std::unordered_map<uint32_t, Value *> envIndexToVar;
+  std::unordered_map<uint32_t, std::vector<Value *>> envIndexToReducableVar;
+  std::unordered_map<uint32_t, AllocaInst *> envIndexToVectorOfReducableVar;
+  std::unordered_map<uint32_t, Value *> envIndexToAccumulatedReducableVar;
 
   /*
    * Information on a specific user (a function, stage, chunk, etc...)
@@ -147,7 +146,7 @@ private:
                                  uint64_t reducerCount,
                                  uint64_t numberOfUsers);
 
-  virtual void createUsers(uint32_t numUsers);
+  void createUsers(uint32_t numUsers);
 };
 
-} // namespace llvm::noelle
+} // namespace arcana::noelle

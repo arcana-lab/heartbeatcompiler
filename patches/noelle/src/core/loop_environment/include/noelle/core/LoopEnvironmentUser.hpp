@@ -23,7 +23,7 @@
 
 #include "noelle/core/SystemHeaders.hpp"
 
-namespace llvm::noelle {
+namespace arcana::noelle {
 
 class LoopEnvironmentUser {
 public:
@@ -53,7 +53,7 @@ public:
 
   virtual Instruction *getEnvPtr(uint32_t id);
 
-  virtual ~LoopEnvironmentUser();
+  ~LoopEnvironmentUser();
 
 protected:
   std::set<uint32_t> liveInIDs;
@@ -69,4 +69,4 @@ private:
   std::unordered_map<uint32_t, uint32_t> &envIDToIndex;
 };
 
-} // namespace llvm::noelle
+} // namespace arcana::noelle
