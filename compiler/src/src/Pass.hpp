@@ -27,7 +27,7 @@
  */
 
 using namespace llvm ;
-using namespace llvm::noelle ;
+using namespace arcana::noelle ;
 
 class Heartbeat : public ModulePass {
   public:
@@ -75,7 +75,7 @@ class Heartbeat : public ModulePass {
       LoopDependenceInfo *ldi,
       std::unordered_map<LoopDependenceInfo *, CallGraphFunctionNode *> &loopToCallGraphNode,
       std::unordered_map<CallGraphFunctionNode *, LoopDependenceInfo *> &callGraphNodeToLoop,
-      llvm::noelle::CallGraph &callGraph
+      arcana::noelle::CallGraph &callGraph
     );
 
     /*
@@ -100,7 +100,7 @@ class Heartbeat : public ModulePass {
       LoopDependenceInfo *ldi,
       std::unordered_map<LoopDependenceInfo *, CallGraphFunctionNode *> &loopToCallGraphNode,
       std::unordered_map<CallGraphFunctionNode *, LoopDependenceInfo *> &callGraphNodeToLoop,
-      llvm::noelle::CallGraph &callGraph
+      arcana::noelle::CallGraph &callGraph
     );
 
     /*
@@ -164,7 +164,7 @@ class Heartbeat : public ModulePass {
       Value *envArray,
       Value *envIndexForExitVariable,
       std::vector<BasicBlock *> &loopExitBlocks,
-      llvm::noelle::TypesManager *tm,
+      TypesManager *tm,
       Noelle &noelle);
 
     /*

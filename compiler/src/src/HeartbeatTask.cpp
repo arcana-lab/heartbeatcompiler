@@ -11,7 +11,7 @@
 #include "HeartbeatTask.hpp"
 
 using namespace llvm;
-using namespace llvm::noelle;
+using namespace arcana::noelle;
 
 HeartbeatTask::HeartbeatTask (
   FunctionType *taskSignature,

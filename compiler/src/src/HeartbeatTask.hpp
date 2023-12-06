@@ -12,9 +12,9 @@
 
 #include "noelle/tools/DOALLTask.hpp"
 
-using namespace llvm::noelle ;
+using namespace arcana::noelle ;
 
-class HeartbeatTask : public llvm::noelle::DOALLTask {
+class HeartbeatTask : public DOALLTask {
   public:
 
     HeartbeatTask (
@@ -24,7 +24,7 @@ class HeartbeatTask : public llvm::noelle::DOALLTask {
       std::string &name
     );
 
-    void extractFuncArgs () override ;
+    void extractFuncArgs () ;
 
     inline uint64_t getLevel() {
       return this->level;

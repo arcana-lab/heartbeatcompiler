@@ -26,7 +26,7 @@
 #include "HeartbeatLoopEnvironmentUser.hpp"
 #include "HeartbeatTask.hpp"
 
-using namespace llvm::noelle;
+using namespace arcana::noelle;
 
 class HeartbeatTransformation : public DOALL {
   public:

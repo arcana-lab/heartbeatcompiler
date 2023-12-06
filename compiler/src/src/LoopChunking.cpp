@@ -71,8 +71,9 @@ void Heartbeat::executeLoopInChunk(Noelle &noelle, LoopDependenceInfo *ldi, Hear
   );
 
   // Step 3: calculate high value = min(startIter + chunksize, maxIter)
-  auto IV_attr = ldi->getLoopGoverningIVAttribution();
-  auto IV = IV_attr->getValueToCompareAgainstExitConditionValue();
+  auto IVM = ldi->getInductionVariableManager();
+  auto GIV = IVM->getLoopGoverningInductionVariable();
+  auto IV = GIV->getValueToCompareAgainstExitConditionValue();
   auto IV_cloned = hbt->hbTask->getCloneOfOriginalInstruction(IV);
   auto startIterPlusChunksize = chunkLoopPreheaderBlockBuilder.CreateAdd(
     IV_cloned,
@@ -96,7 +97,7 @@ void Heartbeat::executeLoopInChunk(Noelle &noelle, LoopDependenceInfo *ldi, Hear
   cast<Instruction>(IV_cloned_update)->setOperand(1, getChunksizeCallInst);
 
   // Step 3.2: ensure the instruction that use to determine whether keep running the outer loop is icmp slt but not icmp ne
-  auto exitCmpInst = IV_attr->getHeaderCompareInstructionToComputeExitCondition();
+  auto exitCmpInst = GIV->getHeaderCompareInstructionToComputeExitCondition();
   auto exitCmpInstCloned = hbt->hbTask->getCloneOfOriginalInstruction(exitCmpInst);
   errs() << "exit compare inst" << *exitCmpInstCloned << "\n";
   assert(isa<CmpInst>(exitCmpInstCloned) && "exit condtion determination isn't a compare inst\n");

@@ -5,7 +5,7 @@
 #include "llvm/IR/Intrinsics.h"
 
 using namespace llvm;
-using namespace llvm::noelle;
+using namespace arcana::noelle;
 
 HeartbeatTransformation::HeartbeatTransformation (
   Noelle &noelle,
@@ -88,7 +88,7 @@ bool HeartbeatTransformation::apply (
   errs() << "original function:\n" << *loopFunction << "\n";
   errs() << "pre-header:" << *(ls->getPreHeader()) << "\n";
   errs() << "header:" << *(ls->getHeader()) << "\n";
-  errs() << "first body:" << *(ls->getFirstLoopBasicBlockAfterTheHeader()) << "\n";
+  errs() << "first body:" << *(ls->getSuccessorWithinLoopOfTheHeader()) << "\n";
   errs() << "latches:";
   for (auto bb : ls->getLatches()) {
     errs() << *bb;
@@ -105,10 +105,12 @@ bool HeartbeatTransformation::apply (
     std::string("HEARTBEAT_nest").append(std::to_string(this->nestID)).append("_loop").append(std::to_string(this->loopToLevel[ldi])).append("_slice")
   );
   errs() << "initial task body:\n" << *(hbTask->getTaskBody()) << "\n";
+  this->fromTaskIDToUserID[this->hbTask->getID()] = 0;
   this->addPredecessorAndSuccessorsBasicBlocksToTasks(
     loop,
     { hbTask }
   );
+  hbTask->extractFuncArgs();
   errs() << "task after adding predecessor and successors bb:\n" << *(hbTask->getTaskBody()) << "\n";
 
   /*
@@ -128,10 +130,11 @@ bool HeartbeatTransformation::apply (
     }
     // if a variable is passed as a parameter to a callee and used only as initial/exit condition of the loop, then skip it here
     auto producer = loopEnvironment->getProducer(variableID);
-    auto GIV_attr = loop->getLoopGoverningIVAttribution();
-    auto& GIV = GIV_attr->getInductionVariable();
-    auto startValue = GIV.getStartValue();
-    auto exitValue = GIV_attr->getExitConditionValue();
+    auto IVM = loop->getInductionVariableManager();
+    auto GIV = IVM->getLoopGoverningInductionVariable();
+    auto IV = GIV->getInductionVariable();
+    auto startValue = IV->getStartValue();
+    auto exitValue = GIV->getExitConditionValue();
     if (producer->getNumUses() == 1 && (producer == startValue || producer == exitValue)) {
       errs() << "skip " << *(loopEnvironment->getProducer(variableID)) << " of id " << variableID << " because of initial/exit condition of the callee loop\n";
       return true;
@@ -181,7 +184,7 @@ bool HeartbeatTransformation::apply (
    * cloned instructions to refer to the other cloned instructions. Currently,
    * they still refer to the original loop's instructions.
    */
-  this->adjustDataFlowToUseClones(loop, 0);
+  this->hbTask->adjustDataAndControlFlowToUseClones();
   errs() << "task after fixing data flow:\n" << *(hbTask->getTaskBody()) << "\n";
 
   /*
@@ -193,7 +196,9 @@ bool HeartbeatTransformation::apply (
   /*
    * Add the jump from the entry of the function after loading all live-ins to the header of the cloned loop.
    */
-  this->addJumpToLoop(loop, hbTask);
+  auto headerClone = this->hbTask->getCloneOfOriginalBasicBlock(ls->getHeader());
+  IRBuilder<> entryBuilder(this->hbTask->getEntry());
+  entryBuilder.CreateBr(headerClone);
   
   /*
    * Add the final return to the single task's exit block.
@@ -226,10 +231,11 @@ bool HeartbeatTransformation::apply (
   iterationBuilder.SetInsertPoint(cast<Instruction>(this->contextBitcastInst)->getNextNode());
 
   // Adjust the start value of the loop-goverining IV to use the value stored by the parent
-  auto GIV_attr = loop->getLoopGoverningIVAttribution();
-  assert(GIV_attr != nullptr);
-  assert(GIV_attr->isSCCContainingIVWellFormed());
-  auto IV = GIV_attr->getInductionVariable().getLoopEntryPHI();
+  auto IVM = loop->getInductionVariableManager();
+  auto GIV = IVM->getLoopGoverningInductionVariable();
+  assert(GIV != nullptr);
+  assert(GIV->isSCCContainingIVWellFormed());
+  auto IV = GIV->getInductionVariable()->getLoopEntryPHI();
   auto IVClone = cast<PHINode>(hbTask->getCloneOfOriginalInstruction(IV));
   this->currentIteration = IVClone;
   this->startIterationAddress = iterationBuilder.CreateInBoundsGEP(
@@ -267,9 +273,9 @@ bool HeartbeatTransformation::apply (
     "maxIteration"
   );
   errs() << "maxIteration: " << *maxIteration << "\n";
-  auto LGIV_cmpInst = GIV_attr->getHeaderCompareInstructionToComputeExitCondition();
-  auto LGIV_lastValue = GIV_attr->getExitConditionValue();
-  auto LGIV_currentValue = GIV_attr->getValueToCompareAgainstExitConditionValue();
+  auto LGIV_cmpInst = GIV->getHeaderCompareInstructionToComputeExitCondition();
+  auto LGIV_lastValue = GIV->getExitConditionValue();
+  auto LGIV_currentValue = GIV->getValueToCompareAgainstExitConditionValue();
   int32_t operandNumber = -1;
   for (auto &use: LGIV_currentValue->uses()){
     auto user = use.getUser();
@@ -1234,11 +1240,10 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   /*
    * Fetch the first value of the loop-governing IV
    */
-  auto GIV_attr = LDI->getLoopGoverningIVAttribution();
-  assert(GIV_attr != nullptr);
-  assert(GIV_attr->isSCCContainingIVWellFormed());
-  auto& GIV = GIV_attr->getInductionVariable();
-  auto firstIterationGoverningIVValue = GIV.getStartValue();
+  auto IVM = LDI->getInductionVariableManager();
+  auto GIV = IVM->getLoopGoverningInductionVariable();
+  auto IV = GIV->getInductionVariable();
+  auto firstIterationGoverningIVValue = IV->getStartValue();
   errs() << "startIter: " << *firstIterationGoverningIVValue << "\n";
   // store the startIter into context
   loopEntryBuilder.CreateStore(
@@ -1257,7 +1262,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   /*
    * Fetch the last value of the loop-governing IV
    */
-  auto lastIterationGoverningIVValue = GIV_attr->getExitConditionValue();
+  auto lastIterationGoverningIVValue = GIV->getExitConditionValue();
   errs() << "maxIter: " << *lastIterationGoverningIVValue << "\n";
   // store the maxIter into context
   loopEntryBuilder.CreateStore(
@@ -1642,10 +1647,11 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
   // if is a constantInt, use the constant int
   // else must be a function argument (the assumption is start/max iteration can be simply retrieved and not formed in any complex computation)
   // startIteration
-  auto GIV_attr = LDI->getLoopGoverningIVAttribution();
-  assert(GIV_attr != nullptr);
-  assert(GIV_attr->isSCCContainingIVWellFormed());
-  auto IV = GIV_attr->getValueToCompareAgainstExitConditionValue();
+  auto IVM = LDI->getInductionVariableManager();
+  auto GIV = IVM->getLoopGoverningInductionVariable();
+  assert(GIV != nullptr);
+  assert(GIV->isSCCContainingIVWellFormed());
+  auto IV = GIV->getValueToCompareAgainstExitConditionValue();
   assert(isa<PHINode>(IV) && "the induction variable isn't a phi node\n");
   errs() << "IV: " << *IV << "\n";
   auto startIterationValue = cast<PHINode>(IV)->getIncomingValue(0);
@@ -1675,7 +1681,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
   }
 
   // maxIteration
-  auto maxIterationValue = GIV_attr->getExitConditionValue();
+  auto maxIterationValue = GIV->getExitConditionValue();
   errs() << "maxIteration: " << *maxIterationValue << "\n";
   assert(isa<ConstantInt>(maxIterationValue) || isa<Argument>(maxIterationValue) && "the maxIteration value in the callee hbTask isn't either a constant or function argument");
   auto maxIterationNextLevelAddress = liveInEnvBuilder.CreateInBoundsGEP(

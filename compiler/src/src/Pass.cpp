@@ -1,7 +1,7 @@
 #include "Pass.hpp"
 
 using namespace llvm;
-using namespace llvm::noelle;
+using namespace arcana::noelle;
 
 static cl::opt<bool> Disable_Heartbeat("disable_heartbeat", cl::desc("Disable heartbeat instrumentation"));
 static cl::opt<bool> Chunk_Loop_Iterations("chunk_loop_iterations", cl::desc("Execute loop iterations in chunk"));

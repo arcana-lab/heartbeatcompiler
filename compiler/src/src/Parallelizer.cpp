@@ -2,7 +2,7 @@
 #include "HeartbeatTransformation.hpp"
 #include "noelle/core/Architecture.hpp"
 
-using namespace llvm::noelle;
+using namespace arcana::noelle;
 
 bool Heartbeat::parallelizeRootLoop (
   Noelle &noelle,
@@ -95,7 +95,7 @@ void Heartbeat::linkTransformedLoopToOriginalFunction(
     Value *envArray,
     Value *envIndexForExitVariable,
     std::vector<BasicBlock *> &loopExitBlocks,
-    llvm::noelle::TypesManager *tm,
+    TypesManager *tm,
     Noelle &noelle) {
 
   /*

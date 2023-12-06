@@ -3,7 +3,7 @@
 #include "noelle/core/LoopEnvironmentBuilder.hpp"
 #include "HeartbeatLoopEnvironmentUser.hpp"
 
-using namespace llvm::noelle;
+using namespace arcana::noelle;
 
 class HeartbeatLoopEnvironmentBuilder : public LoopEnvironmentBuilder {
 

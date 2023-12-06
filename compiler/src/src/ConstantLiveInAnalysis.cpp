@@ -1,6 +1,6 @@
 #include "Pass.hpp"
 
-using namespace llvm::noelle;
+using namespace arcana::noelle;
 
 void Heartbeat::performConstantLiveInAnalysis (
   Noelle &noelle,
@@ -72,17 +72,17 @@ void Heartbeat::constantLiveInToLoop(llvm::Argument &arg, int arg_index, LoopDep
   // however, the parent loop should be aware of the computation and set the
   // start and exit condition correctly at the call site
   auto ivManager = ldi->getInductionVariableManager();
-  auto ivAttr = ivManager->getLoopGoverningIVAttribution(*(ldi->getLoopStructure()));
-  auto iv = ivAttr->getInductionVariable();
-  auto startValue = iv.getStartValue();
-  auto exitValue = ivAttr->getExitConditionValue();
+  auto giv = ivManager->getLoopGoverningInductionVariable();
+  auto iv = giv->getInductionVariable();
+  auto startValue = iv->getStartValue();
+  auto exitValue = giv->getExitConditionValue();
 
   for (auto use_it = arg.use_begin() ; use_it != arg.use_end(); use_it++) {
     auto arg_user = (*(use_it)).getUser();
 
     errs() << "User of arg " << arg << ", " << *arg_user << "\n";
 
-    if (iv.getSCC()->isInternal(cast<Value>(arg_user))) {
+    if (iv->getSCC()->isInternal(cast<Value>(arg_user))) {
       // the logic to detecet whether a arg is start or exit condition
       // shall be checked by caller (parent loop)
       errs() << "  " << arg << " is either start/exit condition of the current loop\n";
@@ -138,11 +138,11 @@ bool Heartbeat::isArgStartOrExitValue(llvm::Argument &arg, LoopDependenceInfo *l
   auto ls = ldi->getLoopStructure();
 
   auto ivManager = ldi->getInductionVariableManager();
-  auto ivAttr = ivManager->getLoopGoverningIVAttribution(*ls);
-  auto iv = ivAttr->getInductionVariable();
+  auto giv = ivManager->getLoopGoverningInductionVariable();
+  auto iv = giv->getInductionVariable();
 
-  auto startValue = iv.getStartValue();
-  auto exitValue = ivAttr->getExitConditionValue();
+  auto startValue = iv->getStartValue();
+  auto exitValue = giv->getExitConditionValue();
 
   if (&arg == startValue || &arg == exitValue) {
     return true;

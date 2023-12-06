@@ -1,6 +1,6 @@
 #include "Pass.hpp"
 
-using namespace llvm::noelle;
+using namespace arcana::noelle;
 
 void Heartbeat::performLoopLevelAnalysis (
   Noelle &noelle,
@@ -94,7 +94,7 @@ void Heartbeat::setLoopLevelAndRoot(
     LoopDependenceInfo *ldi,
     std::unordered_map<LoopDependenceInfo *, CallGraphFunctionNode *> &loopToCallGraphNode,
     std::unordered_map<CallGraphFunctionNode *, LoopDependenceInfo *> &callGraphNodeToLoop,
-    llvm::noelle::CallGraph &callGraph
+    arcana::noelle::CallGraph &callGraph
 ) {
 
   auto calleeNode = loopToCallGraphNode[ldi];
@@ -102,7 +102,7 @@ void Heartbeat::setLoopLevelAndRoot(
   auto calleefunction = calleeNode->getFunction();
   assert(calleefunction != nullptr && "Function not found for callee node");
 
-  auto callerEdges = calleeNode->getIncomingEdges();
+  auto callerEdges = callGraph.getIncomingEdges(calleeNode);
   assert(callerEdges.size() == 1 && "Outlined loop is called by multiple callers");
 
   auto callerNode = (*callerEdges.begin())->getCaller();

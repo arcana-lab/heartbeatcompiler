@@ -1,6 +1,6 @@
 #include "Pass.hpp"
 
-using namespace llvm::noelle;
+using namespace arcana::noelle;
 
 std::set<LoopDependenceInfo *> Heartbeat::selectHeartbeatLoops (
   Noelle &noelle,
