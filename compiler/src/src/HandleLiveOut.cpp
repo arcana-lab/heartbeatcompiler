@@ -4,7 +4,7 @@ using namespace arcana::noelle;
 
 void Heartbeat::handleLiveOut(
   Noelle &noelle,
-  const std::set<LoopDependenceInfo *> &heartbeatLoops
+  const std::set<LoopContent *> &heartbeatLoops
 ) {
 
   errs() << this->outputPrefix << "live-out analysis starts\n";

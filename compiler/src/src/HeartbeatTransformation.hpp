@@ -16,7 +16,7 @@
 #include "noelle/core/SCCDAG.hpp"
 #include "noelle/core/PDGAnalysis.hpp"
 #include "noelle/core/IVStepperUtility.hpp"
-#include "noelle/core/LoopDependenceInfo.hpp"
+#include "noelle/core/LoopContent.hpp"
 #include "noelle/core/Noelle.hpp"
 // #include "noelle/tools/HeuristicsPass.hpp"
 #include "noelle/tools/ParallelizationTechnique.hpp"
@@ -38,18 +38,18 @@ class HeartbeatTransformation : public DOALL {
       Noelle &noelle,
       StructType *task_memory_t,
       uint64_t nestID,
-      LoopDependenceInfo *ldi,
+      LoopContent *ldi,
       uint64_t numLevels,
-      std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel,
-      std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns,
+      std::unordered_map<LoopContent *, uint64_t> &loopToLevel,
+      std::unordered_map<LoopContent *, std::unordered_set<Value *>> &loopToSkippedLiveIns,
       std::unordered_map<int, int> &constantLiveInsArgIndexToIndex,
-      std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns,
-      std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> &loopToHeartbeatTransformation,
-      std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop
+      std::unordered_map<LoopContent *, std::unordered_map<Value *, int>> &loopToConstantLiveIns,
+      std::unordered_map<LoopContent *, HeartbeatTransformation *> &loopToHeartbeatTransformation,
+      std::unordered_map<LoopContent *, LoopContent *> &loopToCallerLoop
     );
 
     bool apply (
-      LoopDependenceInfo *ldi,
+      LoopContent *ldi,
       Heuristics *h
     ) override ;
 
@@ -98,11 +98,11 @@ class HeartbeatTransformation : public DOALL {
     Noelle &n;
     StructType *task_memory_t;
     uint64_t nestID;
-    LoopDependenceInfo *ldi;
+    LoopContent *ldi;
     uint64_t numLevels;
-    std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel;
-    std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns;
-    std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns;
+    std::unordered_map<LoopContent *, uint64_t> &loopToLevel;
+    std::unordered_map<LoopContent *, std::unordered_set<Value *>> &loopToSkippedLiveIns;
+    std::unordered_map<LoopContent *, std::unordered_map<Value *, int>> &loopToConstantLiveIns;
     std::unordered_map<int, int> &constantLiveInsArgIndexToIndex;
     uint64_t valuesInCacheLine;
     uint64_t startIterationIndex =  0;
@@ -114,35 +114,35 @@ class HeartbeatTransformation : public DOALL {
      * Helpers
      */
     void invokeHeartbeatFunctionAsideOriginalLoop (
-        LoopDependenceInfo *LDI
+        LoopContent *LDI
         );
 
     void invokeHeartbeatFunctionAsideCallerLoop (
-        LoopDependenceInfo *LDI
+        LoopContent *LDI
         );
 
   // private:
-    void initializeEnvironmentBuilder(LoopDependenceInfo *LDI, 
+    void initializeEnvironmentBuilder(LoopContent *LDI, 
                                       std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeReduced,
                                       std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeSkipped,
                                       std::function<bool(uint32_t variableID, bool isLiveOut)> isConstantLiveInVariable);
     void initializeLoopEnvironmentUsers() override;
-    void generateCodeToLoadLiveInVariables(LoopDependenceInfo *LDI, int taskIndex) override;
-    void setReducableVariablesToBeginAtIdentityValue(LoopDependenceInfo *LDI, int taskIndex) override;
-    void generateCodeToStoreLiveOutVariables(LoopDependenceInfo *LDI, int taskIndex) override;
-    void allocateNextLevelReducibleEnvironmentInsideTask(LoopDependenceInfo *LDI, int taskIndex);
-    BasicBlock *performReductionAfterCallingLoopHandler(LoopDependenceInfo *LDI, int taskIndex, BasicBlock *loopHandlerBB, Instruction *cmpInst, BasicBlock *bottomHalfBB, Value *numOfReducerV);
-    void allocateEnvironmentArray(LoopDependenceInfo *LDI) override;
+    void generateCodeToLoadLiveInVariables(LoopContent *LDI, int taskIndex) override;
+    void setReducableVariablesToBeginAtIdentityValue(LoopContent *LDI, int taskIndex) override;
+    void generateCodeToStoreLiveOutVariables(LoopContent *LDI, int taskIndex) override;
+    void allocateNextLevelReducibleEnvironmentInsideTask(LoopContent *LDI, int taskIndex);
+    BasicBlock *performReductionAfterCallingLoopHandler(LoopContent *LDI, int taskIndex, BasicBlock *loopHandlerBB, Instruction *cmpInst, BasicBlock *bottomHalfBB, Value *numOfReducerV);
+    void allocateEnvironmentArray(LoopContent *LDI) override;
     void allocateEnvironmentArrayInCallerTask(HeartbeatTask *callerHBTask);
-    void populateLiveInEnvironment(LoopDependenceInfo *LDI) override;
-    BasicBlock * performReductionWithInitialValueToAllReducibleLiveOutVariables(LoopDependenceInfo *LDI);
+    void populateLiveInEnvironment(LoopContent *LDI) override;
+    BasicBlock * performReductionWithInitialValueToAllReducibleLiveOutVariables(LoopContent *LDI);
 
     FunctionType *sliceTaskSignature;
     PHINode *returnCodePhiInst;
     std::unordered_map<uint32_t, Value *> liveOutVariableToAccumulatedPrivateCopy;
     HeartbeatTask *hbTask;
-    std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> &loopToHeartbeatTransformation;
-    std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop;
+    std::unordered_map<LoopContent *, HeartbeatTransformation *> &loopToHeartbeatTransformation;
+    std::unordered_map<LoopContent *, LoopContent *> &loopToCallerLoop;
 
     AllocaInst *contextArrayAlloca;  // context array is allocated in the original root loop, this
                                       // field is available to the transformation of the root loop only

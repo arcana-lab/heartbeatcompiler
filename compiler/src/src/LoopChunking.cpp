@@ -1,7 +1,7 @@
 #include "Pass.hpp"
 #include "HeartbeatTransformation.hpp"
 
-void Heartbeat::executeLoopInChunk(Noelle &noelle, LoopDependenceInfo *ldi, HeartbeatTransformation *hbt, bool isLeafLoop) {
+void Heartbeat::executeLoopInChunk(Noelle &noelle, LoopContent *ldi, HeartbeatTransformation *hbt, bool isLeafLoop) {
   // errs() << "current task before chunking\n";
   // errs() << *(hbt->hbTask->getTaskBody()) << "\n";
 
@@ -229,7 +229,7 @@ void Heartbeat::executeLoopInChunk(Noelle &noelle, LoopDependenceInfo *ldi, Hear
   return;
 }
 
-void Heartbeat::replaceAllUsesInsideLoopBody(LoopDependenceInfo *ldi, HeartbeatTransformation *hbt, Value *originalVal, Value *replacedVal) {
+void Heartbeat::replaceAllUsesInsideLoopBody(LoopContent *ldi, HeartbeatTransformation *hbt, Value *originalVal, Value *replacedVal) {
   // Step 1: collect all body basic blocks
   auto ls = ldi->getLoopStructure();
   auto bbs = ls->getBasicBlocks();

@@ -5,7 +5,7 @@ using namespace arcana::noelle;
 void Heartbeat::createLeftoverTasks(
   Noelle &noelle,
   uint64_t nestID,
-  std::set<LoopDependenceInfo *> &heartbeatLoops
+  std::set<LoopContent *> &heartbeatLoops
 ) {
 
   auto tm = noelle.getTypesManager();

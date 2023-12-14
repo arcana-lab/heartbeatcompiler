@@ -7,7 +7,7 @@ using namespace arcana::noelle;
 bool Heartbeat::parallelizeRootLoop (
   Noelle &noelle,
   uint64_t nestID,
-  LoopDependenceInfo *ldi
+  LoopContent *ldi
 ) {
   errs() << "Start to parallelize loop in function " << ldi->getLoopStructure()->getFunction()->getName() << "\n";
   HeartbeatTransformation *HB = new HeartbeatTransformation(
@@ -192,7 +192,7 @@ void Heartbeat::linkTransformedLoopToOriginalFunction(
 bool Heartbeat::parallelizeNestedLoop (
   Noelle &noelle,
   uint64_t nestID,
-  LoopDependenceInfo *ldi
+  LoopContent *ldi
 ) {
   errs() << "Start to parallelize loop in function " << ldi->getLoopStructure()->getFunction()->getName() << "\n";
   HeartbeatTransformation *HB = new HeartbeatTransformation(

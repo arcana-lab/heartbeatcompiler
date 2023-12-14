@@ -58,7 +58,7 @@ class Heartbeat : public ModulePass {
     /*
      * Step 1: Identify all loops in functions starts with "Heartbeat_"
      */
-    std::set<LoopDependenceInfo *> selectHeartbeatLoops (
+    std::set<LoopContent *> selectHeartbeatLoops (
       Noelle &noelle,
       const std::vector<LoopStructure *> *allLoops
     );
@@ -68,13 +68,13 @@ class Heartbeat : public ModulePass {
      */
     void performLoopNestAnalysis (
       Noelle &noelle,
-      const std::set<LoopDependenceInfo *> &heartbeatLoops
+      const std::set<LoopContent *> &heartbeatLoops
     );
 
     void setLoopNestAndRoot (
-      LoopDependenceInfo *ldi,
-      std::unordered_map<LoopDependenceInfo *, CallGraphFunctionNode *> &loopToCallGraphNode,
-      std::unordered_map<CallGraphFunctionNode *, LoopDependenceInfo *> &callGraphNodeToLoop,
+      LoopContent *ldi,
+      std::unordered_map<LoopContent *, CallGraphFunctionNode *> &loopToCallGraphNode,
+      std::unordered_map<CallGraphFunctionNode *, LoopContent *> &callGraphNodeToLoop,
       arcana::noelle::CallGraph &callGraph
     );
 
@@ -82,9 +82,9 @@ class Heartbeat : public ModulePass {
      * Results for loop-nest analysis
      */
     uint64_t nestID = 0;
-    std::unordered_map<LoopDependenceInfo *, uint64_t> rootToNestID;
-    std::unordered_map<uint64_t, LoopDependenceInfo *> nestIDToRoot;
-    std::unordered_map<uint64_t, std::set<LoopDependenceInfo *>> nestIDToLoops;
+    std::unordered_map<LoopContent *, uint64_t> rootToNestID;
+    std::unordered_map<uint64_t, LoopContent *> nestIDToRoot;
+    std::unordered_map<uint64_t, std::set<LoopContent *>> nestIDToLoops;
 
     void reset();
 
@@ -93,25 +93,25 @@ class Heartbeat : public ModulePass {
      */
     void performLoopLevelAnalysis (
       Noelle &noelle,
-      const std::set<LoopDependenceInfo *> &heartbeatLoops
+      const std::set<LoopContent *> &heartbeatLoops
     );
 
     void setLoopLevelAndRoot (
-      LoopDependenceInfo *ldi,
-      std::unordered_map<LoopDependenceInfo *, CallGraphFunctionNode *> &loopToCallGraphNode,
-      std::unordered_map<CallGraphFunctionNode *, LoopDependenceInfo *> &callGraphNodeToLoop,
+      LoopContent *ldi,
+      std::unordered_map<LoopContent *, CallGraphFunctionNode *> &loopToCallGraphNode,
+      std::unordered_map<CallGraphFunctionNode *, LoopContent *> &callGraphNodeToLoop,
       arcana::noelle::CallGraph &callGraph
     );
 
     /*
      * Results for loop-level analysis
      */
-    std::unordered_map<Function *, LoopDependenceInfo *> functionToLoop;
-    std::unordered_map<LoopDependenceInfo *, uint64_t> loopToLevel;
-    std::unordered_map<uint64_t, LoopDependenceInfo *> levelToLoop;
-    std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> loopToRoot;
-    std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> loopToCallerLoop;
-    LoopDependenceInfo *rootLoop = nullptr;
+    std::unordered_map<Function *, LoopContent *> functionToLoop;
+    std::unordered_map<LoopContent *, uint64_t> loopToLevel;
+    std::unordered_map<uint64_t, LoopContent *> levelToLoop;
+    std::unordered_map<LoopContent *, LoopContent *> loopToRoot;
+    std::unordered_map<LoopContent *, LoopContent *> loopToCallerLoop;
+    LoopContent *rootLoop = nullptr;
     uint64_t numLevels = 0;
 
     /*
@@ -119,7 +119,7 @@ class Heartbeat : public ModulePass {
      */
     void handleLiveOut (
       Noelle &noelle,
-      const std::set<LoopDependenceInfo *> &heartbeatLoops
+      const std::set<LoopContent *> &heartbeatLoops
     );
 
     bool containsLiveOut = false;
@@ -129,22 +129,22 @@ class Heartbeat : public ModulePass {
      */
     void performConstantLiveInAnalysis (
       Noelle &noelle,
-      const std::set<LoopDependenceInfo *> &heartbeatLoops
+      const std::set<LoopContent *> &heartbeatLoops
     );
 
     void constantLiveInToLoop(
       llvm::Argument &arg,
       int arg_index,
-      LoopDependenceInfo *ldi
+      LoopContent *ldi
     );
 
     bool isArgStartOrExitValue(
       llvm::Argument &arg,
-      LoopDependenceInfo *ldi
+      LoopContent *ldi
     );
 
-    std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> loopToSkippedLiveIns;
-    std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> loopToConstantLiveIns;
+    std::unordered_map<LoopContent *, std::unordered_set<Value *>> loopToSkippedLiveIns;
+    std::unordered_map<LoopContent *, std::unordered_map<Value *, int>> loopToConstantLiveIns;
     std::unordered_set<int> constantLiveInsArgIndex;
     std::unordered_map<int, int> constantLiveInsArgIndexToIndex;
 
@@ -154,7 +154,7 @@ class Heartbeat : public ModulePass {
     bool parallelizeRootLoop (
       Noelle &noelle,
       uint64_t nestID,
-      LoopDependenceInfo *ldi
+      LoopContent *ldi
     );
 
     void linkTransformedLoopToOriginalFunction(
@@ -173,28 +173,28 @@ class Heartbeat : public ModulePass {
     bool parallelizeNestedLoop (
       Noelle &noelle,
       uint64_t nestID,
-      LoopDependenceInfo *ldi
+      LoopContent *ldi
     );
 
     bool createHeartbeatLoop (
       Noelle &noelle,
-      LoopDependenceInfo *ldi,
+      LoopContent *ldi,
       ParallelizationTechnique **usedTechnique
       );
 
-    std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> loopToHeartbeatTransformation;
+    std::unordered_map<LoopContent *, HeartbeatTransformation *> loopToHeartbeatTransformation;
 
     /*
      * Chunking transformation
      */
     void executeLoopInChunk(
       Noelle &noelle,
-      LoopDependenceInfo *,
+      LoopContent *,
       HeartbeatTransformation *,
       bool isLeafLoop
     );
 
-    void replaceAllUsesInsideLoopBody(LoopDependenceInfo *, HeartbeatTransformation *, Value *, Value *);
+    void replaceAllUsesInsideLoopBody(LoopContent *, HeartbeatTransformation *, Value *, Value *);
 
     bool chunkLoopIterations = false;
     uint64_t chunksize;
@@ -215,7 +215,7 @@ class Heartbeat : public ModulePass {
     void createLeftoverTasks(
       Noelle &noelle,
       uint64_t nestID,
-      std::set<LoopDependenceInfo *> &heartbeatLoops
+      std::set<LoopContent *> &heartbeatLoops
     );
 
     std::vector<Constant *> leftoverTasks;

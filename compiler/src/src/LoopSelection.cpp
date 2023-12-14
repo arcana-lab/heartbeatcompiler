@@ -2,12 +2,12 @@
 
 using namespace arcana::noelle;
 
-std::set<LoopDependenceInfo *> Heartbeat::selectHeartbeatLoops (
+std::set<LoopContent *> Heartbeat::selectHeartbeatLoops (
   Noelle &noelle,
   const std::vector<LoopStructure *> *allLoops
 ) {
 
-  std::set<LoopDependenceInfo *> selectedLoops;
+  std::set<LoopContent *> selectedLoops;
 
   for (auto ls : *allLoops) {
     /*
@@ -22,9 +22,9 @@ std::set<LoopDependenceInfo *> Heartbeat::selectHeartbeatLoops (
       }
 
       /*
-       * Compute LoopDependenceInfo
+       * Compute LoopContent
        */
-      auto ldi = noelle.getLoop(ls, {  LoopDependenceInfoOptimization::MEMORY_CLONING_ID, LoopDependenceInfoOptimization::THREAD_SAFE_LIBRARY_ID });
+      auto ldi = noelle.getLoopContent(ls, {  LoopContentOptimization::MEMORY_CLONING_ID, LoopContentOptimization::THREAD_SAFE_LIBRARY_ID });
 
       selectedLoops.insert(ldi);
     }

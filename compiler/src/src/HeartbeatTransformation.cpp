@@ -11,14 +11,14 @@ HeartbeatTransformation::HeartbeatTransformation (
   Noelle &noelle,
   StructType *task_memory_t,
   uint64_t nestID,
-  LoopDependenceInfo *ldi,
+  LoopContent *ldi,
   uint64_t numLevels,
-  std::unordered_map<LoopDependenceInfo *, uint64_t> &loopToLevel,
-  std::unordered_map<LoopDependenceInfo *, std::unordered_set<Value *>> &loopToSkippedLiveIns,
+  std::unordered_map<LoopContent *, uint64_t> &loopToLevel,
+  std::unordered_map<LoopContent *, std::unordered_set<Value *>> &loopToSkippedLiveIns,
   std::unordered_map<int, int> &constantLiveInsArgIndexToIndex,
-  std::unordered_map<LoopDependenceInfo *, std::unordered_map<Value *, int>> &loopToConstantLiveIns,
-  std::unordered_map<LoopDependenceInfo *, HeartbeatTransformation *> &loopToHeartbeatTransformation,
-  std::unordered_map<LoopDependenceInfo *, LoopDependenceInfo *> &loopToCallerLoop
+  std::unordered_map<LoopContent *, std::unordered_map<Value *, int>> &loopToConstantLiveIns,
+  std::unordered_map<LoopContent *, HeartbeatTransformation *> &loopToHeartbeatTransformation,
+  std::unordered_map<LoopContent *, LoopContent *> &loopToCallerLoop
 ) : DOALL{noelle},
     task_memory_t{task_memory_t},
     nestID{nestID},
@@ -54,7 +54,7 @@ HeartbeatTransformation::HeartbeatTransformation (
 }
 
 bool HeartbeatTransformation::apply (
-  LoopDependenceInfo *loop,
+  LoopContent *loop,
   Heuristics *h
 ) {
 
@@ -174,7 +174,7 @@ bool HeartbeatTransformation::apply (
    * Clone memory objects that are not blocked by RAW data dependences
    */
   auto ltm = loop->getLoopTransformationsManager();
-  if (ltm->isOptimizationEnabled(LoopDependenceInfoOptimization::MEMORY_CLONING_ID)) {
+  if (ltm->isOptimizationEnabled(LoopContentOptimization::MEMORY_CLONING_ID)) {
     this->cloneMemoryLocationsLocallyAndRewireLoop(loop, 0);
   }
   errs() << "task after cloning memory objects:\n" << *(hbTask->getTaskBody()) << "\n";
@@ -634,7 +634,7 @@ bool HeartbeatTransformation::apply (
 }
 
 void HeartbeatTransformation::initializeEnvironmentBuilder(
-  LoopDependenceInfo *LDI, 
+  LoopContent *LDI, 
   std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeReduced,
   std::function<bool(uint32_t variableID, bool isLiveOut)> shouldThisVariableBeSkipped,
   std::function<bool(uint32_t variableID, bool isLiveOut)> isConstantLiveInVariable
@@ -767,7 +767,7 @@ void HeartbeatTransformation::initializeLoopEnvironmentUsers() {
   return;
 }
 
-void HeartbeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceInfo *LDI, int taskIndex) {
+void HeartbeatTransformation::generateCodeToLoadLiveInVariables(LoopContent *LDI, int taskIndex) {
   auto task = this->tasks[taskIndex];
   auto env = LDI->getEnvironment();
   auto envUser = (HeartbeatLoopEnvironmentUser *)this->envBuilder->getUser(taskIndex);
@@ -856,7 +856,7 @@ void HeartbeatTransformation::generateCodeToLoadLiveInVariables(LoopDependenceIn
   return;
 }
 
-void HeartbeatTransformation::setReducableVariablesToBeginAtIdentityValue(LoopDependenceInfo *LDI, int taskIndex) {
+void HeartbeatTransformation::setReducableVariablesToBeginAtIdentityValue(LoopContent *LDI, int taskIndex) {
   assert(taskIndex < this->tasks.size());
   auto task = this->tasks[taskIndex];
   assert(task != nullptr);
@@ -908,7 +908,7 @@ void HeartbeatTransformation::setReducableVariablesToBeginAtIdentityValue(LoopDe
   return;
 }
 
-void HeartbeatTransformation::generateCodeToStoreLiveOutVariables(LoopDependenceInfo *LDI, int taskIndex) {
+void HeartbeatTransformation::generateCodeToStoreLiveOutVariables(LoopContent *LDI, int taskIndex) {
   auto mm = this->noelle.getMetadataManager();
   auto env = LDI->getEnvironment();
   auto task = this->tasks[taskIndex];
@@ -1012,7 +1012,7 @@ void HeartbeatTransformation::generateCodeToStoreLiveOutVariables(LoopDependence
   return;
 }
 
-void HeartbeatTransformation::allocateNextLevelReducibleEnvironmentInsideTask(LoopDependenceInfo *LDI, int taskIndex) {
+void HeartbeatTransformation::allocateNextLevelReducibleEnvironmentInsideTask(LoopContent *LDI, int taskIndex) {
   auto loopStructure = LDI->getLoopStructure();
   auto loopFunction = loopStructure->getFunction();
 
@@ -1044,7 +1044,7 @@ void HeartbeatTransformation::allocateNextLevelReducibleEnvironmentInsideTask(Lo
   return;
 }
 
-BasicBlock * HeartbeatTransformation::performReductionAfterCallingLoopHandler(LoopDependenceInfo *LDI, int taskIndex,BasicBlock *loopHandlerBB, Instruction *cmpInst, BasicBlock *bottomHalfBB, Value *numOfReducerV) {
+BasicBlock * HeartbeatTransformation::performReductionAfterCallingLoopHandler(LoopContent *LDI, int taskIndex,BasicBlock *loopHandlerBB, Instruction *cmpInst, BasicBlock *bottomHalfBB, Value *numOfReducerV) {
   IRBuilder<> builder { loopHandlerBB };
 
   auto loopStructure = LDI->getLoopStructure();
@@ -1087,7 +1087,7 @@ BasicBlock * HeartbeatTransformation::performReductionAfterCallingLoopHandler(Lo
 }
 
 void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
-  LoopDependenceInfo *LDI
+  LoopContent *LDI
 ) {
 
   // allocate constant live-ins array
@@ -1333,7 +1333,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
   return ;
 }
 
-void HeartbeatTransformation::allocateEnvironmentArray(LoopDependenceInfo *LDI) {
+void HeartbeatTransformation::allocateEnvironmentArray(LoopContent *LDI) {
   auto loopStructure = LDI->getLoopStructure();
   auto loopFunction = loopStructure->getFunction();
 
@@ -1369,7 +1369,7 @@ void HeartbeatTransformation::allocateEnvironmentArrayInCallerTask(HeartbeatTask
   ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->generateEnvVariables(builder, reducerCount);
 }
 
-void HeartbeatTransformation::populateLiveInEnvironment(LoopDependenceInfo *LDI) {
+void HeartbeatTransformation::populateLiveInEnvironment(LoopContent *LDI) {
   auto mm = this->noelle.getMetadataManager();
   auto env = LDI->getEnvironment();
   IRBuilder<> builder(this->entryPointOfParallelizedLoop);
@@ -1391,7 +1391,7 @@ void HeartbeatTransformation::populateLiveInEnvironment(LoopDependenceInfo *LDI)
   return;
 }
 
-BasicBlock * HeartbeatTransformation::performReductionWithInitialValueToAllReducibleLiveOutVariables(LoopDependenceInfo *LDI) {
+BasicBlock * HeartbeatTransformation::performReductionWithInitialValueToAllReducibleLiveOutVariables(LoopContent *LDI) {
   IRBuilder<> builder { this->entryPointOfParallelizedLoop };
 
   auto loopStructure = LDI->getLoopStructure();
@@ -1495,7 +1495,7 @@ BasicBlock * HeartbeatTransformation::performReductionWithInitialValueToAllReduc
 }
 
 void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
-  LoopDependenceInfo *LDI
+  LoopContent *LDI
 ) {
 
   auto calleeFunction = LDI->getLoopStructure()->getFunction();

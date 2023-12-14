@@ -4,7 +4,7 @@ using namespace arcana::noelle;
 
 void Heartbeat::performLoopNestAnalysis (
   Noelle &noelle,
-  const std::set<LoopDependenceInfo *> &heartbeatLoops
+  const std::set<LoopContent *> &heartbeatLoops
 ) {
 
   errs() << this->outputPrefix << "Loop nest analysis starts\n";
@@ -15,8 +15,8 @@ void Heartbeat::performLoopNestAnalysis (
   /*
    * Compute the callgraph function to corresponding loop
    */
-  std::unordered_map<LoopDependenceInfo *, CallGraphFunctionNode *> loopToCallGraphNode;
-  std::unordered_map<CallGraphFunctionNode *, LoopDependenceInfo *> callGraphNodeToLoop;
+  std::unordered_map<LoopContent *, CallGraphFunctionNode *> loopToCallGraphNode;
+  std::unordered_map<CallGraphFunctionNode *, LoopContent *> callGraphNodeToLoop;
   for (auto ldi : heartbeatLoops) {
     auto loopStructure = ldi->getLoopStructure();
     assert(loopStructure != nullptr && "LoopStructure not found");
@@ -74,9 +74,9 @@ void Heartbeat::performLoopNestAnalysis (
 }
 
 void Heartbeat::setLoopNestAndRoot(
-    LoopDependenceInfo *ldi,
-    std::unordered_map<LoopDependenceInfo *, CallGraphFunctionNode *> &loopToCallGraphNode,
-    std::unordered_map<CallGraphFunctionNode *, LoopDependenceInfo *> &callGraphNodeToLoop,
+    LoopContent *ldi,
+    std::unordered_map<LoopContent *, CallGraphFunctionNode *> &loopToCallGraphNode,
+    std::unordered_map<CallGraphFunctionNode *, LoopContent *> &callGraphNodeToLoop,
     arcana::noelle::CallGraph &callGraph
 ) {
 

@@ -4,7 +4,7 @@ using namespace arcana::noelle;
 
 void Heartbeat::performConstantLiveInAnalysis (
   Noelle &noelle,
-  const std::set<LoopDependenceInfo *> &heartbeatLoops
+  const std::set<LoopContent *> &heartbeatLoops
 ) {
 
   errs() << this->outputPrefix << "Constant live-in analysis starts\n";
@@ -54,7 +54,7 @@ void Heartbeat::performConstantLiveInAnalysis (
   return ;
 }
 
-void Heartbeat::constantLiveInToLoop(llvm::Argument &arg, int arg_index, LoopDependenceInfo *ldi) {
+void Heartbeat::constantLiveInToLoop(llvm::Argument &arg, int arg_index, LoopContent *ldi) {
   auto fn = ldi->getLoopStructure()->getFunction();
   errs() << "inside function " << fn->getName() << "\n";
 
@@ -134,7 +134,7 @@ void Heartbeat::constantLiveInToLoop(llvm::Argument &arg, int arg_index, LoopDep
   return;
 }
 
-bool Heartbeat::isArgStartOrExitValue(llvm::Argument &arg, LoopDependenceInfo *ldi) {
+bool Heartbeat::isArgStartOrExitValue(llvm::Argument &arg, LoopContent *ldi) {
   auto ls = ldi->getLoopStructure();
 
   auto ivManager = ldi->getInductionVariableManager();
