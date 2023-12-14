@@ -1,4 +1,4 @@
-all: patches build-noelle build-compiler
+all: patches build-noelle build-compiler link
 
 runtime:
 	git clone https://github.com/mikerainey/taskparts.git runtime ;
@@ -8,7 +8,7 @@ runtime:
 
 noelle:
 	git clone https://github.com/arcana-lab/noelle.git noelle ;
-	cd noelle ; git checkout origin/v14 -b v14 ; git checkout 5987200e39358d55bf4e69db3b58ca1d4d8f9734 ;
+	cd noelle ; git checkout origin/v14 -b v14 ; git checkout 3b5759109cbf57812eb9d1186e2aafa83dcd1d03 ;
 
 matrix-market:
 	git clone https://github.com/cwpearson/matrix-market.git matrix-market ;
