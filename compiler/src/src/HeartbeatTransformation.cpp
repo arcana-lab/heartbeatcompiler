@@ -104,6 +104,12 @@ bool HeartbeatTransformation::apply (
   this->hbTask = new HeartbeatTask(this->sliceTaskSignature, *program, this->loopToLevel[this->ldi],
     std::string("HEARTBEAT_nest").append(std::to_string(this->nestID)).append("_loop").append(std::to_string(this->loopToLevel[ldi])).append("_slice")
   );
+  // 12/14/2023 by Yian:
+  // The lastest NOELLE task abstraction inserts a 'ret void' instruction everytime a task function is created.
+  // However, this 'ret void' is not used by the loop-slice task. (loop-slice task has a return type of i64).
+  // Therefore erase the 'ret void' instruction from the task after its creation.
+  this->hbTask->getExit()->getFirstNonPHI()->eraseFromParent();
+
   errs() << "initial task body:\n" << *(hbTask->getTaskBody()) << "\n";
   this->fromTaskIDToUserID[this->hbTask->getID()] = 0;
   this->addPredecessorAndSuccessorsBasicBlocksToTasks(
