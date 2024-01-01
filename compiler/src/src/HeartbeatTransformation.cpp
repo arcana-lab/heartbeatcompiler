@@ -471,7 +471,7 @@ bool HeartbeatTransformation::apply (
   /*
    * Do the reduction for using the value from the reduction array for kids
    */
-  if (loopEnvironment->getLiveOutSize() > 0) {
+  if (loopEnvironment->getNumberOfLiveOuts() > 0) {
     auto loopExitBBCloneTerminator = loopExitBBClone->getTerminator();
     loopExitBBBuilder.SetInsertPoint(loopExitBBCloneTerminator);
 
@@ -921,7 +921,7 @@ void HeartbeatTransformation::generateCodeToStoreLiveOutVariables(LoopContent *L
   assert(task != nullptr);
 
   // only proceed if we have a live-out environment
-  if (env->getLiveOutSize() <= 0) {
+  if (env->getNumberOfLiveOuts() <= 0) {
     errs() << "loop doesn't have live-out environment, no need to store anything\n";
     return;
   }
@@ -1728,10 +1728,10 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
     "nested_loop_return_code"
   );
 
-  if (env->getLiveOutSize() > 0) {
+  if (env->getNumberOfLiveOuts() > 0) {
     // if the original callee function has a return value (assumption, can only have at most 1 return value as live-out)
     // we then need to load this value from the reduction array and replace all uses of the original call
-    assert(env->getLiveOutSize() == 1 && " invoking a callee function that has multiple live-outs!\n");
+    assert(env->getNumberOfLiveOuts() == 1 && " invoking a callee function that has multiple live-outs!\n");
     auto liveOutID = *(env->getEnvIDsOfLiveOutVars().begin());
     errs() << "liveOutID: " << liveOutID << "\n";
     auto liveOutIndex = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getIndexOfLiveOut(liveOutID);

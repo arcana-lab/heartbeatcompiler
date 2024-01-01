@@ -8,13 +8,13 @@ runtime:
 
 noelle:
 	git clone https://github.com/arcana-lab/noelle.git noelle ;
-	cd noelle ; git checkout origin/v14 -b v14 ; git checkout 3b5759109cbf57812eb9d1186e2aafa83dcd1d03 ;
+	cd noelle ; git checkout origin/v14 -b v14 ; git checkout 6e93d0da2c3dc2da00f65ebe43f4ebb707ed75e8 ;
 
 matrix-market:
 	git clone https://github.com/cwpearson/matrix-market.git matrix-market ;
 
 patches: runtime noelle matrix-market
-	cp -r patches/* . ;
+	# cp -r patches/* . ;
 
 build-noelle: noelle
 	cd noelle ; make clean ; make uninstall ; make src ;

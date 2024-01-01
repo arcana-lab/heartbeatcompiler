@@ -19,7 +19,8 @@
  OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
  OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#pragma once
+#ifndef NOELLE_SRC_CORE_LOOP_ENVIRONMENT_LOOPENVIRONMENTBUILDER_H_
+#define NOELLE_SRC_CORE_LOOP_ENVIRONMENT_LOOPENVIRONMENTBUILDER_H_
 
 #include "noelle/core/SystemHeaders.hpp"
 #include "noelle/core/BinaryReductionSCC.hpp"
@@ -30,11 +31,6 @@ namespace arcana::noelle {
 
 class LoopEnvironmentBuilder {
 public:
-  /*
-   * 08/24/2022 by Yian
-   * This is a specialized consturctor for HeartBeat compiler only
-   * Should be removed after the generalization
-   */
   LoopEnvironmentBuilder(LLVMContext &cxt);
 
   LoopEnvironmentBuilder(LLVMContext &cxt,
@@ -68,19 +64,19 @@ public:
 
   LoopEnvironmentBuilder() = delete;
 
-  void addVariableToEnvironment(uint64_t varID, Type *varType);
+  virtual void addVariableToEnvironment(uint64_t varID, Type *varType);
 
   /*
    * Generate code to create environment array/variable allocations
    */
-  void allocateEnvironmentArray(IRBuilder<> &builder);
-  void generateEnvVariables(IRBuilder<> &builder);
+  virtual void allocateEnvironmentArray(IRBuilder<> &builder);
+  virtual void generateEnvVariables(IRBuilder<> &builder);
 
   /*
    * Reduce live out variables given binary operators to reduce
    * with and initial values to start at
    */
-  BasicBlock *reduceLiveOutVariables(
+  virtual BasicBlock *reduceLiveOutVariables(
       BasicBlock *bb,
       IRBuilder<> &builder,
       const std::unordered_map<uint32_t, BinaryReductionSCC *> &reductions,
@@ -91,40 +87,28 @@ public:
    * As all users of the environment know its structure, pass around the
    * equivalent of a void pointer
    */
-  Value *getEnvironmentArrayVoidPtr(void) const;
-  Value *getEnvironmentArray(void) const;
-  ArrayType *getEnvironmentArrayType(void) const;
+  virtual Value *getEnvironmentArrayVoidPtr(void) const;
+  virtual Value *getEnvironmentArray(void) const;
+  virtual ArrayType *getEnvironmentArrayType(void) const;
 
-  LoopEnvironmentUser *getUser(uint32_t user) const;
-  uint32_t getNumberOfUsers(void) const;
+  virtual LoopEnvironmentUser *getUser(uint32_t user) const;
+  virtual uint32_t getNumberOfUsers(void) const;
 
   virtual Value *getEnvironmentVariable(uint32_t id) const;
-  uint32_t getIndexOfEnvironmentVariable(uint32_t id) const;
+  virtual uint32_t getIndexOfEnvironmentVariable(uint32_t id) const;
   virtual bool isIncludedEnvironmentVariable(uint32_t id) const;
   virtual Value *getAccumulatedReducedEnvironmentVariable(uint32_t id) const;
-  Value *getReducedEnvironmentVariable(uint32_t id, uint32_t reducerInd) const;
+  virtual Value *getReducedEnvironmentVariable(uint32_t id,
+                                               uint32_t reducerInd) const;
   virtual bool hasVariableBeenReduced(uint32_t id) const;
 
-  ~LoopEnvironmentBuilder();
+  virtual ~LoopEnvironmentBuilder();
 
 protected:
-  LLVMContext &CXT;
-  uint64_t envSize;
-  uint64_t numReducers;
-  std::unordered_map<uint32_t, Value *> envIndexToVar;
-  std::unordered_map<uint32_t, std::vector<Value *>> envIndexToReducableVar;
-  std::unordered_map<uint32_t, AllocaInst *> envIndexToVectorOfReducableVar;
-  std::unordered_map<uint32_t, Value *> envIndexToAccumulatedReducableVar;
-
-  /*
-   * Information on a specific user (a function, stage, chunk, etc...)
-   */
-  std::vector<LoopEnvironmentUser *> envUsers;
-
-private:
   /*
    * The environment array, owned by this builder
    */
+  LLVMContext &CXT;
   Value *envArray;
   Value *envArrayInt8Ptr;
 
@@ -137,8 +121,19 @@ private:
   /*
    * The environment variable types and their allocations
    */
+  uint64_t envSize;
   ArrayType *envArrayType;
   std::vector<Type *> envTypes;
+  std::unordered_map<uint32_t, Value *> envIndexToVar;
+  std::unordered_map<uint32_t, Value *> envIndexToAccumulatedReducableVar;
+  std::unordered_map<uint32_t, std::vector<Value *>> envIndexToReducableVar;
+  std::unordered_map<uint32_t, AllocaInst *> envIndexToVectorOfReducableVar;
+  uint64_t numReducers;
+
+  /*
+   * Information on a specific user (a function, stage, chunk, etc...)
+   */
+  std::vector<LoopEnvironmentUser *> envUsers;
 
   virtual void initializeBuilder(const std::vector<Type *> &varTypes,
                                  const std::set<uint32_t> &singleVarIDs,
@@ -146,7 +141,9 @@ private:
                                  uint64_t reducerCount,
                                  uint64_t numberOfUsers);
 
-  void createUsers(uint32_t numUsers);
+  virtual void createUsers(uint32_t numUsers);
 };
 
 } // namespace arcana::noelle
+
+#endif // NOELLE_SRC_CORE_LOOP_ENVIRONMENT_LOOPENVIRONMENTBUILDER_H_

@@ -12,9 +12,9 @@ void Heartbeat::handleLiveOut(
   for (auto ldi : heartbeatLoops) {
     errs() << this->outputPrefix << ldi->getLoopStructure()->getFunction()->getName() << "\n";
     auto loopEnv = ldi->getEnvironment();
-    loopEnv->printEnvironmentInfo();
+    // loopEnv->printEnvironmentInfo();
 
-    if (loopEnv->getLiveOutSize() > 0) {
+    if (loopEnv->getNumberOfLiveOuts() > 0) {
       this->containsLiveOut = true;
     }
   }
