@@ -1,9 +1,0 @@
-benchmarks,hbc_rf (speedup),hbc_rf_kmod (speedup),hbc (speedup)
-mandelbrot,56.4,63.4,64.2
-spmv-arrowhead,5.5,9.4,6.4
-spmv-powerlaw,13.7,15.4,16
-spmv-random,16.7,18.8,19
-floyd-warshall,9.5,10.7,11
-plus-reduce-array,14.7,17.4,17.6
-srad,20.1,31.5,31.8
-geomean,15.3,19.3,18.6

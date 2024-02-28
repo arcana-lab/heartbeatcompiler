@@ -25,7 +25,9 @@
 
 namespace arcana::noelle {
 
-LoopEnvironmentBuilder::LoopEnvironmentBuilder(LLVMContext &cxt) : CXT{ cxt } {
+LoopEnvironmentBuilder::LoopEnvironmentBuilder(LLVMContext &cxt)
+  : CXT{ cxt } {
+  
   return;
 }
 
