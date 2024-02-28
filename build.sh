@@ -51,12 +51,3 @@ enableFile="enable"
 echo "#!/bin/bash" > ${enableFile} ;
 echo "" >> ${enableFile} ;
 echo "source `realpath .`/noelle/enable ;" >> ${enableFile} ;
-
-# add heartbeatcompiler to env.sh
-env_file="${root_dir}/env.sh"
-grep "# heartbeat compiler enable file" ${env_file} &> /dev/null ;
-if ! test $? -eq 0 ; then
-  echo "" >> ${env_file} ;
-  echo "# heartbeat compiler enable file" >> ${env_file} ;
-  echo "source `pwd`/enable ;" >> ${env_file} ;
-fi
