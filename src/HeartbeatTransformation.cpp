@@ -145,6 +145,12 @@ bool HeartbeatTransformation::apply (
       errs() << "skip " << *(loopEnvironment->getProducer(variableID)) << " of id " << variableID << " because of initial/exit condition of the callee loop\n";
       return true;
     }
+    // if a variable is a constant live-in variable (loop invariant), skip it
+    auto envProducer = loopEnvironment->getProducer(variableID);
+    if (this->loopToConstantLiveIns[this->ldi].find(envProducer) != this->loopToConstantLiveIns[this->ldi].end()) {
+      errs() << "skip " << *envProducer << " of id " << variableID << " because of constant live-in\n";
+      return true;
+    }
     return false;
   };
   auto isConstantLiveInVariable = [&](uint32_t variableID, bool isLiveOut) -> bool {

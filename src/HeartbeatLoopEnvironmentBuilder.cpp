@@ -13,7 +13,7 @@ HeartbeatLoopEnvironmentBuilder::HeartbeatLoopEnvironmentBuilder(
   uint64_t reducerCount,
   uint64_t numberOfUsers,
   uint64_t numLevels)
-  : LoopEnvironmentBuilder{ cxt },
+  : LoopEnvironmentBuilder{ cxt, environment, shouldThisVariableBeReduced, shouldThisVariableBeSkipped, reducerCount, numberOfUsers },
     numLevels { numLevels },
     constantVars {} {
 
@@ -96,8 +96,8 @@ void HeartbeatLoopEnvironmentBuilder::initializeBuilder(
     index++;
   }
 
-  this->envSize = singleVarIDs.size() + reducibleVarIDs.size();
-  this->numReducers = reducerCount;
+  // this->envSize = singleVarIDs.size() + reducibleVarIDs.size();
+  // this->numReducers = reducerCount;
 
   this->singleEnvArray = nullptr;
   this->singleEnvArrayType = nullptr;
@@ -105,14 +105,6 @@ void HeartbeatLoopEnvironmentBuilder::initializeBuilder(
   this->reducibleEnvArray = nullptr;
   this->reducibleEnvArrayType = nullptr;
 
-  // for (uint32_t i = 0; i < singleVarIDs.size(); i++) {
-  //   auto index = this->singleEnvIDToIndex[i];
-  //   this->singleEnvTypes.push_back(varTypes.at(index));
-  // }
-  // for (uint32_t i = 0; i < reducibleVarIDs.size(); i++) {
-  //   auto index = this->reducibleEnvIDToIndex[i];
-  //   this->reducibleEnvTypes.push_back(varTypes.at(index));
-  // }
   assert(this->singleEnvTypes.size() + this->reducibleEnvTypes.size() == this->envSize && "Environment size doesn't match\n");
 
   this->valuesInCacheLine = Architecture::getCacheLineBytes() / sizeof(int64_t);
@@ -122,6 +114,9 @@ void HeartbeatLoopEnvironmentBuilder::initializeBuilder(
   this->reducibleEnvArrayType = ArrayType::get(PointerType::getUnqual(int64), reducibleVarIDs.size() * this->valuesInCacheLine);
   this->contextArrayType = ArrayType::get(int64, this->numLevels * this->valuesInCacheLine);
 
+  /*
+   * Initialize the index-to-variable map.
+   */
   for (auto envID : singleVarIDs) {
     auto envIndex = this->singleEnvIDToIndex[envID];
     this->envIndexToVar[envIndex] = nullptr; 
@@ -137,6 +132,7 @@ void HeartbeatLoopEnvironmentBuilder::initializeBuilder(
 }
 
 void HeartbeatLoopEnvironmentBuilder::createUsers(uint32_t numUsers) {
+  this->envUsers.clear();
   for (auto i = 0; i < numUsers; i++) {
     this->envUsers.push_back(new HeartbeatLoopEnvironmentUser(this->singleEnvIDToIndex, this->reducibleEnvIDToIndex, this->constantVars));
   }
