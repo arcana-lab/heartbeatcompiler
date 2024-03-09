@@ -117,10 +117,12 @@ void HeartbeatLoopEnvironmentBuilder::initializeBuilder(
   /*
    * Initialize the index-to-variable map.
    */
+  this->envIndexToVar.clear();
   for (auto envID : singleVarIDs) {
     auto envIndex = this->singleEnvIDToIndex[envID];
     this->envIndexToVar[envIndex] = nullptr; 
   }
+  this->envIndexToReducableVar.clear();
   for (auto envID : reducibleVarIDs) {
     auto envIndex = this->reducibleEnvIDToIndex[envID];
     this->envIndexToReducableVar[envIndex] = std::vector<Value *>();
