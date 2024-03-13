@@ -4,9 +4,9 @@ noelle:
 	git clone https://github.com/arcana-lab/noelle.git noelle ;
 	cd noelle ; git checkout origin/v14 -b v14 ; git checkout 3f421a706f8fe2d6db61ac8027d5bec20efee857 ;
 
-runtime:
-	git clone https://github.com/mikerainey/taskparts.git runtime ;
-	cd runtime ; git checkout 3188988c56ff2764809c4b7676632c4eea175d5e ;
+taskparts:
+	git clone https://github.com/mikerainey/taskparts.git taskparts ;
+	cd taskparts ; git checkout origin/successor -b successor ;
 
 rollforward:
 	git clone https://github.com/mikerainey/rollforward.git rollforward ;
@@ -16,10 +16,10 @@ heartbeat-linux:
 	git clone https://github.com/PrescienceLab/hbc-kernel-module.git heartbeat-linux ;
 	cd heartbeat-linux ; git checkout cdae8e13019fd0382f14f3b94cc3fe6d8bcc075d ;
 
-patches: noelle runtime rollforward
+patches: noelle taskparts rollforward
 	cp -r patches/* . ;
 
-compiler: noelle runtime rollforward heartbeat-linux patches
+compiler: noelle taskparts rollforward heartbeat-linux patches
 	./build.sh ;
 
 clean:
@@ -27,6 +27,6 @@ clean:
 uninstall:
 	rm -rf build ;
 	rm -rf *.json ;
-	rm -rf noelle runtime rollforward heartbeat-linux ;
+	rm -rf noelle taskparts rollforward heartbeat-linux ;
 
 .PHONY: compiler clean
