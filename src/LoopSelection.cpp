@@ -1,34 +1,50 @@
 #include "Pass.hpp"
 
+using namespace llvm;
 using namespace arcana::noelle;
 
-std::set<LoopContent *> Heartbeat::selectHeartbeatLoops (
-  Noelle &noelle,
+namespace arcana::heartbeat {
+
+std::set<LoopContent *> Heartbeat::selectHeartbeatLoops(
   const std::vector<LoopStructure *> *allLoops
 ) {
 
-  std::set<LoopContent *> selectedLoops;
+  std::set<LoopContent *> heartbeatLoops;
 
   for (auto ls : *allLoops) {
     /*
-     * Select loops within functions that starts with "HEARTBEAT_"
+     * Select loops within functions that starts with functionPrefix, i.e, "HEARTBEAT_"
      */
-    if (ls->getFunction()->getName().contains(this->functionSubString)) {
+    if (ls->getFunction()->getName().contains(this->functionPrefix)) {
       /*
-       * Ignoing loops that are not the root loop inside the function
+       * Only considering the root loop inside the function
        */
-      if (ls->getNestingLevel() != 1) {
-        continue;
+      if (ls->getNestingLevel() == 1) {
+        /*
+         * Compute LoopContent
+         */
+        auto lc = this->noelle->getLoopContent(
+          ls,
+          {
+            LoopContentOptimization::MEMORY_CLONING_ID,
+            LoopContentOptimization::THREAD_SAFE_LIBRARY_ID
+          }
+        );
+
+        heartbeatLoops.insert(lc);
       }
-
-      /*
-       * Compute LoopContent
-       */
-      auto ldi = noelle.getLoopContent(ls, {  LoopContentOptimization::MEMORY_CLONING_ID, LoopContentOptimization::THREAD_SAFE_LIBRARY_ID });
-
-      selectedLoops.insert(ldi);
     }
   }
 
-  return selectedLoops;
+  if (this->verbose > Verbosity::Disabled) {
+    errs() << this->outputPrefix << heartbeatLoops.size() << " loops will be parallelized\n";
+    for (auto heartbeatLoop : heartbeatLoops) {
+      errs() << this->outputPrefix << "  Function \"" << heartbeatLoop->getLoopStructure()->getFunction()->getName() << "\"\n";
+      errs() << this->outputPrefix << "    Loop entry instruction \"" << *heartbeatLoop->getLoopStructure()->getEntryInstruction() << "\"\n";
+    }
+  }
+
+  return heartbeatLoops;
 }
+
+} // namespace arcana::heartbeat
