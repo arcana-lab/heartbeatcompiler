@@ -1,142 +1,176 @@
-#include "Pass.hpp"
+#include "LoopNestAnalysis.hpp"
 
+using namespace llvm;
 using namespace arcana::noelle;
 
-void Heartbeat::performLoopNestAnalysis (
-  Noelle &noelle,
-  const std::set<LoopContent *> &heartbeatLoops
-) {
+namespace arcana::heartbeat {
 
-  errs() << this->outputPrefix << "Loop nest analysis starts\n";
+static cl::opt<int> LNAVerbose(
+    "heartbeat-loop-nest-analysis-verbose",
+    cl::ZeroOrMore,
+    cl::Hidden,
+    cl::desc("Heartbeat Loop Nest Analysis verbose output (0: disabled, 1: enabled)"));
 
-  auto callGraph = noelle.getFunctionsManager()->getProgramCallGraph();
-  assert(callGraph != nullptr && "Program call graph is not found");
-
+LoopNestAnalysis::LoopNestAnalysis(
+  StringRef functionPrefix,
+  Noelle *noelle,
+  std::set<LoopContent *> heartbeatLoops
+) : functionPrefix(functionPrefix),
+    outputPrefix("Heartbeat Loop Nest Analysis: "),
+    noelle(noelle),
+    heartbeatLoops(heartbeatLoops) {
   /*
-   * Compute the callgraph function to corresponding loop
+   * Fetch command line options.
    */
-  std::unordered_map<LoopContent *, CallGraphFunctionNode *> loopToCallGraphNode;
-  std::unordered_map<CallGraphFunctionNode *, LoopContent *> callGraphNodeToLoop;
-  for (auto ldi : heartbeatLoops) {
-    auto loopStructure = ldi->getLoopStructure();
-    assert(loopStructure != nullptr && "LoopStructure not found");
-    auto loopFunction = loopStructure->getFunction();
-    assert(loopFunction != nullptr && "Loop function not found");
-    assert(loopFunction->getName().contains(this->functionSubString) && "Selected loop is not outlined into a function");
-    auto callGraphNode = callGraph->getFunctionNode(loopFunction);
-    assert(callGraphNode != nullptr && "CallGraphNode nout found");
+  this->verbose = static_cast<LNAVerbosity>(LNAVerbose.getValue());
 
-    loopToCallGraphNode[ldi] = callGraphNode;
-    callGraphNodeToLoop[callGraphNode] = ldi;
-    this->functionToLoop[loopFunction] = ldi;
+  if (this->verbose > LNAVerbosity::Disabled) {
+    errs() << this->outputPrefix << "Start\n";
   }
 
   /*
-   * Go through each loop to determine its level and root loop
+   * Compute the function call graph.
    */
-  for (auto ldi : heartbeatLoops) {
+  auto fm = noelle->getFunctionsManager();
+  this->callGraph = fm->getProgramCallGraph();
+  assert(this->callGraph != nullptr && "Program call graph not found");
+
+  this->performLoopNestAnalysis();
+
+  if (this->verbose > LNAVerbosity::Disabled) {
+    errs() << this->outputPrefix << "End\n";
+  }
+
+  return;
+}
+
+void LoopNestAnalysis::performLoopNestAnalysis() {
+  /*
+   * Build one-to-one mapping between heartbeat loop and call graph node.
+   */
+  this->buildLoopToCallGraphNodeMapping();
+
+  /*
+   * Collect all root loops and assign nestID.
+   */
+  this->collectRootLoops();
+
+  /*
+   * Assign loop ID to all heartbeat loops.
+   */
+  this->assignLoopIDs();
+
+  return;
+}
+
+void LoopNestAnalysis::buildLoopToCallGraphNodeMapping() {
+  for (auto heartbeatLoop : this->heartbeatLoops) {
+    auto ls = heartbeatLoop->getLoopStructure();
+    auto fn = ls->getFunction();
+    auto callGraphNode = this->callGraph->getFunctionNode(fn);
+    assert(callGraphNode != nullptr && "Call graph node not found");
+    this->loopToCallGraphNode[heartbeatLoop] = callGraphNode;
+    this->callGraphNodeToLoop[callGraphNode] = heartbeatLoop;
+  }
+
+  return;
+}
+
+void LoopNestAnalysis::collectRootLoops() {
+  for (auto loopToCallGraphNodePair : this->loopToCallGraphNode) {
+    auto lc = loopToCallGraphNodePair.first;
+    auto calleeNode = loopToCallGraphNodePair.second;
+    auto callerEdges = this->callGraph->getIncomingEdges(calleeNode);
+    assert(callerEdges.size() == 1 && "Outlined loop is called by multiple functions");
+    auto callerNode = (*callerEdges.begin())->getCaller();
+    auto callerFunction = callerNode->getFunction();
+
     /*
-     * The level and root loop has already been determined
+     * A loop called by an outlined heartbeat loop is not a root loop.
      */
-    if (this->loopToLevel.find(ldi) != this->loopToLevel.end()) {
-      assert(this->loopToRoot.find(ldi) != this->loopToRoot.end() && "Loop level has been set but the root loop isn't correctly yet");
+    if (callerFunction->getName().contains(this->functionPrefix)) {
       continue;
     }
 
-    /*
-     * Set the level and root recursively
-     */
-    setLoopNestAndRoot(ldi, loopToCallGraphNode, callGraphNodeToLoop, *callGraph);
+    this->rootLoopToNestID[lc] = this->nestID;
+    this->nestIDToRootLoop[this->nestID] = lc;
+    this->nestIDToLoops[this->nestID] = std::set<LoopContent *>{ lc };
+    this->loopToLoopID[lc] = LoopID{ this->nestID, 0, 0 };
+    this->nestID++;
   }
 
-  assert(heartbeatLoops.size() == this->loopToLevel.size() && heartbeatLoops.size() == this->loopToRoot.size() && "Number of loop information recorded doen't match");
-
-  /*
-   * Print loop nest info
-   */
-  for (auto pair : this->nestIDToLoops) {
-    errs() << "nestID: " << pair.first << "\n";
-
-    auto rootLoop = this->nestIDToRoot[pair.first];
-    errs() << "\trootLoop: " << rootLoop->getLoopStructure()->getFunction()->getName() << "\n";
-
-    for (auto loop : pair.second) {
-      if (loop == rootLoop) {
-        continue;
-      }
-      errs() << "\tlevel " << this->loopToLevel[loop] << ", " << loop->getLoopStructure()->getFunction()->getName() << "\n";
+  if (this->verbose > LNAVerbosity::Disabled) {
+    errs() << this->outputPrefix << "There are " << this->rootLoopToNestID.size() << " loop nests\n";
+    for (uint64_t i = 0; i < this->nestID; i++) {
+      errs() << this->outputPrefix << "nestID " << i << "\n";
+      auto rootLC = this->nestIDToRootLoop[i];
+      auto rootLS = rootLC->getLoopStructure();
+      errs() << this->outputPrefix << "  Function \"" << rootLS->getFunction()->getName() << "\"\n";
+      errs() << this->outputPrefix << "    Loop entry instruction \"" << *rootLS->getEntryInstruction() << "\"\n";
     }
   }
 
-  errs() << this->outputPrefix << "Loop nest analysis completes\n";
+  return;
+}
+
+void LoopNestAnalysis::assignLoopIDs() {
+  for (auto nestIDToRootLoopPair : this->nestIDToRootLoop) {
+    auto rootLC = nestIDToRootLoopPair.second;
+    auto rootLID = this->loopToLoopID[rootLC];
+
+    /*
+     * Assign loop IDs called by the root loop.
+     */
+    assignLoopIDsCalledByLoop(rootLC, rootLID);
+  }
+
+  assert(this->heartbeatLoops.size() == this->loopToLoopID.size() && "Missing assigning loop IDs.");
+
+  if (this->verbose > LNAVerbosity::Disabled) {
+    errs() << this->outputPrefix << "Assign " << this->loopToLoopID.size() << " loops with IDs.\n";
+    for (uint64_t i = 0; i < this->nestID; i++) {
+      errs() << this->outputPrefix << "nestID " << i << "\n";
+      for (auto lc : this->nestIDToLoops[i]) {
+        auto ls = lc->getLoopStructure();
+        errs() << this->outputPrefix << "  Function \"" << ls->getFunction()->getName() << "\"\n";
+        errs() << this->outputPrefix << "    Loop entry instruction \"" << *ls->getEntryInstruction() << "\"\n";
+        auto level = this->loopToLoopID[lc].level;
+        auto index = this->loopToLoopID[lc].index;
+        errs() << this->outputPrefix << "      Loop ID (nestID = " << i << ", level = " << level << ", index = " << index << ")\n";
+      }
+    }
+  }
 
   return;
 }
 
-void Heartbeat::setLoopNestAndRoot(
-    LoopContent *ldi,
-    std::unordered_map<LoopContent *, CallGraphFunctionNode *> &loopToCallGraphNode,
-    std::unordered_map<CallGraphFunctionNode *, LoopContent *> &callGraphNodeToLoop,
-    arcana::noelle::CallGraph &callGraph
-) {
+void LoopNestAnalysis::assignLoopIDsCalledByLoop(LoopContent *callerLC, LoopID &callerLID) {
+  auto callerNode = this->loopToCallGraphNode[callerLC];
+  auto calleeEdges = this->callGraph->getOutgoingEdges(callerNode);
 
-  auto calleeNode = loopToCallGraphNode[ldi];
-  assert(calleeNode != nullptr && "Callee node not found for loop");
-  auto calleefunction = calleeNode->getFunction();
-  assert(calleefunction != nullptr && "Function not found for callee node");
+  // TODO: use dominator relationship to determine loop index.
+  uint64_t index = 0;
+  for (auto calleeEdge : calleeEdges) {
+    auto calleeNode = calleeEdge->getCallee();
+    auto calleeLC = this->callGraphNodeToLoop[calleeNode];
 
-  auto callerEdges = callGraph.getIncomingEdges(calleeNode);
-  assert(callerEdges.size() == 1 && "Outlined loop is called by multiple callers");
+    /*
+     * Construct callee loop ID.
+     */
+    auto nestID = callerLID.nestID;
+    auto callerLevel = callerLID.level;
+    LoopID calleeLID = { nestID, callerLevel + 1, index };
+    this->nestIDToLoops[nestID].insert(calleeLC);
+    this->loopToLoopID[calleeLC] = calleeLID;
 
-  auto callerNode = (*callerEdges.begin())->getCaller();
-  assert(callerNode != nullptr && "Caller node not found");
-  auto callerFunction = callerNode->getFunction();
-  assert(callerFunction != nullptr && "Caller function not found");
-
-  /*
-   * Reach the top of root loop caller function
-   */
-  if (!callerFunction->getName().contains(this->functionSubString)) {
-    assert(this->loopToLevel.find(ldi) == this->loopToLevel.end() && this->loopToRoot.find(ldi) == this->loopToRoot.end() && "The root loop has already been set before");
-    this->loopToLevel[ldi] = 0;
-    this->levelToLoop[0] = ldi;
-    this->loopToRoot[ldi] = ldi;
-    
-    this->rootToNestID[ldi] = this->nestID;
-    this->nestIDToRoot[this->nestID] = ldi;
-    this->nestIDToLoops[this->nestID].insert(ldi);
-    this->nestID++;
-
-    return;
+    /*
+     * Assign loop IDs recursively through DFS.
+     */
+    assignLoopIDsCalledByLoop(calleeLC, calleeLID);
+    index++;
   }
-
-  /*
-   * The caller is a HEARTBEAT_ suffix function
-   * We're in a nested loop situation
-   */
-  auto callerLDI = callGraphNodeToLoop[callerNode];
-  assert(callerLDI != nullptr && "Caller loop hasn't been set yet");
-  
-  // set the caller loop for this loop
-  assert(this->loopToCallerLoop.find(ldi) == this->loopToCallerLoop.end() && "assumption is that heartbeat loop can only be called from only one caller\n"); 
-  this->loopToCallerLoop[ldi] = callerLDI;
-
-  /*
-   * Information for the parent loop hasn't been recorded yet
-   */
-  if (this->loopToLevel.find(callerLDI) == this->loopToLevel.end()) {
-    assert(this->loopToRoot.find(callerLDI) == this->loopToRoot.end() && "Caller loop doesn't have level info but have root info set");
-    setLoopNestAndRoot(callerLDI, loopToCallGraphNode, callGraphNodeToLoop, callGraph);
-  }
-
-  /*
-   * We are the nested loop and already have the parent loop information recorded
-   */
-  this->loopToLevel[ldi] = this->loopToLevel[callerLDI] + 1;
-  this->levelToLoop[this->loopToLevel[callerLDI] + 1] = ldi;
-  this->loopToRoot[ldi] = this->loopToRoot[callerLDI];
-
-  this->nestIDToLoops[this->rootToNestID[this->loopToRoot[ldi]]].insert(ldi);
 
   return;
 }
+
+} // namespace arcana::heartbeat
