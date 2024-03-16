@@ -69,6 +69,7 @@ void LoopNestAnalysis::buildLoopToCallGraphNodeMapping() {
     auto fn = ls->getFunction();
     auto callGraphNode = this->callGraph->getFunctionNode(fn);
     assert(callGraphNode != nullptr && "Call graph node not found");
+
     this->loopToCallGraphNode[heartbeatLoop] = callGraphNode;
     this->callGraphNodeToLoop[callGraphNode] = heartbeatLoop;
   }
@@ -102,11 +103,11 @@ void LoopNestAnalysis::collectRootLoops() {
   if (this->verbose > LNAVerbosity::Disabled) {
     errs() << this->outputPrefix << "There are " << this->rootLoopToNestID.size() << " loop nests\n";
     for (uint64_t i = 0; i < this->nestID; i++) {
-      errs() << this->outputPrefix << "nestID " << i << "\n";
+      errs() << this->outputPrefix << "  nestID " << i << "\n";
       auto rootLC = this->nestIDToRootLoop[i];
       auto rootLS = rootLC->getLoopStructure();
-      errs() << this->outputPrefix << "  Function \"" << rootLS->getFunction()->getName() << "\"\n";
-      errs() << this->outputPrefix << "    Loop entry instruction \"" << *rootLS->getEntryInstruction() << "\"\n";
+      errs() << this->outputPrefix << "    Function \"" << rootLS->getFunction()->getName() << "\"\n";
+      errs() << this->outputPrefix << "      Loop entry instruction \"" << *rootLS->getEntryInstruction() << "\"\n";
     }
   }
 
@@ -127,16 +128,16 @@ void LoopNestAnalysis::assignLoopIDs() {
   assert(this->heartbeatLoops.size() == this->loopToLoopID.size() && "Missing assigning loop IDs.");
 
   if (this->verbose > LNAVerbosity::Disabled) {
-    errs() << this->outputPrefix << "Assign " << this->loopToLoopID.size() << " loops with IDs.\n";
+    errs() << this->outputPrefix << "Assign " << this->loopToLoopID.size() << " loops with IDs\n";
     for (uint64_t i = 0; i < this->nestID; i++) {
-      errs() << this->outputPrefix << "nestID " << i << "\n";
+      errs() << this->outputPrefix << "  nestID " << i << "\n";
       for (auto lc : this->nestIDToLoops[i]) {
         auto ls = lc->getLoopStructure();
-        errs() << this->outputPrefix << "  Function \"" << ls->getFunction()->getName() << "\"\n";
-        errs() << this->outputPrefix << "    Loop entry instruction \"" << *ls->getEntryInstruction() << "\"\n";
+        errs() << this->outputPrefix << "    Function \"" << ls->getFunction()->getName() << "\"\n";
+        errs() << this->outputPrefix << "      Loop entry instruction \"" << *ls->getEntryInstruction() << "\"\n";
         auto level = this->loopToLoopID[lc].level;
         auto index = this->loopToLoopID[lc].index;
-        errs() << this->outputPrefix << "      Loop ID (nestID = " << i << ", level = " << level << ", index = " << index << ")\n";
+        errs() << this->outputPrefix << "        Loop ID (nestID = " << i << ", level = " << level << ", index = " << index << ")\n";
       }
     }
   }
@@ -171,6 +172,40 @@ void LoopNestAnalysis::assignLoopIDsCalledByLoop(LoopContent *callerLC, LoopID &
   }
 
   return;
+}
+
+uint64_t LoopNestAnalysis::getLoopNestNumLevels(uint64_t nestID) {
+  uint64_t numLevels = 0;
+
+  for (auto lc : this->nestIDToLoops[nestID]) {
+    auto loopID = this->loopToLoopID[lc];
+    auto level = loopID.level;
+    if (level > numLevels) {
+      numLevels = level;
+    }
+  }
+
+  return numLevels + 1;
+}
+
+std::set<LoopContent *> LoopNestAnalysis::getLoopsAtLevel(uint64_t nestID, uint64_t level) {
+  std::set<LoopContent *> loops;
+
+  for (auto lc : this->nestIDToLoops[nestID]) {
+    auto loopID = this->loopToLoopID[lc];
+    if (loopID.level == level) {
+      loops.insert(lc);
+    }
+  }
+
+  return loops;
+}
+
+std::string LoopNestAnalysis::getLoopIDString(LoopContent *lc) {
+  auto loopID = this->loopToLoopID[lc];
+  auto loopIDString = std::string("nest_").append(std::to_string(loopID.nestID)).append("_level_").append(std::to_string(loopID.level)).append("_index_").append(std::to_string(loopID.index));
+
+  return loopIDString;
 }
 
 } // namespace arcana::heartbeat

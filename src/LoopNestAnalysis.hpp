@@ -24,6 +24,14 @@ public:
     std::set<LoopContent *> heartbeatLoops
   );
 
+  inline uint64_t getNumLoopNests() { return this->nestID; };
+
+  uint64_t getLoopNestNumLevels(uint64_t nestID);
+
+  std::set<LoopContent *> getLoopsAtLevel(uint64_t nestID, uint64_t level);
+
+  std::string getLoopIDString(LoopContent *lc);
+
 private:
   LNAVerbosity verbose;
   StringRef outputPrefix;
