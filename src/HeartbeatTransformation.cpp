@@ -206,13 +206,13 @@ void HeartbeatTransformation::parameterizeLoopIterations(LoopContent *lc) {
    * use the loaded end iteration value.
    */
   auto exitCmpInst = giv->getHeaderCompareInstructionToComputeExitCondition();
-  auto exitCmpInstClone = this->lsTask->getCloneOfOriginalInstruction(exitCmpInst);
+  this->exitCmpInstClone = dyn_cast<CmpInst>(this->lsTask->getCloneOfOriginalInstruction(exitCmpInst));
   auto exitConditionValue = giv->getExitConditionValue();
   auto firstOperand = exitCmpInst->getOperand(0);
   if (firstOperand == exitConditionValue) {
-    exitCmpInstClone->setOperand(0, this->endIteration);
+    this->exitCmpInstClone->setOperand(0, this->endIteration);
   } else {
-    exitCmpInstClone->setOperand(1, this->endIteration);
+    this->exitCmpInstClone->setOperand(1, this->endIteration);
   }
 
   if (this->verbose > HBTVerbosity::Disabled) {

@@ -25,6 +25,7 @@ HeartbeatRuntimeManager::HeartbeatRuntimeManager(
   }
 
   this->createTaskMemoryStructType();
+  this->createGetChunkSizeFunction();
 
   if (this->verbose > HBRMVerbosity::Disabled) {
     errs() << this->outputPrefix << "End\n";
@@ -52,6 +53,34 @@ void HeartbeatRuntimeManager::createTaskMemoryStructType() {
   if (this->verbose > HBRMVerbosity::Disabled) {
     errs() << this->outputPrefix << "Create task memory struct\n";
     errs() << this->outputPrefix << "  \"" << *this->taskMemoryStructType << "\"\n";
+  }
+
+  return;
+}
+
+void HeartbeatRuntimeManager::createGetChunkSizeFunction() {
+  auto tm = this->noelle->getTypesManager();
+
+  std::vector<Type *> getChunkSizeFunctionArguments = {
+    PointerType::getUnqual(this->taskMemoryStructType)  // *tmem
+  };
+
+  FunctionType *getChunkSizeFunctionType = FunctionType::get(
+    tm->getIntegerType(64),
+    getChunkSizeFunctionArguments,
+    false
+  );
+
+  this->getChunkSizeFunction = Function::Create(
+    getChunkSizeFunctionType,
+    GlobalValue::ExternalLinkage,
+    "get_chunk_size",
+    *this->noelle->getProgram()
+  );
+
+  if (this->verbose > HBRMVerbosity::Disabled) {
+    errs() << this->outputPrefix << "Create get_chunk_size function\n";
+    errs() << this->outputPrefix << "  \"" << *this->getChunkSizeFunction << "\"\n";
   }
 
   return;

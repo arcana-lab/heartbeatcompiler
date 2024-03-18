@@ -51,6 +51,7 @@ private:
 
   Value *LSTContextBitCastInst;
   PHINode *inductionVariable;
+  CmpInst *exitCmpInstClone;
   Value *startIterationPointer;
   Value *startIteration;
   Value *endIterationPointer;
@@ -92,6 +93,7 @@ private:
    * Loop chunking transformation.
    */
   void chunkLoopIterations(LoopContent *lc);
+  void replaceAllUsesInsideLoopBody(LoopContent *ldi, Value *originalValue, Value *newValue);
 
   /*
    * Promotion handler insertion.

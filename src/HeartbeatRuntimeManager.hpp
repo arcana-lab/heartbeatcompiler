@@ -24,8 +24,10 @@ private:
   Noelle *noelle;
 
   StructType *taskMemoryStructType;
+  Function *getChunkSizeFunction;
 
   void createTaskMemoryStructType();
+  void createGetChunkSizeFunction();
 
 };
 

@@ -34,7 +34,7 @@ public:
   inline uint64_t getLoopLevel(LoopContent *lc) { return this->loopToLoopID[lc].level; } ;
   inline uint64_t getLoopIndex(LoopContent *lc) { return this->loopToLoopID[lc].index; };
 
-  inline bool isLeafLoop(LoopContent *lc) { return this->getLoopLevel(lc) == this->getLoopNestNumLevels(this->getLoopNestID(lc)); };
+  inline bool isLeafLoop(LoopContent *lc) { return this->getLoopLevel(lc) + 1 == this->getLoopNestNumLevels(this->getLoopNestID(lc)); };
 
   std::string getLoopIDString(LoopContent *lc);
 
