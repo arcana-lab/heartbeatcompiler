@@ -85,13 +85,20 @@ bool HeartbeatTransformation::apply(LoopContent *lc, Heuristics *h) {
   this->parameterizeLoopIterations(lc);
 
   /*
-   * Insert promotion handler.
+   * Loop chunking transformation,
+   * only if a loop is a leaf loop
    */
-  this->insertPromotionHandler(lc);
+  if (this->lna->isLeafLoop(lc)) {
+    this->chunkLoopIterations(lc);
+  }
 
   /*
-   * Loop chunking transformation.
+   * Insert promotion handler,
+   * only if a loop is a leaf loop.
    */
+  if (this->lna->isLeafLoop(lc)) {
+    this->insertPromotionHandler(lc);
+  }
 
   /*
    * Link the loop-slice task with the parent loop-slice task or the original caller function

@@ -89,6 +89,11 @@ private:
   void parameterizeLoopIterations(LoopContent *lc);
 
   /*
+   * Loop chunking transformation.
+   */
+  void chunkLoopIterations(LoopContent *lc);
+
+  /*
    * Promotion handler insertion.
    */
   void insertPromotionHandler(LoopContent *lc);
