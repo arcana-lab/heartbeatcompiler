@@ -42,11 +42,19 @@ private:
   LoopContent *lc;
 
   uint64_t valuesInCacheLine;
+  uint64_t startIteartionIndex;
+  uint64_t endIterationIndex;
   uint64_t liveInEnvIndex;
   uint64_t liveOutEnvIndex;
   FunctionType *loopSliceTaskSignature;
   LoopSliceTask *lsTask;
+
   Value *LSTContextBitCastInst;
+  PHINode *inductionVariable;
+  Value *startIterationPointer;
+  Value *startIteration;
+  Value *endIterationPointer;
+  Value *endIteration;
 
   /*
    * Loop-slice task generation.

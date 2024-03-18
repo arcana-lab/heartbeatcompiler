@@ -36,9 +36,11 @@ HeartbeatTransformation::HeartbeatTransformation(
   this->verbose = static_cast<HBTVerbosity>(HBTVerbose.getValue());
 
   /*
-   * 
+   * Set the index values used per LST context.
    */
   this->valuesInCacheLine = Architecture::getCacheLineBytes() / sizeof(int64_t);
+  this->startIteartionIndex = 0;
+  this->endIterationIndex = 1;
   this->liveInEnvIndex = 2;
   this->liveOutEnvIndex = 3;
 
@@ -157,15 +159,59 @@ void HeartbeatTransformation::parameterizeLoopIterations(LoopContent *lc) {
   auto giv = ivm->getLoopGoverningInductionVariable();
   auto iv = giv->getInductionVariable()->getLoopEntryPHI();
   auto ivClone = cast<PHINode>(this->lsTask->getCloneOfOriginalInstruction(iv));
-
-  /*
-   * 
-   */
+  this->inductionVariable = ivClone;
 
   /*
    * Adjust the start iteartion of the induction variable by
    * loading the value stored by the caller.
    */
+  this->startIterationPointer = iterationBuilder.CreateInBoundsGEP(
+    iterationBuilder.getInt64Ty(),
+    this->lsTask->getLSTContextPointerArg(),
+    iterationBuilder.getInt64(this->lna->getLoopLevel(lc) * this->valuesInCacheLine + this->startIteartionIndex),
+    "startIterationPointer"
+  );
+  this->startIteration = iterationBuilder.CreateLoad(
+    iterationBuilder.getInt64Ty(),
+    this->startIterationPointer,
+    "startIteration"
+  );
+  this->inductionVariable->setIncomingValueForBlock(lsTaskEntryBlock, this->startIteration);
+
+  /*
+   * Adjust the end iteration (a.k.a. exit condition) by
+   * loading the value stored by the caller.
+   */
+  this->endIterationPointer = iterationBuilder.CreateInBoundsGEP(
+    iterationBuilder.getInt64Ty(),
+    this->lsTask->getLSTContextPointerArg(),
+    iterationBuilder.getInt64(this->lna->getLoopLevel(lc) * this->valuesInCacheLine + this->endIterationIndex),
+    "endIterationPointer"
+  );
+  this->endIteration = iterationBuilder.CreateLoad(
+    iterationBuilder.getInt64Ty(),
+    this->endIterationPointer,
+    "endIteration"
+  );
+
+  /*
+   * Replace the original exit condition value to
+   * use the loaded end iteration value.
+   */
+  auto exitCmpInst = giv->getHeaderCompareInstructionToComputeExitCondition();
+  auto exitCmpInstClone = this->lsTask->getCloneOfOriginalInstruction(exitCmpInst);
+  auto exitConditionValue = giv->getExitConditionValue();
+  auto firstOperand = exitCmpInst->getOperand(0);
+  if (firstOperand == exitConditionValue) {
+    exitCmpInstClone->setOperand(0, this->endIteration);
+  } else {
+    exitCmpInstClone->setOperand(1, this->endIteration);
+  }
+
+  if (this->verbose > HBTVerbosity::Disabled) {
+    errs() << this->outputPrefix << "loop-slice task after parameterizing loop iterations\n";
+    errs() << *this->lsTask->getTaskBody() << "\n";
+  }
 
   return;
 }
