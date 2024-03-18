@@ -1,9 +1,5 @@
 #include "HeartbeatLoopEnvironmentUser.hpp"
-
-using namespace llvm;
-using namespace arcana::noelle;
-
-namespace arcana::heartbeat {
+#include "noelle/core/Architecture.hpp"
 
 HeartbeatLoopEnvironmentUser::HeartbeatLoopEnvironmentUser(
   std::unordered_map<uint32_t, uint32_t> &singleEnvIDToIndex,
@@ -142,5 +138,3 @@ Instruction * HeartbeatLoopEnvironmentUser::getEnvPtr(uint32_t id) {
 iterator_range<std::set<uint32_t>::iterator> HeartbeatLoopEnvironmentUser::getEnvIDsOfConstantLiveInVars() {
   return make_range(this->constLiveInIDs.begin(), this->constLiveInIDs.end());
 }
-
-} // namespace arcana::heartbeat

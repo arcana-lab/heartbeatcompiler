@@ -1,9 +1,5 @@
 #include "HeartbeatLoopEnvironmentBuilder.hpp"
-
-using namespace llvm;
-using namespace arcana::noelle;
-
-namespace arcana::heartbeat {
+#include "noelle/core/Architecture.hpp"
 
 HeartbeatLoopEnvironmentBuilder::HeartbeatLoopEnvironmentBuilder(
   LLVMContext &cxt,
@@ -578,5 +574,3 @@ Value * HeartbeatLoopEnvironmentBuilder::getAccumulatedReducedEnvironmentVariabl
   assert(iter != envIndexToAccumulatedReducableVar.end());
   return (*iter).second;
 }
-
-} // namespace arcana::heartbeat

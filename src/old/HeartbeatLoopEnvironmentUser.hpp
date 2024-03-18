@@ -1,16 +1,12 @@
 #pragma once
 
-#include "llvm/Pass.h"
-#include "noelle/core/Noelle.hpp"
 #include "noelle/core/LoopEnvironmentUser.hpp"
-#include "noelle/core/Architecture.hpp"
 
-using namespace llvm;
 using namespace arcana::noelle;
-
-namespace arcana::heartbeat {
+using namespace llvm;
 
 class HeartbeatLoopEnvironmentUser : public LoopEnvironmentUser {
+
 public:
   HeartbeatLoopEnvironmentUser(std::unordered_map<uint32_t, uint32_t> &singleEnvIDToIndex,
                                std::unordered_map<uint32_t, uint32_t> &reducibleEnvIDToIndex,
@@ -77,5 +73,3 @@ private:
   Value *locationToStoreReductionArray;
   Value *reductionArrayForSingleLiveOut;
 };
-
-} // namespace arcana::heartbeat

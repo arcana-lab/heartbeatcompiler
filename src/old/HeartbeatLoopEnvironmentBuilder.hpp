@@ -1,19 +1,12 @@
 #pragma once
 
-#include "llvm/Pass.h"
-#include "noelle/core/Noelle.hpp"
-#include "noelle/core/LoopEnvironment.hpp"
 #include "noelle/core/LoopEnvironmentBuilder.hpp"
-#include "noelle/core/LoopEnvironmentUser.hpp"
-#include "noelle/core/Architecture.hpp"
 #include "HeartbeatLoopEnvironmentUser.hpp"
 
-using namespace llvm;
 using namespace arcana::noelle;
 
-namespace arcana::heartbeat {
-
 class HeartbeatLoopEnvironmentBuilder : public LoopEnvironmentBuilder {
+
 public:
   HeartbeatLoopEnvironmentBuilder(
     LLVMContext &cxt,
@@ -147,5 +140,3 @@ private:
   // These two fields are used only when there's 1 live-out variable
   Value *onlyReductionArray;
 };
-
-} // namespace arcana::heartbeat

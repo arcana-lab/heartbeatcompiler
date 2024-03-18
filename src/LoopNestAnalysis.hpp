@@ -30,6 +30,8 @@ public:
 
   std::set<LoopContent *> getLoopsAtLevel(uint64_t nestID, uint64_t level);
 
+  inline uint64_t getLoopLevel(LoopContent *lc) { return this->loopToLoopID[lc].level; } ;
+
   std::string getLoopIDString(LoopContent *lc);
 
 private:
