@@ -26,6 +26,7 @@ HeartbeatRuntimeManager::HeartbeatRuntimeManager(
 
   this->createTaskMemoryStructType();
   this->createGetChunkSizeFunction();
+  this->createHasRemainingChunkSizeFunction();
 
   if (this->verbose > HBRMVerbosity::Disabled) {
     errs() << this->outputPrefix << "End\n";
@@ -65,7 +66,7 @@ void HeartbeatRuntimeManager::createGetChunkSizeFunction() {
     PointerType::getUnqual(this->taskMemoryStructType)  // *tmem
   };
 
-  FunctionType *getChunkSizeFunctionType = FunctionType::get(
+  auto getChunkSizeFunctionType = FunctionType::get(
     tm->getIntegerType(64),
     getChunkSizeFunctionArguments,
     false
@@ -82,6 +83,31 @@ void HeartbeatRuntimeManager::createGetChunkSizeFunction() {
     errs() << this->outputPrefix << "Create get_chunk_size function\n";
     errs() << this->outputPrefix << "  \"" << *this->getChunkSizeFunction << "\"\n";
   }
+
+  return;
+}
+
+void HeartbeatRuntimeManager::createHasRemainingChunkSizeFunction() {
+  auto tm = this->noelle->getTypesManager();
+
+  std::vector<Type *> hasRemainingChunkSizeFunctionArguments = {
+    PointerType::getUnqual(this->taskMemoryStructType),   // *tmem
+    tm->getIntegerType(64),                               // iterations_executed
+    tm->getIntegerType(64)                                // chunk_size
+  };
+
+  auto hasRemainingChunkSizeFunctionType = FunctionType::get(
+    tm->getIntegerType(1),
+    hasRemainingChunkSizeFunctionArguments,
+    false
+  );
+
+  this->hasRemainingChunkSizeFunction = Function::Create(
+    hasRemainingChunkSizeFunctionType,
+    GlobalValue::ExternalLinkage,
+    "has_remaining_chunk_size",
+    *this->noelle->getProgram()
+  );
 
   return;
 }

@@ -31,13 +31,18 @@ void HeartbeatTransformation::chunkLoopIterations(LoopContent *lc) {
    * Create all necessary basic blocks for loop chunking execution.
    */
   auto chunkLoopHeader = BasicBlock::Create(
-    this->noelle->getProgramContext(),
+    program->getContext(),
     "chunk_loop_header",
     this->lsTask->getTaskBody()
   );
   auto chunkLoopLatch = BasicBlock::Create(
-    this->noelle->getProgramContext(),
+    program->getContext(),
     "chunk_loop_latch",
+    this->lsTask->getTaskBody()
+  );
+  auto chunkLoopExit = BasicBlock::Create(
+    program->getContext(),
+    "chunk_loop_exit",
     this->lsTask->getTaskBody()
   );
 
@@ -48,8 +53,7 @@ void HeartbeatTransformation::chunkLoopIterations(LoopContent *lc) {
   chunkLoopPreheaderBuilder.SetInsertPoint(loopHeaderClone->getFirstNonPHI());
   IRBuilder<> chunkLoopHeaderBuilder{ chunkLoopHeader };
   IRBuilder<> chunkLoopLatchBuilder{ chunkLoopLatch };
-  IRBuilder<> chunkLoopExitBuilder{ loopLatchClone };
-  chunkLoopExitBuilder.SetInsertPoint(loopLatchClone->getFirstNonPHI());
+  IRBuilder<> chunkLoopExitBuilder{ chunkLoopExit };
 
   /*
    * Load the chunk_size at the chunk loop preheader via
@@ -100,7 +104,7 @@ void HeartbeatTransformation::chunkLoopIterations(LoopContent *lc) {
       inductionVariablePlusChunkSize,
       this->endIteration
     }),
-    "high"
+    "chunk_loop_exit_condition_value"
   );
 
   /*
@@ -131,6 +135,7 @@ void HeartbeatTransformation::chunkLoopIterations(LoopContent *lc) {
    * Set the induction variable used by the loop-slice task
    * to be the chunk loop induction variable.
    */
+  auto outerLoopInductionVariableClone = this->inductionVariable;
   this->inductionVariable = chunkLoopInductionVariable;
 
   /*
@@ -150,17 +155,12 @@ void HeartbeatTransformation::chunkLoopIterations(LoopContent *lc) {
   chunkLoopHeaderBuilder.CreateCondBr(
     chunkLoopExitCmpInst,
     loopFirstBodyClone,
-    loopLatchClone
+    chunkLoopExit
   );
 
   /*
-   * Create a new basic block to invoke the
-   * update_and_has_remanining_chunk_size runtime function.
-   */
-
-  /*
    * Update the branch instruction of the last body block
-   * to the chunk loop latch
+   * to the chunk loop latch.
    */
   auto loopLastBodyTerminatorClone = loopLastBodyClone->getTerminator();
   dyn_cast<BranchInst>(loopLastBodyTerminatorClone)->setSuccessor(0, chunkLoopLatch);
@@ -186,6 +186,36 @@ void HeartbeatTransformation::chunkLoopIterations(LoopContent *lc) {
    */
   chunkLoopLatchBuilder.CreateBr(
     chunkLoopHeader
+  );
+
+  /*
+   * Create call to update remianing chunk size in the
+   * chunk loop exit block.
+   */
+  auto chunkLoopIterationsExecuted = chunkLoopExitBuilder.CreateSub(
+    chunkLoopExitConditionValue,
+    outerLoopInductionVariableClone,
+    "chunk_loop_iterations_executed"
+  );
+  auto hasRemainingChunkSizeFunction = program->getFunction("has_remaining_chunk_size");
+  assert(hasRemainingChunkSizeFunction != nullptr && "has_remaining_chunk_size function not found");
+  auto hasRemainingChunkSize = chunkLoopExitBuilder.CreateCall(
+    hasRemainingChunkSizeFunction,
+    ArrayRef<Value *>({
+      this->lsTask->getTaskMemoryPointerArg(),
+      chunkLoopIterationsExecuted,
+      chunkSize
+    })
+  );
+
+  /*
+   * Create a conditional branch to break the loop if
+   * has remaining chunk size, or to the loop latch block.
+   */
+  chunkLoopExitBuilder.CreateCondBr(
+    hasRemainingChunkSize,
+    loopExitClone,
+    loopLatchClone
   );
 
   if (this->verbose > HBTVerbosity::Disabled) {

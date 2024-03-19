@@ -25,9 +25,11 @@ private:
 
   StructType *taskMemoryStructType;
   Function *getChunkSizeFunction;
+  Function *hasRemainingChunkSizeFunction;
 
   void createTaskMemoryStructType();
   void createGetChunkSizeFunction();
+  void createHasRemainingChunkSizeFunction();
 
 };
 
