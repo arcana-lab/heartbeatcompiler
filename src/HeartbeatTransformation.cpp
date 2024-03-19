@@ -88,9 +88,9 @@ bool HeartbeatTransformation::apply(LoopContent *lc, Heuristics *h) {
    * Loop chunking transformation,
    * only if a loop is a leaf loop
    */
-  if (this->lna->isLeafLoop(lc)) {
-    this->chunkLoopIterations(lc);
-  }
+  // if (this->lna->isLeafLoop(lc)) {
+  //   this->chunkLoopIterations(lc);
+  // }
 
   /*
    * Insert promotion handler,
@@ -224,6 +224,85 @@ void HeartbeatTransformation::parameterizeLoopIterations(LoopContent *lc) {
 }
 
 void HeartbeatTransformation::insertPromotionHandler(LoopContent *lc) {
+  auto program = this->noelle->getProgram();
+  auto ls = lc->getLoopStructure();
+  auto loopLatches = ls->getLatches();
+  assert(loopLatches.size() == 1 && "Original loop have multiple loop latches");
+  auto loopLatch = *(loopLatches.begin());
+  auto loopExits = ls->getLoopExitBasicBlocks();
+  assert(loopExits.size() == 1 && "Original loop has multiple loop exits");
+  auto loopExit = *(loopExits.begin());
+
+  /*
+   * Find all cloned basic blocks.
+   */
+  auto loopLatchClone = this->lsTask->getCloneOfOriginalBasicBlock(loopLatch);
+  auto loopLastBodyClone = loopLatchClone->getUniquePredecessor();
+  auto loopExitClone = this->lsTask->getCloneOfOriginalBasicBlock(loopExit);
+
+  /*
+   * Create all necessary basic blocks for parallel promotion.
+   */
+  auto heartbeatPollingBlock = BasicBlock::Create(
+    program->getContext(),
+    "heartbeat_polling_block",
+    this->lsTask->getTaskBody()
+  );
+  auto promotionHandlerBlock = BasicBlock::Create(
+    program->getContext(),
+    "promotion_handler_block",
+    this->lsTask->getTaskBody()
+  );
+
+  /*
+   * Initialzie all IRBuilder.
+   */
+  IRBuilder<> heartbeatPollingBlockBuilder{ heartbeatPollingBlock };
+  IRBuilder<> promotionHandlerBlockBuilder{ promotionHandlerBlock };
+
+  /*
+   * Update the branch instruction which points to the loop latch
+   * to the heartbeat polling block.
+   */
+  auto loopLastBodyTerminatorClone = loopLastBodyClone->getTerminator();
+  dyn_cast<BranchInst>(loopLastBodyTerminatorClone)->replaceSuccessorWith(loopLatchClone, heartbeatPollingBlock);
+
+  /*
+   * Invoke heartbeat polling function in the heartbeat polling block.
+   */
+  auto heartbeatPollingFunction = program->getFunction("heartbeat_polling");
+  assert(heartbeatPollingFunction != nullptr && "heartbeat_polling function not found");
+  auto hasHeartbeatArrived = heartbeatPollingBlockBuilder.CreateCall(
+    heartbeatPollingFunction,
+    ArrayRef<Value *>({
+      this->lsTask->getTaskMemoryPointerArg()
+    })
+  );
+  // TODO: figure out the llvm::expect function function.
+  auto llvmExpectFunction = Intrinsic::getDeclaration(
+    program,
+    Intrinsic::expect,
+    ArrayRef<Type *>({
+      heartbeatPollingBlockBuilder.getInt1Ty()
+    })
+  );
+  auto llvmExpect = heartbeatPollingBlockBuilder.CreateCall(
+    llvmExpectFunction,
+    ArrayRef<Value *>({
+      hasHeartbeatArrived,
+      heartbeatPollingBlockBuilder.getInt1(0)
+    })
+  );
+
+  /*
+   * Create a conditional branch
+   */
+
+  if (this->verbose > HBTVerbosity::Disabled) {
+    errs() << this->outputPrefix << "loop-slice task after inserting promotion handler\n";
+    errs() << *this->lsTask->getTaskBody() << "\n";
+  }
+
   return;
 }
 

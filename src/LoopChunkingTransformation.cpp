@@ -13,7 +13,6 @@ void HeartbeatTransformation::chunkLoopIterations(LoopContent *lc) {
   auto loopLatches = ls->getLatches();
   assert(loopLatches.size() == 1 && "Original loop have multiple loop latches");
   auto loopLatch = *(loopLatches.begin());
-  auto loopLastBody = loopLatch->getUniquePredecessor();
   auto loopExits = ls->getLoopExitBasicBlocks();
   assert(loopExits.size() == 1 && "Original loop has multiple loop exits");
   auto loopExit = *(loopExits.begin());
@@ -23,8 +22,8 @@ void HeartbeatTransformation::chunkLoopIterations(LoopContent *lc) {
    */
   auto loopHeaderClone = this->lsTask->getCloneOfOriginalBasicBlock(loopHeader);
   auto loopFirstBodyClone = this->lsTask->getCloneOfOriginalBasicBlock(loopFirstBody);
-  auto loopLastBodyClone = this->lsTask->getCloneOfOriginalBasicBlock(loopLastBody);
   auto loopLatchClone = this->lsTask->getCloneOfOriginalBasicBlock(loopLatch);
+  auto loopLastBodyClone = loopLatchClone->getUniquePredecessor();
   auto loopExitClone = this->lsTask->getCloneOfOriginalBasicBlock(loopExit);
 
   /*
