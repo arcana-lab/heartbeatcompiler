@@ -17,11 +17,11 @@ ifeq ($(ENABLE_ROLLFORWARD), true)
 	make rf_test.bc
 	llvm-link rf_test.bc $< -o $<
 endif
-	noelle-parallel-load -noelle-verbose=2 -load $(ROOT_DIR)/heartbeatcompiler/build/lib/Heartbeat.so -heartbeat $(PASS_ARGUMENTS_HEARTBEAT_COMPILER) $^ -o $@
+	noelle-parallel-load -noelle-verbose=2 -load $(ROOT_DIR)/build/lib/Heartbeat.so -heartbeat $(PASS_ARGUMENTS_HEARTBEAT_COMPILER) $^ -o $@
 
 hbc: heartbeat_compiler
 hb_compiler: heartbeat_compiler
-heartbeat_compiler: heartbeat_compiler.bc bench_hbc.bc promotion_handler_hbc.bc
+heartbeat_compiler: heartbeat_compiler.bc promotion_handler_hbc.bc
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	make heartbeat_compiler_rf
 	cp heartbeat_compiler_rf $@

@@ -7,7 +7,7 @@ CXX = clang++
 # ============================================
 # TASKPARTS definitions
 # ============================================
-TASKPARTS_PATH = $(ROOT_DIR)/heartbeatcompiler/taskparts
+TASKPARTS_PATH = $(ROOT_DIR)/taskparts
 TASKPARTS_INCLUDE = $(TASKPARTS_PATH)/include
 TASKPARTS_PLATFORM ?= -DTASKPARTS_POSIX -DTASKPARTS_X64
 
@@ -118,12 +118,12 @@ LIBS_BASELINE += $(LIBS)
 %_baseline.bc: %.cpp
 	$(CXX) $(MACROS_BASELINE) $(FLAGS_BASELINE) -c $< -o $@
 
-baseline_normalized.bc: main_baseline.bc bench_baseline.bc
+baseline_normalized.bc: main_baseline.bc
 	llvm-link $^ -o $@
 	noelle-norm $@ -o $@
 
-baseline: baseline_normalized.bc
-	$(CXX) $(OPTS_BASELINE) $< -o $@ $(LIBS_BASELINE)
+baseline: baseline_normalized.bc promotion_handler_baseline.bc
+	$(CXX) $(OPTS_BASELINE) $^ -o $@ $(LIBS_BASELINE)
 
 run_baseline: baseline
 	TASKPARTS_NUM_WORKERS=1 \

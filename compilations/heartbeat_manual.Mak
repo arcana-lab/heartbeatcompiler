@@ -15,7 +15,7 @@ heartbeat_manual_normalized.bc: main_hbm.bc heartbeat_manual_hbm.bc
 
 hbm: heartbeat_manual
 hb_manual: heartbeat_manual
-heartbeat_manual: heartbeat_manual_normalized.bc bench_hbm.bc promotion_handler_hbm.bc
+heartbeat_manual: heartbeat_manual_normalized.bc promotion_handler_hbm.bc
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	make heartbeat_manual_rf
 	cp heartbeat_manual_rf $@

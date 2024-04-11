@@ -1,9 +1,8 @@
 .vscode/
 
-noelle/
-runtime/
-rollforward/
-heartbeat-linux/
-
-build/
+build
 compile_commands.json
+noelle
+taskparts
+rollforward
+heartbeat-linux
