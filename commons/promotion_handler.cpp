@@ -5,7 +5,8 @@
 #endif
 #include <cstdint>
 #include <functional>
-#include <taskparts/benchmark.hpp>
+#include <taskparts/taskparts.hpp>
+#include <taskparts/../../benchmark/benchmark.hpp>
 #if defined(ENABLE_ROLLFORWARD)
 #include <rollforward.h>
 #endif
@@ -51,13 +52,9 @@ void run_bench(std::function<void()> const &bench_body,
   }
 #endif
 
-  taskparts::benchmark_nativeforkjoin([&] (auto sched) {
-    bench_body();
-  }, [&] (auto sched) {
-    bench_start();
-  }, [&] (auto sched) {
-    bench_end();
-  });
+  bench_start();
+  taskparts::benchmark(bench_body);
+  bench_end();
 
 #if defined(STATS)
   utility::stats_end();
@@ -95,7 +92,14 @@ void printGIS(uint64_t *cxts, uint64_t startLevel, uint64_t maxLevel, std::strin
 
 #if defined(ENABLE_SOFTWARE_POLLING)
 thread_local uint64_t timestamp = 0;
-thread_local uint64_t heartbeat_interval = taskparts::kappa_cycles;
+thread_local uint64_t heartbeat_interval = 3000000 / 1000l * 100;
+
+static inline
+auto read_now() -> uint64_t {
+  unsigned int hi, lo;
+  __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
+  return  ((uint64_t) lo) | (((uint64_t) hi) << 32);
+}
 
 #if defined(OVERHEAD_ANALYSIS)
 [[clang::optnone]]
@@ -117,7 +121,7 @@ bool heartbeat_polling(task_memory_t *tmem) {
    */
   tmem->polling_count++;
 #endif
-  uint64_t current_timestamp = taskparts::cycles::now();
+  uint64_t current_timestamp = read_now();
   if ((timestamp + heartbeat_interval) > current_timestamp) {
     return false;
   }
@@ -319,7 +323,7 @@ void task_memory_reset(task_memory_t *tmem, uint64_t startingLevel) {
   /*
    * Reset heartbeat timer if using software polling
    */
-  timestamp = taskparts::cycles::now();
+  timestamp = read_now();
 #else // ENABLE_ROLLFORWARD
 #if defined(CHUNK_LOOP_ITERATIONS)
   /*
@@ -449,7 +453,7 @@ int64_t promotion_handler(
      */
     cxts[receivingLevel * CACHELINE + START_ITER]++;
 
-    taskparts::tpalrts_promote_via_nativefj([&] {
+    taskparts::fork2join([&] {
 #if defined(ENABLE_SOFTWARE_POLLING) && defined(CHUNK_LOOP_ITERATIONS) && defined(ADAPTIVE_CHUNKSIZE_CONTROL) && defined(ACC_SPMV_STATS)
       ass_record(cxts[0]);
 #endif
@@ -462,7 +466,7 @@ int64_t promotion_handler(
       task_memory_t hbmemSecond;
       task_memory_reset(&hbmemSecond, receivingLevel);
       slice_tasks[receivingLevel](cxtsSecond, constLiveIns, 1, &hbmemSecond);
-    }, [] { }, taskparts::bench_scheduler());
+    });
   
   } else { // the first task needs to compose the leftover work
 
@@ -470,14 +474,14 @@ int64_t promotion_handler(
      * Determine which leftover task to run
      */
     uint64_t leftoverTaskIndex = leftover_selector(receivingLevel, splittingLevel);
-    taskparts::tpalrts_promote_via_nativefj([&] {
+    taskparts::fork2join([&] {
       task_memory_reset(tmem, splittingLevel);
       (*leftover_tasks[leftoverTaskIndex])(cxts, constLiveIns, 0, tmem);
     }, [&] {
       task_memory_t hbmemSecond;
       task_memory_reset(&hbmemSecond, splittingLevel);
       slice_tasks[splittingLevel](cxtsSecond, constLiveIns, 1, &hbmemSecond);
-    }, [&] { }, taskparts::bench_scheduler());
+    });
   }
 
   /*

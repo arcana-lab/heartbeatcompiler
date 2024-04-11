@@ -10,6 +10,13 @@ CXX = clang++
 TASKPARTS_PATH = $(ROOT_DIR)/heartbeatcompiler/runtime
 TASKPARTS_INCLUDE = $(TASKPARTS_PATH)/include
 TASKPARTS_PLATFORM ?= -DTASKPARTS_POSIX -DTASKPARTS_X64
+TASKPARTS_MACROS += $(TASKPARTS_PLATFORM) \
+	-DTASKPARTS_TPALRTS \
+	-DTASKPARTS_STATS \
+	-DTASKPARTS_USE_CHASELEV_DEQUE \
+	-DTASKPARTS_HEADER_ONLY_LIBRARY \
+	-DTASKPARTS_DISABLE_ELASTIC \
+	-DPARLAY_TASKPARTS
 
 # ============================================
 # Global MACROS used by all implementations
@@ -48,11 +55,6 @@ endif
 # include benchmark specific settings
 -include bench.config
 
-MACROS += $(TASKPARTS_PLATFORM) \
-	-DTASKPARTS_TPALRTS \
-	-DTASKPARTS_STATS \
-	-DTASKPARTS_USE_CHASELEV_DEQUE
-
 # ============================================
 # Global FLAGS used by all implementations
 # ============================================
@@ -61,9 +63,7 @@ FRONTEND_OPTIONS += \
 	-Xclang -disable-llvm-passes \
 	-Xclang -ffp-contract=off
 
-FLAGS += \
-	-I$(TASKPARTS_INCLUDE) \
-	--std=c++17 \
+FLAGS += --std=c++17 \
 	-fno-stack-protector \
 	-fno-asynchronous-unwind-tables \
 	-fno-verbose-asm -fno-rtti -fno-pic -fpie \
@@ -85,7 +85,7 @@ endif
 # ============================================
 # Global LIBS used by all implementations
 # ============================================
-LIBS += -lm -lstdc++ -pthread -ldl
+LIBS += -lm -lstdc++ -pthread -ldl -latomic
 ifeq (, $(shell which jemalloc-config))
 	CUSTOM_MALLOC =
 else
@@ -107,8 +107,8 @@ KAPPA_USECS ?=100
 # ============================================
 # Baseline
 # ============================================
-MACROS_BASELINE += -DUSE_BASELINE $(MACROS) -DTASKPARTS_TPALRTS_MINIMAL
-FLAGS_BASELINE += $(FLAGS)
+MACROS_BASELINE += -DUSE_BASELINE $(TASKPARTS_MACROS) -DTASKPARTS_TPALRTS_MINIMAL $(MACROS)
+FLAGS_BASELINE += -I$(TASKPARTS_INCLUDE) $(FLAGS)
 OPTS_BASELINE += $(OPTS)
 LIBS_BASELINE += $(LIBS)
 
@@ -197,7 +197,7 @@ ROLLFORWARD_INCLUDE = $(ROLLFORWARD_PATH)/x64
 ROLLFORWARD_COMPILER_PATH = $(TASKPARTS_PATH)/benchmark/tpal
 ROLLFORWARD_COMPILER = $(ROLLFORWARD_COMPILER_PATH)/rollforward++
 
-MACROS_HEARTBEAT += $(MACROS)
+MACROS_HEARTBEAT += $(TASKPARTS_MACROS) $(MACROS)
 
 # whether to run code of heartbeat transformation
 # if set to false, then it will invoke the
@@ -330,7 +330,7 @@ else
 	MACROS_HEARTBEAT += -DTASKPARTS_TPALRTS_MINIMAL
 endif
 
-FLAGS_HEARTBEAT += $(FLAGS)
+FLAGS_HEARTBEAT += -I$(TASKPARTS_INCLUDE) $(FLAGS)
 ifeq ($(ENABLE_ROLLFORWARD), true)
 	FLAGS_HEARTBEAT += -I$(ROLLFORWARD_INCLUDE)
 	ifeq ($(USE_HB_KMOD), true)

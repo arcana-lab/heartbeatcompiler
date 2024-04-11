@@ -56,6 +56,7 @@ private:
   Value *startIteration;
   Value *endIterationPointer;
   Value *endIteration;
+  CallInst *promotionHandlerCallInst;
 
   /*
    * Loop-slice task generation.

@@ -176,12 +176,12 @@ void HeartbeatTransformation::parameterizeLoopIterations(LoopContent *lc) {
     iterationBuilder.getInt64Ty(),
     this->lsTask->getLSTContextPointerArg(),
     iterationBuilder.getInt64(this->lna->getLoopLevel(lc) * this->valuesInCacheLine + this->startIteartionIndex),
-    "startIterationPointer"
+    "start_iteration_pointer"
   );
   this->startIteration = iterationBuilder.CreateLoad(
     iterationBuilder.getInt64Ty(),
     this->startIterationPointer,
-    "startIteration"
+    "start_iteration"
   );
   this->inductionVariable->setIncomingValueForBlock(lsTaskEntryBlock, this->startIteration);
 
@@ -193,12 +193,12 @@ void HeartbeatTransformation::parameterizeLoopIterations(LoopContent *lc) {
     iterationBuilder.getInt64Ty(),
     this->lsTask->getLSTContextPointerArg(),
     iterationBuilder.getInt64(this->lna->getLoopLevel(lc) * this->valuesInCacheLine + this->endIterationIndex),
-    "endIterationPointer"
+    "end_iteration_pointer"
   );
   this->endIteration = iterationBuilder.CreateLoad(
     iterationBuilder.getInt64Ty(),
     this->endIterationPointer,
-    "endIteration"
+    "end_iteration"
   );
 
   /*
@@ -276,9 +276,10 @@ void HeartbeatTransformation::insertPromotionHandler(LoopContent *lc) {
     heartbeatPollingFunction,
     ArrayRef<Value *>({
       this->lsTask->getTaskMemoryPointerArg()
-    })
+    }),
+    "has_heartbeat_arrived"
   );
-  // TODO: figure out the llvm::expect function function.
+  // TODO: figure out the llvm::expect function semantics.
   auto llvmExpectFunction = Intrinsic::getDeclaration(
     program,
     Intrinsic::expect,
@@ -295,8 +296,40 @@ void HeartbeatTransformation::insertPromotionHandler(LoopContent *lc) {
   );
 
   /*
-   * Create a conditional branch
+   * Create a conditional branch in the heartbeat polling block,
+   * which the first successor is the promotion handler block,
+   * and the second successor is the loop latch.
    */
+  heartbeatPollingBlockBuilder.CreateCondBr(
+    llvmExpect,
+    promotionHandlerBlock,
+    loopLatchClone
+  );
+
+  /*
+   * Store the current iteration into the start iteration pointer.
+   */
+  // TODO: if doing loop chunking before, we need to subtract 1 from the induction variable.
+  promotionHandlerBlockBuilder.CreateStore(
+    this->inductionVariable,
+    this->startIterationPointer
+  );
+
+  /*
+   * Create a call to promotion handler.
+   */
+  auto promotionHandlerFunction = program->getFunction("promotion_handler");
+  assert(promotionHandlerFunction != nullptr && "promotion_handler function not found");
+  this->promotionHandlerCallInst = promotionHandlerBlockBuilder.CreateCall(
+    promotionHandlerFunction,
+    ArrayRef<Value *>({
+      this->lsTask->getTaskMemoryPointerArg(),
+      this->lsTask->getLSTContextPointerArg(),
+      this->lsTask->getInvariantsPointerArg(),
+      
+    }),
+    "promotion_handler_return_code"
+  );
 
   if (this->verbose > HBTVerbosity::Disabled) {
     errs() << this->outputPrefix << "loop-slice task after inserting promotion handler\n";

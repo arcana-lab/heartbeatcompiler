@@ -26,10 +26,12 @@ private:
   StructType *taskMemoryStructType;
   Function *getChunkSizeFunction;
   Function *hasRemainingChunkSizeFunction;
+  Function *heartbeatPollingFunction;
 
   void createTaskMemoryStructType();
   void createGetChunkSizeFunction();
   void createHasRemainingChunkSizeFunction();
+  void createHeartbeatPollingFunction();
 
 };
 

@@ -27,6 +27,7 @@ HeartbeatRuntimeManager::HeartbeatRuntimeManager(
   this->createTaskMemoryStructType();
   this->createGetChunkSizeFunction();
   this->createHasRemainingChunkSizeFunction();
+  this->createHeartbeatPollingFunction();
 
   if (this->verbose > HBRMVerbosity::Disabled) {
     errs() << this->outputPrefix << "End\n";
@@ -108,6 +109,34 @@ void HeartbeatRuntimeManager::createHasRemainingChunkSizeFunction() {
     "has_remaining_chunk_size",
     *this->noelle->getProgram()
   );
+
+  return;
+}
+
+void HeartbeatRuntimeManager::createHeartbeatPollingFunction() {
+  auto tm = this->noelle->getTypesManager();
+
+  std::vector<Type *> heartbeatPollingFunctionArguments = {
+    PointerType::getUnqual(this->taskMemoryStructType)  // *tmem
+  };
+
+  auto heartbeatPollingFunctionType = FunctionType::get(
+    tm->getIntegerType(1),
+    heartbeatPollingFunctionArguments,
+    false
+  );
+
+  this->heartbeatPollingFunction = Function::Create(
+    heartbeatPollingFunctionType,
+    GlobalValue::ExternalLinkage,
+    "heartbeat_polling",
+    *this->noelle->getProgram()
+  );
+
+  if (this->verbose > HBRMVerbosity::Disabled) {
+    errs() << this->outputPrefix << "Create heartbeat_polling function\n";
+    errs() << this->outputPrefix << "  \"" << *this->getChunkSizeFunction << "\"\n";
+  }
 
   return;
 }

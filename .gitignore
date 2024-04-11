@@ -1,9 +1,4 @@
 .vscode/
 
-noelle/
-runtime/
-rollforward/
-heartbeat-linux/
-
 build/
 compile_commands.json
