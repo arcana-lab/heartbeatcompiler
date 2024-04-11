@@ -7,7 +7,7 @@ CXX = clang++
 # ============================================
 # TASKPARTS definitions
 # ============================================
-TASKPARTS_PATH = $(ROOT_DIR)/heartbeatcompiler/runtime
+TASKPARTS_PATH = $(ROOT_DIR)/heartbeatcompiler/taskparts
 TASKPARTS_INCLUDE = $(TASKPARTS_PATH)/include
 TASKPARTS_PLATFORM ?= -DTASKPARTS_POSIX -DTASKPARTS_X64
 
@@ -51,7 +51,10 @@ endif
 MACROS += $(TASKPARTS_PLATFORM) \
 	-DTASKPARTS_TPALRTS \
 	-DTASKPARTS_STATS \
-	-DTASKPARTS_USE_CHASELEV_DEQUE
+	-DTASKPARTS_USE_CHASELEV_DEQUE \
+	-DTASKPARTS_HEADER_ONLY_LIBRARY \
+	-DTASKPARTS_DISABLE_ELASTIC \
+	-DPARLAY_TASKPARTS
 
 # ============================================
 # Global FLAGS used by all implementations
@@ -85,7 +88,7 @@ endif
 # ============================================
 # Global LIBS used by all implementations
 # ============================================
-LIBS += -lm -lstdc++ -pthread -ldl
+LIBS += -lm -lstdc++ -pthread -ldl -latomic
 ifeq (, $(shell which jemalloc-config))
 	CUSTOM_MALLOC =
 else
