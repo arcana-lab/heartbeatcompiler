@@ -71,7 +71,7 @@ If you have any trouble using HBC feel free to reach out to us for help (contact
 
 
 ## Contributions
-We welcome contributions from the community to improve this work and evolve it to cater for more users.
+We welcome contributions from the community to improve this work and evolve it to cater to more users.
 
 
 ## License
