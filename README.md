@@ -5,6 +5,7 @@
 - [Description](#description)
 - [Prerequisites](#prerequisites)
 - [Building HBC](#building-hbc)
+- [Uninstalling HBC](#uninstalling-hbc)
 - [Repository structure](#repository-structure)
 - [Examples of using HBC](#examples-of-using-hbc)
 - [License](#license)
@@ -14,9 +15,10 @@
 HBC is the first compiler that transforms loop-based nested parallelism into binaries that benefit from heartbeat scheduling.
 HBC is built upon [NOELLE](https://github.com/arcana-lab/noelle) and [LLVM](http://llvm.org).
 
-HBC is in active development so more robust transformation, code optimizations will be integrated.
+HBC is in active development, so more optimizations will be added as we develop them.
+Moreover, please be patient if you find problems, and please report them to us; we will do our best to fix them.
 
-We release HBC's source code in the hope of benefiting others.
+We release HBC's source code in the hope others will benefit from it.
 You are kindly asked to acknowledge usage of the tool by citing the following paper:
 ```
 @inproceedings{HBC,
@@ -39,7 +41,10 @@ LLVM 14.0.6
 
 ## Building HBC
 To build and install HBC: run `make` from the repository root directory.
+This command will automatically download and install the correct version of [NOELLE](https://github.com/arcana-lab/noelle).
 
+
+## Uninstalling HBC
 Run `make clean` from the root directory to clean the repository.
 
 Run `make uninstall` from the root directory to uninstall the HBC installation.
@@ -58,7 +63,7 @@ The `example` directory contains a code example that HBC compiles.
 
 To run the code example, first run `make link` from the root directory.
 
-Then in the `example` directory, run `make hbc ACC=true CHUNKSIZE=1`.
+Then, in the `example` directory, run `make hbc ACC=true CHUNKSIZE=1`.
 
 To run the compiled binary, run `WORKERS={NUM_THREADS} make run_hbc`.
 
