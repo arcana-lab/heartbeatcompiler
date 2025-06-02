@@ -3,6 +3,7 @@
 #include "noelle/core/BinaryReductionSCC.hpp"
 #include "noelle/core/Architecture.hpp"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/Support/Casting.h"
 
 using namespace llvm;
 using namespace arcana::noelle;
@@ -1695,7 +1696,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
   // maxIteration
   auto maxIterationValue = GIV->getExitConditionValue();
   errs() << "maxIteration: " << *maxIterationValue << "\n";
-  assert(isa<ConstantInt>(maxIterationValue) || isa<Argument>(maxIterationValue) && "the maxIteration value in the callee hbTask isn't either a constant or function argument");
+  // assert(isa<ConstantInt>(maxIterationValue) || isa<Argument>(maxIterationValue) && "the maxIteration value in the callee hbTask isn't either a constant or function argument");
   auto maxIterationNextLevelAddress = liveInEnvBuilder.CreateInBoundsGEP(
     ((HeartbeatLoopEnvironmentBuilder *)callerHBTransformation->envBuilder)->getContextArrayType(),
     callerHBTransformation->contextBitcastInst,
@@ -1708,14 +1709,42 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
   if (isa<ConstantInt>(maxIterationValue)) {
     liveInEnvBuilder.CreateStore(
       ConstantInt::get(maxIterationValue->getType(), cast<ConstantInt>(maxIterationValue)->getSExtValue()),
-      startIterationNextLevelAddress
+      maxIterationNextLevelAddress
     );
-  } else {
+  } else if (isa<Argument>(maxIterationValue)) {
     auto arg_index = cast<Argument>(maxIterationValue)->getArgNo();
     liveInEnvBuilder.CreateStore(
       callToLoopInCallerInst->getArgOperand(arg_index),
       maxIterationNextLevelAddress
     );
+  } else if (isa<CallInst>(maxIterationValue)) {
+    auto callInst = dyn_cast<CallInst>(maxIterationValue);
+    auto callee = callInst->getCalledFunction();
+    // llvm inserts an intrinsic call llvm.smax.[type], such as llvm.smax.int64,
+    // this might frees vectorization later but it causes a problem.
+    if (callee->getName().startswith("llvm.smax")) {
+      if (isa<Argument>(callInst->getArgOperand(0))) {
+        if (auto constantInt = dyn_cast<ConstantInt>(callInst->getArgOperand(1))) {
+          if (constantInt->getSExtValue() == 0) {
+            auto arg_index = cast<Argument>(callInst->getArgOperand(0))->getArgNo();
+            liveInEnvBuilder.CreateStore(
+              callToLoopInCallerInst->getArgOperand(arg_index),
+              maxIterationNextLevelAddress
+            );
+          } else {
+            exit(1);
+          }
+        } else {
+          exit(1);
+        }
+      } else {
+        exit(1);
+      }
+    } else {
+      exit(1);
+    }
+  } else {
+    exit(1);
   }
 
   // okay, preparing the environment is done, now replace the call to original code in the caller hbTask
