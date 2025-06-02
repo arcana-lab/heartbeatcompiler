@@ -6,7 +6,7 @@ noelle:
 
 taskparts:
 	git clone https://github.com/mikerainey/taskparts.git taskparts ;
-	cd taskparts ; git checkout origin/successor -b successor ;
+	cd taskparts ; git checkout origin/successor -b successor ; git checkout f83c4880520b2406fa8bf7b8d60402a8e02e8be6 ;
 
 rollforward:
 	git clone https://github.com/mikerainey/rollforward.git rollforward ;
