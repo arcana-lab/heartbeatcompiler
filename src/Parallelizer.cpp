@@ -1,8 +1,11 @@
 #include "Pass.hpp"
 #include "HeartbeatTransformation.hpp"
 #include "noelle/core/Architecture.hpp"
+#include "llvm/IR/Constants.h"
 
 using namespace arcana::noelle;
+
+static cl::opt<bool> Run_Heartbeat("run_heartbeat", cl::desc("Run heartbeat loop"));
 
 bool Heartbeat::parallelizeRootLoop (
   Noelle &noelle,
@@ -113,21 +116,30 @@ void Heartbeat::linkTransformedLoopToOriginalFunction(
    */
   auto originalHeader = originalTerminator->getSuccessor(0);
 
-  // The following code snippt does the if (run_heartbeat) check
-  IRBuilder<> loopSwitchBuilder(originalTerminator);
-  auto runHeartbeatBoolGlobal = noelle.getProgram()->getNamedGlobal("run_heartbeat");
-  assert(runHeartbeatBoolGlobal != nullptr && "run_heartbeat global isn't found!\n");
-  auto loadRunHeartbeatBool = loopSwitchBuilder.CreateLoad(tm->getIntegerType(8), runHeartbeatBoolGlobal);
-  auto loadRunHeartbeatBoolTruncated = loopSwitchBuilder.CreateTrunc(
-    loadRunHeartbeatBool,
-    tm->getIntegerType(1)
-  );
-  loopSwitchBuilder.CreateCondBr(
-    loadRunHeartbeatBoolTruncated,
-    startOfParLoopInOriginalFunc,
-    originalHeader
-  );
-  originalTerminator->eraseFromParent();
+  // // The following code snippt does the if (run_heartbeat) check
+  // IRBuilder<> loopSwitchBuilder(originalTerminator);
+  // auto runHeartbeatBoolGlobal = noelle.getProgram()->getNamedGlobal("run_heartbeat");
+  // assert(runHeartbeatBoolGlobal != nullptr && "run_heartbeat global isn't found!\n");
+  // auto loadRunHeartbeatBool = loopSwitchBuilder.CreateLoad(tm->getIntegerType(8), runHeartbeatBoolGlobal);
+  // auto loadRunHeartbeatBoolTruncated = loopSwitchBuilder.CreateTrunc(
+  //   loadRunHeartbeatBool,
+  //   tm->getIntegerType(1)
+  // );
+  // loopSwitchBuilder.CreateCondBr(
+  //   loadRunHeartbeatBoolTruncated,
+  //   startOfParLoopInOriginalFunc,
+  //   originalHeader
+  // );
+  // originalTerminator->eraseFromParent();
+  if (Run_Heartbeat) {
+    IRBuilder<> loopSwitchBuilder(originalTerminator);
+    loopSwitchBuilder.CreateCondBr(
+      ConstantInt::get(tm->getIntegerType(1), 1),
+      startOfParLoopInOriginalFunc,
+      originalHeader
+    );
+    originalTerminator->eraseFromParent();
+  }
 
   /*
    * Load exit block environment variable and branch to the correct loop exit

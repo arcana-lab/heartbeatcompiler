@@ -210,6 +210,7 @@ MACROS_HEARTBEAT += $(MACROS)
 RUN_HEARTBEAT ?= true
 ifeq ($(RUN_HEARTBEAT), true)
 	MACROS_HEARTBEAT += -DRUN_HEARTBEAT
+	PASS_ARGUMENTS_HEARTBEAT_COMPILER += -run_heartbeat
 endif
 
 # whether to enable heartbeat transformation
