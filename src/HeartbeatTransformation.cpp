@@ -1655,7 +1655,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
     callerHBTransformation->startIterationAddress
   );
 
-  // set set the startIteration and maxIteration for the nested loop
+  // set the startIteration and maxIteration for the nested loop
   // algorithm, inspect the original callee function and check start/max iteration,
   // if is a constantInt, use the constant int
   // else must be a function argument (the assumption is start/max iteration can be simply retrieved and not formed in any complex computation)
@@ -1684,13 +1684,33 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
       ConstantInt::get(startIterationValue->getType(), cast<ConstantInt>(startIterationValue)->getSExtValue()),
       startIterationNextLevelAddress
     );
-  } else {  // it's an argument
+  } else if (isa<Argument>(startIterationValue)) {  // it's an argument
     // algorithm, we know the start iteration is passed through function argument
     auto arg_index = cast<Argument>(startIterationValue)->getArgNo();
     liveInEnvBuilder.CreateStore(
       callToLoopInCallerInst->getArgOperand(arg_index),
       startIterationNextLevelAddress
     );
+  } else if (isa<CallInst>(startIterationValue)) {
+    auto callInst = dyn_cast<CallInst>(startIterationValue);
+    auto callee = callInst->getCalledFunction();
+    // llvm inserts an intrinsic call llvm.smax.[type], such as llvm.smax.int64,
+    // this might frees vectorization later but it causes a problem.
+    if (callee->getName().startswith("llvm.smax")) {
+      if (isa<Argument>(callInst->getArgOperand(0))) {
+        auto arg_index = cast<Argument>(callInst->getArgOperand(0))->getArgNo();
+        liveInEnvBuilder.CreateStore(
+          callToLoopInCallerInst->getArgOperand(arg_index),
+          startIterationNextLevelAddress
+        );
+      } else {
+        exit(1);
+      }
+    } else {
+      exit(1);
+    }
+  } else {
+    exit(1);
   }
 
   // maxIteration
@@ -1724,19 +1744,11 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideCallerLoop (
     // this might frees vectorization later but it causes a problem.
     if (callee->getName().startswith("llvm.smax")) {
       if (isa<Argument>(callInst->getArgOperand(0))) {
-        if (auto constantInt = dyn_cast<ConstantInt>(callInst->getArgOperand(1))) {
-          if (constantInt->getSExtValue() == 0) {
-            auto arg_index = cast<Argument>(callInst->getArgOperand(0))->getArgNo();
-            liveInEnvBuilder.CreateStore(
-              callToLoopInCallerInst->getArgOperand(arg_index),
-              maxIterationNextLevelAddress
-            );
-          } else {
-            exit(1);
-          }
-        } else {
-          exit(1);
-        }
+        auto arg_index = cast<Argument>(callInst->getArgOperand(0))->getArgNo();
+        liveInEnvBuilder.CreateStore(
+          callToLoopInCallerInst->getArgOperand(arg_index),
+          maxIterationNextLevelAddress
+        );
       } else {
         exit(1);
       }

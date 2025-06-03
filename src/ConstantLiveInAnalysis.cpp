@@ -1,4 +1,5 @@
 #include "Pass.hpp"
+#include "llvm/Pass.h"
 
 using namespace arcana::noelle;
 
@@ -146,6 +147,30 @@ bool Heartbeat::isArgStartOrExitValue(llvm::Argument &arg, LoopContent *ldi) {
 
   if (&arg == startValue || &arg == exitValue) {
     return true;
+  }
+
+  /*
+   * start value is the first argument of llvm.smax intrinsic call
+   */
+  if (auto callInst = dyn_cast<CallInst>(startValue)) {
+    auto callee = callInst->getCalledFunction();
+    if (callee->getName().startswith("llvm.smax")) {
+      if (&arg == callInst->getArgOperand(0)) {
+        return true;
+      }
+    }
+  }
+
+  /*
+   * end value is the first argument of llvm.smax intrinsic call
+   */
+  if (auto callInst = dyn_cast<CallInst>(exitValue)) {
+    auto callee = callInst->getCalledFunction();
+    if (callee->getName().startswith("llvm.smax")) {
+      if (&arg == callInst->getArgOperand(0)) {
+        return true;
+      }
+    }
   }
 
   return false;
