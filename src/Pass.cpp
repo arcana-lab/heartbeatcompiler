@@ -6,7 +6,7 @@ using namespace arcana::noelle;
 static cl::opt<bool> Disable_Heartbeat("disable_heartbeat", cl::desc("Disable heartbeat instrumentation"));
 static cl::opt<bool> Chunk_Loop_Iterations("chunk_loop_iterations", cl::desc("Execute loop iterations in chunk"));
 static cl::opt<bool> Adaptive_Chunksize_Control("adaptive_chunksize_control", cl::desc("Enable adaptive chunksize control for performance"));
-static cl::list<std::string> Chunksize("chunksize", cl::desc("Specify the chunksize for each level of nested loop"), cl::OneOrMore);
+static cl::list<std::string> Chunksize("chunksize", cl::desc("Specify the chunksize for each level of nested loop"));
 static cl::opt<bool> Enable_Rollforward("enable_rollforward", cl::desc("Enable rollforward compilation"));
 
 Heartbeat::Heartbeat () 
