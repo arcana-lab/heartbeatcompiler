@@ -1211,7 +1211,7 @@ void HeartbeatTransformation::invokeHeartbeatFunctionAsideOriginalLoop (
     // auto liveInEnvCasted = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArrayPointer();
     auto liveInEnv = ((HeartbeatLoopEnvironmentBuilder *)this->envBuilder)->getSingleEnvironmentArray();
     auto gepInst = builder.CreateInBoundsGEP(
-      builder.getInt64Ty(),
+      this->contextArrayAlloca->getType()->getPointerElementType(),
       this->contextArrayAlloca,
       ArrayRef<Value *>({ ConstantInt::get(builder.getInt64Ty(), 0), ConstantInt::get(builder.getInt64Ty(), this->loopToLevel[this->ldi] * valuesInCacheLine + this->liveInEnvIndex) })
     );
